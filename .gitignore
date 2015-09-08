@@ -1,0 +1,39 @@
+# osx annoyances
+.DS_Store
+
+# binaries folder
+Binaries
+bin
+
+# dependancies binaries
+Dependancies
+
+# userdata (temp folder)
+UserData
+
+# vs stuff
+.vs
+ipch
+ipch/*
+*.opensdf
+*.sdf
+*.suo
+*.vcxproj.user
+
+# cmake stuff
+CMakeCache.txt
+CMakeFiles
+Makefile
+cmake_install.cmake
+install_manifest.txt
+
+# unix intermediate files
+config.h
+*.o
+*.a
+*.so
+*.dylib
+
+# qt creator
+CMakeLists.txt.user
+

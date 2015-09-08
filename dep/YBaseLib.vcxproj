@@ -1,0 +1,272 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="YBaseLib\Include\YBaseLib\AlignedMemArray.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Android\AndroidBarrier.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Android\AndroidConditionVariable.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Android\AndroidEvent.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Android\AndroidMutex.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Android\AndroidReadWriteLock.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Android\AndroidRecursiveMutex.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Android\AndroidThread.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Array.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Assert.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Atomic.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\AutoReleasePtr.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Barrier.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\BinaryBlob.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\BinaryReadBuffer.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\BinaryReader.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\BinaryWriteBuffer.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\BinaryWriter.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\BitSet.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\ByteStream.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\CallbackQueue.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\CircularBuffer.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\CIStringHashTable.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\TaskQueue.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Common.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\ConditionVariable.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\CPUID.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\CRC32.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\CString.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Endian.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Error.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Event.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Exception.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\FileSystem.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Functor.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\HashTable.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\HashTrait.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\HTML5\HTML5Barrier.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\HTML5\HTML5ConditionVariable.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\HTML5\HTML5Event.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\HTML5\HTML5Mutex.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\HTML5\HTML5ReadWriteLock.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\HTML5\HTML5RecursiveMutex.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\HTML5\HTML5Thread.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\IntrusiveLinkedList.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\KeyValuePair.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\LinkedList.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Log.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Math.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\MD5Digest.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\MemArray.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Memory.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Mutex.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\MutexLock.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\NameTable.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\NonCopyable.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\NumericLimits.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Pair.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Platform.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\PODArray.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\POSIX\POSIXBarrier.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\POSIX\POSIXConditionVariable.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\POSIX\POSIXEvent.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\POSIX\POSIXMutex.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\POSIX\POSIXReadWriteLock.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\POSIX\POSIXRecursiveMutex.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\POSIX\POSIXSubprocess.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\POSIX\POSIXThread.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\ProgressCallbacks.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\ReadWriteLock.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\RecursiveMutex.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\RecursiveMutexLock.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\ReferenceCounted.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\ReferenceCountedHolder.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Singleton.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\String.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\StringConverter.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\StringHashTable.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\StringParser.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Subprocess.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\TextReader.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\TextWriter.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Thread.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\ThreadPool.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Timer.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Timestamp.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Windows\WindowsBarrier.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Windows\WindowsConditionVariable.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Windows\WindowsEvent.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Windows\WindowsHeaders.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Windows\WindowsMutex.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Windows\WindowsReadWriteLock.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Windows\WindowsRecursiveMutex.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Windows\WindowsSubprocess.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Windows\WindowsThread.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\XMLReader.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\XMLWriter.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\ZipArchive.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\ZLibHelpers.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Android\AndroidBarrier.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Android\AndroidConditionVariable.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Android\AndroidFileSystem.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Android\AndroidPlatform.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Android\AndroidReadWriteLock.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Android\AndroidThread.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Assert.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Atomic.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\BinaryBlob.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\BinaryReadBuffer.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\BinaryReader.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\BinaryWriteBuffer.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\BinaryWriter.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\CircularBuffer.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\ByteStream.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\CallbackQueue.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\TaskQueue.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\CPUID.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\CRC32.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\CString.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Endian.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Error.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Exception.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\FileSystem.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\HashTrait.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\HTML5\HTML5Barrier.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\HTML5\HTML5ConditionVariable.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\HTML5\HTML5FileSystem.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\HTML5\HTML5Platform.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\HTML5\HTML5ReadWriteLock.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\HTML5\HTML5Thread.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Log.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Math.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\MD5Digest.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Memory.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\NameTable.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\NumericLimits.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\POSIX\POSIXBarrier.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\POSIX\POSIXConditionVariable.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\POSIX\POSIXFileSystem.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\POSIX\POSIXPlatform.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\POSIX\POSIXReadWriteLock.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\POSIX\POSIXSubprocess.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\POSIX\POSIXThread.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\ProgressCallbacks.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\ReferenceCounted.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\String.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\StringConverter.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\StringParser.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\TextReader.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\TextWriter.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\ThreadPool.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Timer.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Timestamp.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Windows\WindowsBarrier.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Windows\WindowsConditionVariable.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Windows\WindowsFileSystem.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Windows\WindowsPlatform.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Windows\WindowsReadWriteLock.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Windows\WindowsSubprocess.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Windows\WindowsThread.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\XMLReader.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\XMLWriter.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\ZipArchive.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\ZLibHelpers.cpp" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{D05B6E35-3C9F-45FC-B294-EF56D3DA7EAF}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>YBaseLib</RootNamespace>
+    <ProjectName>YBaseLib</ProjectName>
+    <WindowsTargetPlatformVersion>10.0.10240.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>NotSet</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>NotSet</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(SolutionDir)bin\$(Platform)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <IntDir>$(SolutionDir)bin\$(Platform)-build\YBaseLib-$(Configuration)\</IntDir>
+    <TargetName>YBaseLib-$(Configuration)</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(SolutionDir)bin\$(Platform)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IntDir>$(SolutionDir)bin\$(Platform)-build\YBaseLib-$(Configuration)\</IntDir>
+    <TargetName>YBaseLib-$(Configuration)</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <AdditionalIncludeDirectories>$(SolutionDir)dep\win\include;$(SolutionDir)dep\YBaseLib\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Lib />
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)dep\win\include;$(SolutionDir)dep\YBaseLib\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <AdditionalOptions>/Zo %(AdditionalOptions)</AdditionalOptions>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+    <Lib />
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
