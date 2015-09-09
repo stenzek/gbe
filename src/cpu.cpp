@@ -83,8 +83,8 @@ bool CPU::TestPredicate(Instruction::Predicate condition)
         return !m_registers.GetFlagC();
 
     case Instruction::Predicate_FromInterrupt:
-        DebugAssert(m_registers.I != 0);
-        m_registers.I = 0;
+        DebugAssert(!m_registers.IME);
+        m_registers.IME = true;
         return true;
 
     default:
@@ -96,7 +96,7 @@ bool CPU::TestPredicate(Instruction::Predicate condition)
 uint32 CPU::Step()
 {
     // interrupts enabled?
-    if (m_registers.IME && !m_registers.I)
+    if (m_registers.IME)
     {
         // have we got a pending interrupt?
         if ((m_registers.IF & m_registers.IE) != 0)
@@ -113,7 +113,9 @@ uint32 CPU::Step()
 
                     // clear flag
                     m_registers.IF &= ~(1 << i);
-                    m_registers.I = (1 << i);
+
+                    // disable interrupts
+                    m_registers.IME = false;
 
                     // Jump to vector
                     static const uint16 jump_locations[] = {

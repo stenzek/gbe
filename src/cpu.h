@@ -131,9 +131,6 @@ public:
         // Interrupt requests
         uint8 IF;
 
-        // Interrupt in-progress, not exposed to instructions
-        uint8 I;
-
         bool GetFlagZ() const { return ((F & FLAG_Z) != 0); }
         bool GetFlagN() const { return ((F & FLAG_N) != 0); }
         bool GetFlagH() const { return ((F & FLAG_H) != 0); }

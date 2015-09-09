@@ -356,6 +356,18 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
 {
     switch (index & 0xF0)
     {
+    case 0x00:
+        {
+            switch (index & 0x0F)
+            {
+            case 0x0F:
+                {
+                    // interrupt flag, why would this be written to?
+                    m_cpu->GetRegisters()->IF = value;
+                    return;
+                }
+            }
+        }
     case 0x40:
         {
             // LCD registers
