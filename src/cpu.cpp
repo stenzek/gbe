@@ -489,36 +489,62 @@ uint32 CPU::Step()
 
     case Instruction::Type_Add:
         {
-            // get value to subtract
-            uint8 addend = 0;
-            switch (source->mode)
+            switch (destination->mode)
             {
-            case Instruction::AddressMode_Imm8:
-                addend = get_imm8();
-                break;
-
+                // 8-bit add
             case Instruction::AddressMode_Reg8:
-                addend = m_registers.reg8[source->reg8];
-                break;
+                {
+                    // get value to add
+                    uint8 addend = 0;
+                    switch (source->mode)
+                    {
+                    case Instruction::AddressMode_Imm8:
+                        addend = get_imm8();
+                        break;
 
-            case Instruction::AddressMode_Mem16:
-                addend = MemReadByte(m_registers.reg16[source->reg16]);
-                break;
+                    case Instruction::AddressMode_Reg8:
+                        addend = m_registers.reg8[source->reg8];
+                        break;
+
+                    case Instruction::AddressMode_Mem16:
+                        addend = MemReadByte(m_registers.reg16[source->reg16]);
+                        break;
+                    }
+
+                    // handle carry
+                    DebugAssert(instruction->carry == Instruction::CarryAction_Ignore);
+
+                    // store value - only writes to A
+                    DebugAssert(destination->reg8 == Reg8_A);
+                    uint8 old_value = m_registers.reg8[destination->reg8];
+                    uint32 new_value = old_value + (uint32)addend;
+                    m_registers.reg8[destination->reg8] = (uint8)(new_value & 0xFF);
+                    m_registers.SetFlagZ(((new_value & 0xFF) == 0));
+                    m_registers.SetFlagN(false);
+                    m_registers.SetFlagH(((new_value & 0xF) + (old_value & 0xF)) > 0xF);
+                    m_registers.SetFlagC(new_value > 0xFF);
+                    break;
+                }
+
+                // 16-bit add
+            case Instruction::AddressMode_Reg16:
+                {
+                    // only goes register+register->register
+                    DebugAssert(source->mode == Instruction::AddressMode_Reg16);
+                    uint16 addend = m_registers.reg16[source->reg16];
+                    uint16 old_value = m_registers.reg16[destination->reg16];
+                    uint32 new_value = old_value + (uint32)addend;
+                    m_registers.reg16[destination->reg16] = new_value & 0xFFFF;
+                    m_registers.SetFlagN(false);
+                    m_registers.SetFlagH(((new_value & 0xF) + (old_value & 0xF)) > 0xF);
+                    m_registers.SetFlagC(new_value > 0xFFFF); // correct?
+                    break;
+                }
+
+            default:
+                UnreachableCode();
             }
 
-            // handle carry
-            DebugAssert(instruction->carry == Instruction::CarryAction_Ignore);
-
-            // store value - only writes to A
-            DebugAssert(destination->mode == Instruction::AddressMode_Reg8 && destination->reg8 == Reg8_A);
-            uint8 old_value = m_registers.reg8[destination->reg8];
-            uint32 new_value = old_value + (uint32)addend;
-            m_registers.reg8[destination->reg8] = (uint8)(new_value & 0xFF);
-            m_registers.SetFlagZ(((new_value & 0xFF)== 0));
-            m_registers.SetFlagN(false);
-            m_registers.SetFlagH(((new_value & 0xF) + (old_value & 0xF)) > 0xF);
-            m_registers.SetFlagC(new_value > 0xFF);
-            break;
         }
 
         //////////////////////////////////////////////////////////////////////////
