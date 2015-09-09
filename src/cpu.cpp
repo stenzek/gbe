@@ -1113,6 +1113,26 @@ uint32 CPU::Step()
                 m_registers.IME = false;
                 break;
 
+            case Instruction::Untyped_LDHL:
+                {
+                    uint16 load_address = m_registers.SP;
+                    int8 offset = (int8)get_imm8();
+                    if (offset < 0)
+                        load_address -= -offset;
+                    else
+                        load_address += offset;
+
+                    // load to HL
+                    m_registers.HL = MemReadWord(load_address);
+
+                    // affects flags, only load that does. how??
+                    m_registers.SetFlagZ(false);
+                    m_registers.SetFlagN(false);
+                    m_registers.SetFlagH(false);
+                    m_registers.SetFlagC(false);
+                    break;
+                }
+
             default:
                 UnreachableCode();
             }

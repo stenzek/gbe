@@ -52,6 +52,7 @@ Log_SetChannel(CPU);
 #define STOP Instruction::Untyped_STOP
 #define EI Instruction::Untyped_EI
 #define DI Instruction::Untyped_DI
+#define LDHL Instruction::Untyped_LDHL
 
 #define Stub(length, cycles) { Instruction::Type_Stub, NoOperand(), NoOperand(), length, cycles },
 #define Nop(length, cycles) { Instruction::Type_Nop, NoOperand(), NoOperand(), length, cycles },
@@ -302,15 +303,15 @@ const CPU::Instruction CPU::instructions[256] =
     Prefix()                                                // 0xCB PREFIX CB
     Call(Zero, 3, 24, 12)                                   // 0xCC CALL Z, a16
     Call(Always, 3, 24, 12)                                 // 0xCD CALL a16
-    Stub(2, 0)                                              // 0xCE ADC A, d8
+    Add(WithCarry, Reg8(A), Imm8(), 2, 8)                   // 0xCE ADC A, d8
     Restart(0x08, 1, 16)                                    // 0xCF RST 08H
     Return(NotCarry, 1, 20, 8)                              // 0xD0 RET NC
     Pop(Reg16(DE), 1, 12)                                   // 0xD1 POP DE
-    Stub(3, 0)                                              // 0xD2 JP NC, a16
+    JumpAbsolute(NotCarry, Imm16(), 3, 16, 12)              // 0xD2 JP NC, a16
     Stub(1, 0)                                              // 0xD3
     Call(NotCarry, 3, 24, 12)                               // 0xD4 CALL NC, a16
     Push(Reg16(DE), 1, 16)                                  // 0xD5 PUSH DE
-    Stub(2, 0)                                              // 0xD6 SUB d8
+    Sub(WithoutCarry, Reg8(A), Imm8(), 2, 8)                // 0xD6 SUB d8
     Restart(0x10, 1, 16)                                    // 0xD7 RST 10H
     Stub(1, 0)                                              // 0xD8 RET C
     Return(FromInterrupt, 1, 16, 16)                        // 0xD9 RETI
@@ -318,7 +319,7 @@ const CPU::Instruction CPU::instructions[256] =
     Stub(1, 0)                                              // 0xDB
     Call(Carry, 3, 24, 12)                                  // 0xDC CALL C, a16
     Stub(1, 0)                                              // 0xDD
-    Stub(2, 0)                                              // 0xDE SBC A, d8
+    Sub(WithCarry, Reg8(A), Imm8(), 2, 8)                   // 0xDE SBC A, d8
     Restart(0x18, 1, 16)                                    // 0xDF RST 18H
     WriteIOReg(Imm8(), Reg8(A), 2, 12)                      // 0xE0 LDH (a8), A
     Pop(Reg16(HL), 1, 12)                                   // 0xE1 POP HL
@@ -344,7 +345,7 @@ const CPU::Instruction CPU::instructions[256] =
     Push(Reg16(AF), 1, 16)                                  // 0xF5 PUSH AF
     Stub(2, 0)                                              // 0xF6 OR d8
     Restart(0x30, 1, 16)                                    // 0xF7 RST 30H
-    Stub(2, 0)                                              // 0xF8 LD HL, SP+r8
+    Untyped(LDHL, 2, 12)                                    // 0xF8 LD HL, SP+r8
     Stub(1, 0)                                              // 0xF9 LD SP, HL
     Load(Reg8(A), Addr16(), 3, 16)                          // 0xFA LD A, (a16)
     Untyped(EI, 1, 4)                                       // 0xFB EI

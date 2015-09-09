@@ -247,6 +247,7 @@ public:
             Untyped_STOP,
             Untyped_EI,
             Untyped_DI,
+            Untyped_LDHL,
         };
 
         enum LoadStoreAction
