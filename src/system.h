@@ -55,7 +55,7 @@ private:
     void ResetTimer();
     void SetPostBootstrapState();
     void CopyFrameBufferToSurface();
-    void UpdateTimer(uint32 cycles);
+    void UpdateTimer(uint32 clocks);
 
     SDL_Window *m_window;
     SDL_Surface *m_surface;
@@ -78,7 +78,8 @@ private:
     byte m_memory_zram[127];
 
     // timer
-    uint32 m_timer_cycles;
+    uint32 m_timer_clocks;
+    uint32 m_timer_divider_clocks;
     uint8 m_timer_divider;
     uint8 m_timer_counter;
     uint8 m_timer_overflow_value;

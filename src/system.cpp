@@ -69,7 +69,7 @@ void System::ResetMemory()
 
 void System::ResetTimer()
 {
-    m_timer_cycles = 0;
+    m_timer_clocks = 0;
     m_timer_divider = 1;
     m_timer_counter = 0;
     m_timer_overflow_value = 0;
@@ -145,20 +145,51 @@ void System::CopyFrameBufferToSurface()
     SDL_UpdateWindowSurface(m_window);
 }
 
-void System::UpdateTimer(uint32 cycles)
+void System::UpdateTimer(uint32 clocks)
 {
+    //bool timer_control_changed = m_timer_control_changed;
+    //m_timer_control_changed = false;
+
+    // cpu runs at 4,194,304hz
+    // timer runs at 16,384hz
+    // therefore, every 256 cpu "clocks" equals one timer tick
+    m_timer_divider_clocks += clocks;
+    while (m_timer_divider_clocks >= 256)
+    {
+        m_timer_divider++;
+        m_timer_divider_clocks -= 256;
+    }
+
     // timer start/stop
     if (!(m_timer_control & 0x4))
         return;
 
+    // 
+
     // add cycles
-    m_timer_cycles += cycles;
+    m_timer_clocks += clocks;
 
     // find timer rate
-    static const uint32 clock_rates[] = { 4096, 262144, 65536, 16384 };
-    uint32 clock_rate = clock_rates[m_timer_control & 0x3];
+    //static const uint32 clock_rates[] = { 4096, 262144, 65536, 16384 };
+    static const uint32 clocks_per_timer_ticks[] = { 1024, 16, 64, 256 };
+    uint32 clocks_per_timer_tick = clocks_per_timer_ticks[m_timer_control & 0x3];
 
-    // convert cycles to hz
+    // cap at one iteration when the rate changes
+    //if (m_timer_control_changed && m_timer_cycles > clock_rate)
+        //m_timer_cycles %= clock_rate;
+
+    // increment timer
+    while (m_timer_clocks >= clocks_per_timer_tick)
+    {
+        if ((++m_timer_counter) == 0x00)
+        {
+            // timer overflow
+            CPUInterruptRequest(CPU_INT_TIMER);
+            m_timer_counter = m_timer_overflow_value;
+        }
+
+        m_timer_clocks -= clocks_per_timer_tick;
+    }
 }
 
 uint8 System::CPURead(uint16 address) const
@@ -360,7 +391,21 @@ uint8 System::CPUReadIORegister(uint8 index) const
                 // Joypad
             case 0x00:
                 // Stub for now
-                return 0;
+                //return 0;
+                //return (1 << 1) | (1 << 4);
+                return (1 << 4) | (1 << 1) | (1 << 2) | (1 << 3);
+
+                // Divider timer
+            case 0x04:
+                return m_timer_divider;
+
+                // Counter timer
+            case 0x05:
+                return m_timer_counter;
+            case 0x06:
+                return m_timer_overflow_value;
+            case 0x07:
+                return m_timer_control;
             }
         }
 
@@ -394,6 +439,24 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                     m_cpu->GetRegisters()->IF = value;
                     return;
                 }
+
+                // Divider timer
+            case 0x04:
+                m_timer_divider = 0;
+                m_timer_divider_clocks = 0; // <-- correct?
+                return;
+
+                // Counter timer
+            case 0x05:
+                m_timer_counter = 0;
+                m_timer_clocks = 0;
+                return;
+            case 0x06:
+                m_timer_overflow_value = value;
+                return;
+            case 0x07:
+                m_timer_control = value;
+                return;
             }
         }
     case 0x40:

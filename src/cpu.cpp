@@ -24,6 +24,7 @@ void CPU::Reset()
     // enable master interrupts, but keep all interrupts blocked
     m_registers.IME = true;
     m_clock = 0;
+    m_halted = false;
 }
 
 void CPU::Push(uint8 value)
@@ -83,7 +84,7 @@ bool CPU::TestPredicate(Instruction::Predicate condition)
         return !m_registers.GetFlagC();
 
     case Instruction::Predicate_FromInterrupt:
-        DebugAssert(!m_registers.IME);
+        //DebugAssert(!m_registers.IME);
         m_registers.IME = true;
         return true;
 
@@ -109,7 +110,7 @@ uint32 CPU::Step()
                 if (interrupts & (1 << i))
                 {
                     // trigger this interrupt
-                    Log_DevPrintf("CPU interrupt %u", i);
+                    //Log_DevPrintf("CPU interrupt %u", i);
 
                     // clear flag
                     m_registers.IF &= ~(1 << i);
@@ -127,11 +128,16 @@ uint32 CPU::Step()
 
                     PushWord(m_registers.PC);
                     m_registers.PC = jump_locations[i];
+                    m_halted = false;
                     break;
                 }
             }
         }
     }
+
+    // if halted, simulate a single cycle to keep the display/audio going
+    if (m_halted)
+        return 4;
 
     // debug
     static bool disasm_enabled = false;
@@ -1030,16 +1036,6 @@ uint32 CPU::Step()
         }
 
         //////////////////////////////////////////////////////////////////////////
-        // Enable Interrupts
-        //////////////////////////////////////////////////////////////////////////
-    case Instruction::Type_EnableInterrupts:
-        {
-            // switch master interrupt flag
-            m_registers.IME = instruction->interrupt_flag;
-            break;
-        }
-
-        //////////////////////////////////////////////////////////////////////////
         // Untyped instructions
         //////////////////////////////////////////////////////////////////////////
     case Instruction::Type_Untyped:
@@ -1056,6 +1052,19 @@ uint32 CPU::Step()
                 m_registers.SetFlagN(false);
                 m_registers.SetFlagH(!m_registers.GetFlagH());
                 m_registers.SetFlagC(!m_registers.GetFlagC());
+                break;
+
+            case Instruction::Untyped_HALT:
+                m_halted = true;
+                Log_DevPrintf("CPU Halt");
+                break;
+
+            case Instruction::Untyped_EI:
+                m_registers.IME = true;
+                break;
+
+            case Instruction::Untyped_DI:
+                m_registers.IME = false;
                 break;
 
             default:

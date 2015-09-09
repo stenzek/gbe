@@ -184,6 +184,9 @@ private:
     // clock values
     uint32 m_clock;
 
+    // halted, waiting for interrupt
+    bool m_halted;
+
 public:
 
     struct Instruction
@@ -233,7 +236,6 @@ public:
             Type_SetBit,
             Type_ResetBit,
             Type_Restart,
-            Type_EnableInterrupts,
             Type_Untyped,
         };
 
@@ -241,6 +243,9 @@ public:
         {
             Untyped_CCF,
             Untyped_SCF,
+            Untyped_HALT,
+            Untyped_EI,
+            Untyped_DI,
         };
 
         enum LoadStoreAction
@@ -296,7 +301,6 @@ public:
             Untyped untyped_opcode;
             uint8 bitnum;
             uint8 restart_vector;
-            bool interrupt_flag;
         };
         uint32 cycles_skipped;
     };

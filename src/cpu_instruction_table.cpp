@@ -48,6 +48,9 @@ Log_SetChannel(CPU);
 #define Right Instruction::RotateDirection_Left
 #define SCF Instruction::Untyped_SCF
 #define CCF Instruction::Untyped_CCF
+#define HALT Instruction::Untyped_HALT
+#define EI Instruction::Untyped_EI
+#define DI Instruction::Untyped_DI
 
 #define Stub(length, cycles) { Instruction::Type_Stub, NoOperand(), NoOperand(), length, cycles },
 #define Nop(length, cycles) { Instruction::Type_Nop, NoOperand(), NoOperand(), length, cycles },
@@ -210,7 +213,7 @@ const CPU::Instruction CPU::instructions[256] =
     Store(Mem16(HL), Reg8(E), 1, 8)                         // 0x73 LD (HL), E
     Store(Mem16(HL), Reg8(H), 1, 8)                         // 0x74 LD (HL), H
     Store(Mem16(HL), Reg8(L), 1, 8)                         // 0x75 LD (HL), L
-    Stub(1, 4)                                              // 0x76 HALT
+    Untyped(HALT, 1, 4)                                     // 0x76 HALT
     Store(Mem16(HL), Reg8(A), 1, 8)                         // 0x77 LD (HL), A
     Move(Reg8(A), Reg8(B), 1, 4)                            // 0x78 LD A, B
     Move(Reg8(A), Reg8(C), 1, 4)                            // 0x79 LD A, C
@@ -335,7 +338,7 @@ const CPU::Instruction CPU::instructions[256] =
     ReadIOReg(Reg8(A), Imm8(), 2, 12)                       // 0xF0 LDH A, (a8)
     Pop(Reg16(AF), 1, 12)                                   // 0xF1 POP AF
     ReadIOReg(Reg8(A), Reg8(C), 1, 8)                       // 0xF2 LD A, (C)
-    EnableInterrupts(false, 1, 4)                           // 0xF3 DI
+    Untyped(DI, 1, 4)                                       // 0xF3 DI
     Stub(1, 0)                                              // 0xF4
     Push(Reg16(AF), 1, 16)                                  // 0xF5 PUSH AF
     Stub(2, 0)                                              // 0xF6 OR d8
@@ -343,7 +346,7 @@ const CPU::Instruction CPU::instructions[256] =
     Stub(2, 0)                                              // 0xF8 LD HL, SP+r8
     Stub(1, 0)                                              // 0xF9 LD SP, HL
     Load(Reg8(A), Addr16(), 3, 16)                          // 0xFA LD A, (a16)
-    EnableInterrupts(true, 1, 4)                            // 0xFB EI
+    Untyped(EI, 1, 4)                                       // 0xFB EI
     Stub(1, 0)                                              // 0xFC
     Stub(1, 0)                                              // 0xFD
     Cmp(Reg8(A), Imm8(), 2, 8)                              // 0xFE CP d8
