@@ -307,9 +307,10 @@ uint32 CPU::Step()
             {
                 // 8-bit store
             case Instruction::AddressMode_Reg8:
+            case Instruction::AddressMode_Imm8:
                 {
                     // register -> memory
-                    uint8 value = m_registers.reg8[source->reg8];
+                    uint8 value = (source->mode == Instruction::AddressMode_Reg8) ? m_registers.reg8[source->reg8] : (get_imm8());
                     switch (destination->mode)
                     {
                     case Instruction::AddressMode_Mem16:
@@ -777,6 +778,52 @@ uint32 CPU::Step()
         }
 
         //////////////////////////////////////////////////////////////////////////
+        // CPL ie Not
+        //////////////////////////////////////////////////////////////////////////
+    case Instruction::Type_Not:
+        {
+            DebugAssert(destination->mode == Instruction::AddressMode_Reg8 && destination->reg8 == Reg8_A);
+            m_registers.reg8[destination->reg8] = ~m_registers.reg8[source->reg8];
+            m_registers.SetFlagN(true);
+            m_registers.SetFlagH(true);
+            break;
+        }
+
+        //////////////////////////////////////////////////////////////////////////
+        // Swap high/low nibbles
+        //////////////////////////////////////////////////////////////////////////
+    case Instruction::Type_Swap:
+        {
+            uint8 value = 0;
+            switch (source->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                value = m_registers.reg8[source->mode];
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                value = MemReadByte(m_registers.reg16[source->reg16]);
+                break;
+            }
+
+            // swap nibbles
+            value = (value << 4) | (value >> 4);
+
+            // write value
+            switch (destination->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                m_registers.reg8[destination->mode] = value;
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                MemWriteByte(m_registers.reg16[destination->reg16], value);
+                break;
+            }
+            break;
+        }
+
+        //////////////////////////////////////////////////////////////////////////
         // Compare
         //////////////////////////////////////////////////////////////////////////
 
@@ -948,6 +995,32 @@ uint32 CPU::Step()
         {
             // switch master interrupt flag
             m_registers.IME = instruction->interrupt_flag;
+            break;
+        }
+
+        //////////////////////////////////////////////////////////////////////////
+        // Untyped instructions
+        //////////////////////////////////////////////////////////////////////////
+    case Instruction::Type_Untyped:
+        {
+            switch (instruction->untyped_opcode)
+            {
+            case Instruction::Untyped_SCF:
+                m_registers.SetFlagN(false);
+                m_registers.SetFlagH(false);
+                m_registers.SetFlagC(true);
+                break;
+
+            case Instruction::Untyped_CCF:
+                m_registers.SetFlagN(false);
+                m_registers.SetFlagH(!m_registers.GetFlagH());
+                m_registers.SetFlagC(!m_registers.GetFlagC());
+                break;
+
+            default:
+                UnreachableCode();
+            }
+
             break;
         }
 

@@ -228,11 +228,20 @@ public:
             Type_And,
             Type_Or,
             Type_Xor,
+            Type_Not,
+            Type_Swap,
             Type_Rotate,
             Type_Cmp,
             Type_Bit,
             Type_Restart,
             Type_EnableInterrupts,
+            Type_Untyped,
+        };
+
+        enum Untyped
+        {
+            Untyped_CCF,
+            Untyped_SCF,
         };
 
         enum LoadStoreAction
@@ -285,6 +294,7 @@ public:
             LoadStoreAction load_action;
             Predicate predicate;
             CarryAction carry;
+            Untyped untyped_opcode;
             uint8 bitnum;
             uint8 restart_vector;
             bool interrupt_flag;
