@@ -82,6 +82,11 @@ bool CPU::TestPredicate(Instruction::Predicate condition)
     case Instruction::Predicate_NotCarry:
         return !m_registers.GetFlagC();
 
+    case Instruction::Predicate_FromInterrupt:
+        DebugAssert(m_registers.I != 0);
+        m_registers.I = 0;
+        return true;
+
     default:
         UnreachableCode();
         return false;
@@ -91,15 +96,15 @@ bool CPU::TestPredicate(Instruction::Predicate condition)
 uint32 CPU::Step()
 {
     // interrupts enabled?
-    if (m_registers.IME)
+    if (m_registers.IME && !m_registers.I)
     {
         // have we got a pending interrupt?
         if (m_registers.IF != 0)
         {
             // http://bgb.bircd.org/pandocs.htm#interrupts
             // find the first interrupt pending in priority (0 = highest)
-            uint8 interrupts = (1 << (MAX_CPU_INT - 1)) & m_registers.IF & m_registers.IE;
-            for (uint32 i = 0; i < MAX_CPU_INT; i++)
+            uint8 interrupts = ((1 << (NUM_CPU_INT)) - 1) & m_registers.IF & m_registers.IE;
+            for (uint32 i = 0; i < NUM_CPU_INT; i++)
             {
                 if (interrupts & (1 << i))
                 {
@@ -108,9 +113,18 @@ uint32 CPU::Step()
 
                     // clear flag
                     m_registers.IF &= ~(1 << i);
+                    m_registers.I = (1 << i);
 
                     // Jump to vector
-                    //PushWord(m_registers.PC);
+                    static const uint16 jump_locations[] = {
+                        0x0040,     // vblank
+                        0x0048,     // lcdc
+                        0x0050,     // timer
+                        0x0058,     // serial
+                    };
+
+                    PushWord(m_registers.PC);
+                    m_registers.PC = jump_locations[i];
                     break;
                 }
             }
@@ -545,6 +559,7 @@ uint32 CPU::Step()
                 UnreachableCode();
             }
 
+            break;
         }
 
         //////////////////////////////////////////////////////////////////////////

@@ -7,6 +7,7 @@ class Cartridge;
 
 class CPU
 {
+public:
     enum Reg8
     {
         Reg8_F,
@@ -74,12 +75,33 @@ class CPU
             // direct register access
             struct
             {
-                uint8 F;
-                uint8 A;
-                uint8 C;
-                uint8 B;
-                uint8 E;
-                uint8 D;
+                union
+                {
+                    struct
+                    {
+                        uint8 F;
+                        uint8 A;
+                    };
+                    uint16 AF;
+                };
+                union
+                {
+                    struct
+                    {
+                        uint8 C;
+                        uint8 B;
+                    };
+                    uint16 BC;
+                };
+                union
+                {
+                    struct
+                    {
+                        uint8 E;
+                        uint8 D;
+                    };
+                    uint16 DE;
+                };
                 union
                 {
                     struct
@@ -108,6 +130,9 @@ class CPU
 
         // Interrupt requests
         uint8 IF;
+
+        // Interrupt in-progress, not exposed to instructions
+        uint8 I;
 
         bool GetFlagZ() const { return ((F & FLAG_Z) != 0); }
         bool GetFlagN() const { return ((F & FLAG_N) != 0); }
@@ -206,6 +231,7 @@ public:
             Type_Rotate,
             Type_Cmp,
             Type_Bit,
+            Type_Restart,
         };
 
         enum LoadStoreAction
@@ -222,6 +248,7 @@ public:
             Predicate_Carry,
             Predicate_NotZero,
             Predicate_NotCarry,
+            Predicate_FromInterrupt,
         };
 
         enum CarryAction
@@ -245,6 +272,7 @@ public:
                 Reg16 reg16;
                 RotateDirection direction;
                 uint8 bit;
+                uint8 restart_vector;
             };
         };
 
