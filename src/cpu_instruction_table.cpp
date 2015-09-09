@@ -73,6 +73,7 @@ Log_SetChannel(CPU);
 #define Push(src, length, cycles) { Instruction::Type_Push, NoOperand(), src, length, cycles },
 #define Pop(dst, length, cycles) { Instruction::Type_Pop, dst, NoOperand(), length, cycles },
 #define Restart(vector, length, cycles) { Instruction::Type_Restart, { Instruction::NumAddressModes, (Reg8)vector }, NoOperand(), length, cycles },
+#define EnableInterrupts(state, length, cycles) { Instruction::Type_EnableInterrupts, { Instruction::NumAddressModes, (Reg8)state }, NoOperand(), length, cycles },
 #define Prefix() { Instruction::Type_Prefix },
 
 const CPU::Instruction CPU::instructions[256] =
@@ -327,7 +328,7 @@ const CPU::Instruction CPU::instructions[256] =
     ReadIOReg(Reg8(A), Imm8(), 2, 12)                       // 0xF0 LDH A, (a8)
     Pop(Reg16(AF), 1, 12)                                   // 0xF1 POP AF
     ReadIOReg(Reg8(A), Reg8(C), 1, 8)                       // 0xF2 LD A, (C)
-    Stub(1, 0)                                              // 0xF3 DI
+    EnableInterrupts(false, 1, 4)                           // 0xF3 DI
     Stub(1, 0)                                              // 0xF4
     Push(Reg16(AF), 1, 16)                                  // 0xF5 PUSH AF
     Stub(2, 0)                                              // 0xF6 OR d8
@@ -335,7 +336,7 @@ const CPU::Instruction CPU::instructions[256] =
     Stub(2, 0)                                              // 0xF8 LD HL, SP+r8
     Stub(1, 0)                                              // 0xF9 LD SP, HL
     Load(Reg8(A), Addr16(), 3, 16)                          // 0xFA LD A, (a16)
-    Stub(1, 0)                                              // 0xFB EI
+    EnableInterrupts(true, 1, 4)                            // 0xFB EI
     Stub(1, 0)                                              // 0xFC
     Stub(1, 0)                                              // 0xFD
     Cmp(Reg8(A), Imm8(), 2, 8)                              // 0xFE CP d8

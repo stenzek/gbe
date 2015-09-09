@@ -914,7 +914,6 @@ uint32 CPU::Step()
         //////////////////////////////////////////////////////////////////////////
         // Push
         //////////////////////////////////////////////////////////////////////////
-
     case Instruction::Type_Push:
         {
             DebugAssert(source->mode == Instruction::AddressMode_Reg16);
@@ -925,7 +924,6 @@ uint32 CPU::Step()
         //////////////////////////////////////////////////////////////////////////
         // Pop
         //////////////////////////////////////////////////////////////////////////
-
     case Instruction::Type_Pop:
         {
             DebugAssert(destination->mode == Instruction::AddressMode_Reg16);
@@ -940,6 +938,16 @@ uint32 CPU::Step()
         {
             // unlike interrupts, does not push PC
             m_registers.PC = 0x0000 + source->restart_vector;
+            break;
+        }
+
+        //////////////////////////////////////////////////////////////////////////
+        // Enable Interrupts
+        //////////////////////////////////////////////////////////////////////////
+    case Instruction::Type_EnableInterrupts:
+        {
+            // switch master interrupt flag
+            m_registers.IME = source->interrupt_flag;
             break;
         }
 

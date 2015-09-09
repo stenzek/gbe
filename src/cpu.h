@@ -232,6 +232,7 @@ public:
             Type_Cmp,
             Type_Bit,
             Type_Restart,
+            Type_EnableInterrupts,
         };
 
         enum LoadStoreAction
@@ -273,6 +274,7 @@ public:
                 RotateDirection direction;
                 uint8 bit;
                 uint8 restart_vector;
+                bool interrupt_flag;
             };
         };
 
