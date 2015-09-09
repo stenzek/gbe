@@ -73,7 +73,7 @@ private:
     byte m_memory_eram[0x2000];
     byte m_memory_wram[0x2000];
     byte m_memory_oam[0xFF];
-    byte m_memory_zram[0xFF];
+    byte m_memory_zram[127];
 
     bool m_biosLatch;
     bool m_vramLocked;

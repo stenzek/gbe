@@ -35,10 +35,7 @@ void System::Reset()
 
     // if bios not provided, emulate post-bootstrap state
     if (m_bios == nullptr)
-    {
-        m_biosLatch = false;
         SetPostBootstrapState();
-    }
 
     CopyFrameBufferToSurface();
 }
@@ -69,7 +66,48 @@ void System::ResetMemory()
 
 void System::SetPostBootstrapState()
 {
+    // http://bgb.bircd.org/pandocs.txt -> Power Up Sequence
+    CPU::Registers *registers = m_cpu->GetRegisters();
+    registers->AF = 0x01B0;
+    registers->BC = 0x0013;
+    registers->DE = 0x00D8;
+    registers->HL = 0x014D;
+    registers->SP = 0xFFFE;
+    registers->PC = 0x0100;
 
+    CPUWriteIORegister(0x05, 0x00);   // TIMA
+    CPUWriteIORegister(0x06, 0x00);   // TMA
+    CPUWriteIORegister(0x07, 0x00);   // TAC
+    CPUWriteIORegister(0x10, 0x80);   // NR10
+    CPUWriteIORegister(0x11, 0xBF);   // NR11
+    CPUWriteIORegister(0x12, 0xF3);   // NR12
+    CPUWriteIORegister(0x14, 0xBF);   // NR14
+    CPUWriteIORegister(0x16, 0x3F);   // NR21
+    CPUWriteIORegister(0x17, 0x00);   // NR22
+    CPUWriteIORegister(0x19, 0xBF);   // NR24
+    CPUWriteIORegister(0x1A, 0x7F);   // NR30
+    CPUWriteIORegister(0x1B, 0xFF);   // NR31
+    CPUWriteIORegister(0x1C, 0x9F);   // NR32
+    CPUWriteIORegister(0x1E, 0xBF);   // NR33
+    CPUWriteIORegister(0x20, 0xFF);   // NR41
+    CPUWriteIORegister(0x21, 0x00);   // NR42
+    CPUWriteIORegister(0x22, 0x00);   // NR43
+    CPUWriteIORegister(0x23, 0xBF);   // NR30
+    CPUWriteIORegister(0x24, 0x77);   // NR50
+    CPUWriteIORegister(0x25, 0xF3);   // NR51
+    CPUWriteIORegister(0x26, 0xF1);     // NR52 (F0 on SGB)
+    CPUWriteIORegister(0x40, 0x91);   // LCDC
+    CPUWriteIORegister(0x42, 0x00);   // SCY
+    CPUWriteIORegister(0x43, 0x00);   // SCX
+    CPUWriteIORegister(0x45, 0x00);   // LYC
+    CPUWriteIORegister(0x47, 0xFC);   // BGP
+    CPUWriteIORegister(0x48, 0xFF);   // OBP0
+    CPUWriteIORegister(0x49, 0xFF);   // OBP1
+    CPUWriteIORegister(0x4A, 0x00);   // WY
+    CPUWriteIORegister(0x4B, 0x00);   // WX
+    CPUWriteIORegister(0xFF, 0x00);   // IE
+
+    m_biosLatch = false;
 }
 
 void System::CopyFrameBufferToSurface()
@@ -169,15 +207,15 @@ uint8 System::CPURead(uint16 address) const
                 // zero page
             case 0xF00:
                 {
-                    if (address >= 0xFF80)
+                    if (address >= 0xFF80 && address < 0xFFFF)
                     {
                         // fast ram
-                        return m_memory_zram[address & 0x7F];
+                        return m_memory_zram[address - 0xFF80];
                     }
                     else
                     {
                         // IO registers, slow access
-                        return CPUReadIORegister(address & 0x7F);
+                        return CPUReadIORegister(address & 0xFF);
                     }
                 }
             }
@@ -261,16 +299,16 @@ void System::CPUWrite(uint16 address, uint8 value)
                 // zero page
             case 0xF00:
                 {
-                    if (address >= 0xFF80)
+                    if (address >= 0xFF80 && address < 0xFFFF)
                     {
                         // fast ram
-                        m_memory_zram[address & 0x7F] = value;
+                        m_memory_zram[address - 0xFF80] = value;
                         return;
                     }
                     else
                     {
                         // IO registers, slow access
-                        CPUWriteIORegister(address & 0x7F, value);
+                        CPUWriteIORegister(address & 0xFF, value);
                         return;
                     }
                 }

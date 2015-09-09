@@ -15,6 +15,7 @@ struct ProgramArgs
 {
     const char *bios_filename;
     const char *cart_filename;
+    bool disable_bios;
 };
 
 struct State
@@ -81,7 +82,7 @@ static bool LoadCart(const char *filename, State *state)
 static void ShowUsage(const char *progname)
 {
     fprintf(stderr, "gbe\n");
-    fprintf(stderr, "usage: %s [-h] [-b <bios file>] [cart file]\n", progname);
+    fprintf(stderr, "usage: %s [-h] [-b <bios file>] [-db] [cart file]\n", progname);
 
 }
 
@@ -92,6 +93,7 @@ static bool ParseArguments(int argc, char *argv[], ProgramArgs *out_args)
 
     out_args->bios_filename = nullptr;
     out_args->cart_filename = nullptr;
+    out_args->disable_bios = false;
 
     for (int i = 1; i < argc; i++)
     {
@@ -103,6 +105,10 @@ static bool ParseArguments(int argc, char *argv[], ProgramArgs *out_args)
         else if (CHECK_ARG_PARAM("-b"))
         {
             out_args->bios_filename = argv[++i];
+        }
+        else if (CHECK_ARG("-db"))
+        {
+            out_args->disable_bios = true;
         }
         else
         {
@@ -141,7 +147,7 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     // load bios
     bool bios_specified = (args->bios_filename != nullptr);
     const char *bios_filename = (args->bios_filename != nullptr) ? args->bios_filename : "bios.bin";
-    if (!LoadBIOS(bios_filename, bios_specified, state) && bios_specified)
+    if (!args->disable_bios && !LoadBIOS(bios_filename, bios_specified, state) && bios_specified)
         return false;
 
     // load cart
