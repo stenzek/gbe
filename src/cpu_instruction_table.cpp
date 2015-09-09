@@ -49,6 +49,7 @@ Log_SetChannel(CPU);
 #define SCF Instruction::Untyped_SCF
 #define CCF Instruction::Untyped_CCF
 #define HALT Instruction::Untyped_HALT
+#define STOP Instruction::Untyped_STOP
 #define EI Instruction::Untyped_EI
 #define DI Instruction::Untyped_DI
 
@@ -107,7 +108,7 @@ const CPU::Instruction CPU::instructions[256] =
     Rotate(Right, WithCarry, Reg8(A), 1, 4)                 // 0x0F RRCA
 
     // 0x10 - 0x1F
-    Stub(2, 4)                                              // 0x10 STOP 0
+    Untyped(STOP, 2, 4)                                     // 0x10 STOP 0
     Load(Reg16(DE), Imm16(), 3, 12)                         // 0x11 LD DE, d16
     Store(Mem16(DE), Reg8(A), 1, 8)                         // 0x12 LD (DE), A
     Increment(Reg16(DE), 1, 8)                              // 0x13 INC DE

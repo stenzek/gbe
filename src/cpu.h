@@ -244,6 +244,7 @@ public:
             Untyped_CCF,
             Untyped_SCF,
             Untyped_HALT,
+            Untyped_STOP,
             Untyped_EI,
             Untyped_DI,
         };

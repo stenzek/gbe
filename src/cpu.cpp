@@ -1099,6 +1099,11 @@ uint32 CPU::Step()
                 Log_DevPrintf("CPU Halt");
                 break;
 
+            case Instruction::Untyped_STOP:
+                m_halted = true;
+                Log_DevPrintf("CPU Stop");
+                break;
+
             case Instruction::Untyped_EI:
                 m_registers.IME = true;
                 break;
