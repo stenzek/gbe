@@ -484,9 +484,155 @@ uint32 CPU::Step()
         }
 
         //////////////////////////////////////////////////////////////////////////
-        // Xor
+        // Add
         //////////////////////////////////////////////////////////////////////////
 
+    case Instruction::Type_Add:
+        {
+            // get value to subtract
+            uint8 addend = 0;
+            switch (source->mode)
+            {
+            case Instruction::AddressMode_Imm8:
+                addend = get_imm8();
+                break;
+
+            case Instruction::AddressMode_Reg8:
+                addend = m_registers.reg8[source->reg8];
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                addend = MemReadByte(m_registers.reg16[source->reg16]);
+                break;
+            }
+
+            // handle carry
+            DebugAssert(instruction->carry == Instruction::CarryAction_Ignore);
+
+            // store value - only writes to A
+            DebugAssert(destination->mode == Instruction::AddressMode_Reg8 && destination->reg8 == Reg8_A);
+            uint8 old_value = m_registers.reg8[destination->reg8];
+            uint32 new_value = old_value + (uint32)addend;
+            m_registers.reg8[destination->reg8] = (uint8)(new_value & 0xFF);
+            m_registers.SetFlagZ(((new_value & 0xFF)== 0));
+            m_registers.SetFlagN(false);
+            m_registers.SetFlagH(((new_value & 0xF) + (old_value & 0xF)) > 0xF);
+            m_registers.SetFlagC(new_value > 0xFF);
+            break;
+        }
+
+        //////////////////////////////////////////////////////////////////////////
+        // Subtract
+        //////////////////////////////////////////////////////////////////////////
+
+    case Instruction::Type_Sub:
+        {
+            // get value to subtract
+            uint8 addend = 0;
+            switch (source->mode)
+            {
+            case Instruction::AddressMode_Imm8:
+                addend = get_imm8();
+                break;
+
+            case Instruction::AddressMode_Reg8:
+                addend = m_registers.reg8[source->reg8];
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                addend = MemReadByte(m_registers.reg16[source->reg16]);
+                break;
+            }
+
+            // handle carry
+            DebugAssert(instruction->carry == Instruction::CarryAction_Ignore);
+
+            // store value - only writes to A
+            DebugAssert(destination->mode == Instruction::AddressMode_Reg8 && destination->reg8 == Reg8_A);
+            uint8 old_value = m_registers.reg8[destination->reg8];
+            uint8 new_value = m_registers.reg8[destination->reg8] = old_value - addend;
+            m_registers.SetFlagZ((new_value == 0));
+            m_registers.SetFlagN(true);
+            m_registers.SetFlagH((new_value & 0xF) < (old_value & 0xF));
+            m_registers.SetFlagC(new_value < old_value);
+            break;
+        }
+
+        //////////////////////////////////////////////////////////////////////////
+        // And
+        //////////////////////////////////////////////////////////////////////////
+    case Instruction::Type_And:
+        {
+            // get value
+            uint8 value = 0;
+            switch (source->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                value = m_registers.reg8[source->reg8];
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                value = MemReadByte(m_registers.reg16[source->reg16]);
+                break;
+
+            case Instruction::AddressMode_Imm8:
+                value = get_imm8();
+                break;
+
+            default:
+                UnreachableCode();
+            }
+
+            // AND accumulator with value
+            DebugAssert(destination->mode == Instruction::AddressMode_Reg8 && destination->reg8 == Reg8_A);
+            value = m_registers.reg8[destination->reg8] &= value;
+            
+            // update flags
+            m_registers.SetFlagZ((value == 0));
+            m_registers.SetFlagN(false);
+            m_registers.SetFlagH(true);
+            m_registers.SetFlagC(false);
+        }
+
+        //////////////////////////////////////////////////////////////////////////
+        // Or
+        //////////////////////////////////////////////////////////////////////////
+    case Instruction::Type_Or:
+        {
+            // get value
+            uint8 value = 0;
+            switch (source->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                value = m_registers.reg8[source->reg8];
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                value = MemReadByte(m_registers.reg16[source->reg16]);
+                break;
+
+            case Instruction::AddressMode_Imm8:
+                value = get_imm8();
+                break;
+
+            default:
+                UnreachableCode();
+            }
+
+            // OR accumulator with value
+            DebugAssert(destination->mode == Instruction::AddressMode_Reg8 && destination->reg8 == Reg8_A);
+            value = m_registers.reg8[destination->reg8] |= value;
+            
+            // update flags
+            m_registers.SetFlagZ((value == 0));
+            m_registers.SetFlagN(false);
+            m_registers.SetFlagH(false);
+            m_registers.SetFlagC(false);
+        }
+
+        //////////////////////////////////////////////////////////////////////////
+        // Xor
+        //////////////////////////////////////////////////////////////////////////
     case Instruction::Type_Xor:
         {
             // get value
@@ -516,6 +662,114 @@ uint32 CPU::Step()
             m_registers.SetFlagN(false);
             m_registers.SetFlagH(false);
             m_registers.SetFlagC(false);
+            break;
+        }
+
+        //////////////////////////////////////////////////////////////////////////
+        // Rotate
+        //////////////////////////////////////////////////////////////////////////
+
+    case Instruction::Type_Rotate:
+        {
+            // read value
+            uint8 carry_in = (uint8)m_registers.GetFlagC();
+            uint8 old_value = 0;
+            switch (destination->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                old_value = m_registers.reg8[destination->reg8];
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                old_value = MemReadByte(m_registers.reg16[destination->reg16]);
+                break;
+
+            default:
+                UnreachableCode();
+            }
+
+            // get output value
+            uint8 carry_out = carry_in;
+            uint8 new_value = old_value;
+
+            // kinda counter-intuitive - but RL = 9-bit rotation, RLC = 8-bit rotation
+            // we do a 9-bit rotation anyway, so just replace the first bit (the old carry bit)
+            Instruction::RotateDirection dir = source->direction;
+            if (dir == Instruction::RotateDirection_Left)
+            {
+                carry_out = (old_value >> 7);
+                if (instruction->carry == Instruction::CarryAction_With)
+                    carry_in = carry_out;
+
+                new_value = (old_value << 1) | (carry_in);
+            }
+            else
+            {
+                carry_out = (old_value & 1);
+                if (instruction->carry == Instruction::CarryAction_With)
+                    carry_in = carry_out;
+
+                new_value = (old_value >> 1) | (carry_in << 7);
+            }
+
+            // set new values
+            switch (destination->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                m_registers.reg8[destination->reg8] = new_value;
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                MemWriteByte(m_registers.reg16[destination->reg16], new_value);
+                break;
+
+            default:
+                UnreachableCode();
+            }
+
+            // update flags
+            m_registers.SetFlagZ(false);
+            m_registers.SetFlagN(false);
+            m_registers.SetFlagH(false);
+            m_registers.SetFlagC(carry_out != 0);
+            break;
+        }
+
+        //////////////////////////////////////////////////////////////////////////
+        // Compare
+        //////////////////////////////////////////////////////////////////////////
+
+    case Instruction::Type_Cmp:
+        {
+            // get lhs
+            DebugAssert(destination->mode == Instruction::AddressMode_Reg8 && destination->reg8 == Reg8_A);
+            uint8 lhs = m_registers.reg8[destination->reg8];
+
+            // get rhs
+            uint8 rhs = 0;
+            switch (source->mode)
+            {
+            case Instruction::AddressMode_Imm8:
+                rhs = get_imm8();
+                break;
+
+            case Instruction::AddressMode_Reg8:
+                rhs = m_registers.reg8[source->reg8];
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                rhs = MemReadByte(m_registers.reg16[source->reg16]);
+                break;
+
+            default:
+                UnreachableCode();
+            }
+
+            // implemented in hardware as a subtraction?
+            m_registers.SetFlagZ(lhs == rhs);
+            m_registers.SetFlagN(true);
+            m_registers.SetFlagH((lhs & 0xF) < (rhs & 0xF));
+            m_registers.SetFlagC(lhs < rhs);
             break;
         }
 
@@ -635,189 +889,6 @@ uint32 CPU::Step()
         {
             DebugAssert(destination->mode == Instruction::AddressMode_Reg16);
             m_registers.reg16[destination->reg16] = PopWord();
-            break;
-        }
-
-        //////////////////////////////////////////////////////////////////////////
-        // Rotate
-        //////////////////////////////////////////////////////////////////////////
-
-    case Instruction::Type_Rotate:
-        {
-            // read value
-            uint8 carry_in = (uint8)m_registers.GetFlagC();
-            uint8 old_value = 0;
-            switch (destination->mode)
-            {
-            case Instruction::AddressMode_Reg8:
-                old_value = m_registers.reg8[destination->reg8];
-                break;
-
-            case Instruction::AddressMode_Mem16:
-                old_value = MemReadByte(m_registers.reg16[destination->reg16]);
-                break;
-
-            default:
-                UnreachableCode();
-            }
-
-            // get output value
-            uint8 carry_out = carry_in;
-            uint8 new_value = old_value;
-
-            // kinda counter-intuitive - but RL = 9-bit rotation, RLC = 8-bit rotation
-            // we do a 9-bit rotation anyway, so just replace the first bit (the old carry bit)
-            Instruction::RotateDirection dir = source->direction;
-            if (dir == Instruction::RotateDirection_Left)
-            {
-                carry_out = (old_value >> 7);
-                if (instruction->carry == Instruction::CarryAction_With)
-                    carry_in = carry_out;
-
-                new_value = (old_value << 1) | (carry_in);
-            }
-            else
-            {
-                carry_out = (old_value & 1);
-                if (instruction->carry == Instruction::CarryAction_With)
-                    carry_in = carry_out;
-
-                new_value = (old_value >> 1) | (carry_in << 7);
-            }
-
-            // set new values
-            switch (destination->mode)
-            {
-            case Instruction::AddressMode_Reg8:
-                m_registers.reg8[destination->reg8] = new_value;
-                break;
-
-            case Instruction::AddressMode_Mem16:
-                MemWriteByte(m_registers.reg16[destination->reg16], new_value);
-                break;
-
-            default:
-                UnreachableCode();
-            }
-
-            // update flags
-            m_registers.SetFlagZ(false);
-            m_registers.SetFlagN(false);
-            m_registers.SetFlagH(false);
-            m_registers.SetFlagC(carry_out != 0);
-            break;
-        }
-
-        //////////////////////////////////////////////////////////////////////////
-        // Add
-        //////////////////////////////////////////////////////////////////////////
-
-    case Instruction::Type_Add:
-        {
-            // get value to subtract
-            uint8 addend = 0;
-            switch (source->mode)
-            {
-            case Instruction::AddressMode_Imm8:
-                addend = get_imm8();
-                break;
-
-            case Instruction::AddressMode_Reg8:
-                addend = m_registers.reg8[source->reg8];
-                break;
-
-            case Instruction::AddressMode_Mem16:
-                addend = MemReadByte(m_registers.reg16[source->reg16]);
-                break;
-            }
-
-            // handle carry
-            DebugAssert(instruction->carry == Instruction::CarryAction_Ignore);
-
-            // store value - only writes to A
-            DebugAssert(destination->mode == Instruction::AddressMode_Reg8 && destination->reg8 == Reg8_A);
-            uint8 old_value = m_registers.reg8[destination->reg8];
-            uint32 new_value = old_value + (uint32)addend;
-            m_registers.reg8[destination->reg8] = (uint8)(new_value & 0xFF);
-            m_registers.SetFlagZ(((new_value & 0xFF)== 0));
-            m_registers.SetFlagN(false);
-            m_registers.SetFlagH(((new_value & 0xF) + (old_value & 0xF)) > 0xF);
-            m_registers.SetFlagC(new_value > 0xFF);
-            break;
-        }
-
-        //////////////////////////////////////////////////////////////////////////
-        // Subtract
-        //////////////////////////////////////////////////////////////////////////
-
-    case Instruction::Type_Sub:
-        {
-            // get value to subtract
-            uint8 addend = 0;
-            switch (source->mode)
-            {
-            case Instruction::AddressMode_Imm8:
-                addend = get_imm8();
-                break;
-
-            case Instruction::AddressMode_Reg8:
-                addend = m_registers.reg8[source->reg8];
-                break;
-
-            case Instruction::AddressMode_Mem16:
-                addend = MemReadByte(m_registers.reg16[source->reg16]);
-                break;
-            }
-
-            // handle carry
-            DebugAssert(instruction->carry == Instruction::CarryAction_Ignore);
-
-            // store value - only writes to A
-            DebugAssert(destination->mode == Instruction::AddressMode_Reg8 && destination->reg8 == Reg8_A);
-            uint8 old_value = m_registers.reg8[destination->reg8];
-            uint8 new_value = m_registers.reg8[destination->reg8] = old_value - addend;
-            m_registers.SetFlagZ((new_value == 0));
-            m_registers.SetFlagN(true);
-            m_registers.SetFlagH((new_value & 0xF) < (old_value & 0xF));
-            m_registers.SetFlagC(new_value < old_value);
-            break;
-        }
-
-        //////////////////////////////////////////////////////////////////////////
-        // Compare
-        //////////////////////////////////////////////////////////////////////////
-
-    case Instruction::Type_Cmp:
-        {
-            // get lhs
-            DebugAssert(destination->mode == Instruction::AddressMode_Reg8 && destination->reg8 == Reg8_A);
-            uint8 lhs = m_registers.reg8[destination->reg8];
-
-            // get rhs
-            uint8 rhs = 0;
-            switch (source->mode)
-            {
-            case Instruction::AddressMode_Imm8:
-                rhs = get_imm8();
-                break;
-
-            case Instruction::AddressMode_Reg8:
-                rhs = m_registers.reg8[source->reg8];
-                break;
-
-            case Instruction::AddressMode_Mem16:
-                rhs = MemReadByte(m_registers.reg16[source->reg16]);
-                break;
-
-            default:
-                UnreachableCode();
-            }
-
-            // implemented in hardware as a subtraction?
-            m_registers.SetFlagZ(lhs == rhs);
-            m_registers.SetFlagN(true);
-            m_registers.SetFlagH((lhs & 0xF) < (rhs & 0xF));
-            m_registers.SetFlagC(lhs < rhs);
             break;
         }
 
