@@ -24,7 +24,7 @@ enum CPU_IRQ
     CPU_INT_TIMER,
     CPU_INT_SERIAL,
     CPU_INT_JOYPAD,
-    MAX_CPU_INT
+    NUM_CPU_INT
 };
 
 // http://bgb.bircd.org/pandocs.htm#videodisplay
@@ -43,7 +43,7 @@ enum DISPLAY_REG
     DISPLAY_REG_OBP0 = 0x08,        // R/W - non-cgb mode only
     DISPLAY_REG_OBP1 = 0x09,        // R/W - non-cgb mode only
 
-    NUM_DISPLAY_REGS = 0x0B
+    NUM_DISPLAY_REGS = 0x0C
 };
 
 enum DISPLAY_CGBREG
