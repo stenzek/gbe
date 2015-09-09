@@ -9,6 +9,29 @@ public:
     static const uint32 SCREEN_WIDTH = 160;
     static const uint32 SCREEN_HEIGHT = 144;
 
+    struct Registers
+    {
+        union
+        {
+            struct  
+            {
+                uint8 LCDC;
+                uint8 STAT;
+                uint8 SCY;
+                uint8 SCX;
+                uint8 LY;
+                uint8 LYC;
+                uint8 DMA;
+                uint8 BGP;
+                uint8 OBP0;
+                uint8 OBP1;
+                uint8 WY;
+                uint8 WX;
+            };
+            uint8 regs[NUM_DISPLAY_REGS];
+        };
+    };
+
 public:
     Display(System *system);
     ~Display();
@@ -16,20 +39,20 @@ public:
     const byte *GetFrameBuffer() const { return m_frameBuffer; }
 
     // register access
-    const uint8 GetRegister(DISPLAY_REG reg) { DebugAssert(reg < NUM_DISPLAY_REGS); return m_registers[reg]; }
-    const uint8 GetRegisterControl() const { return m_registers[DISPLAY_REG_LCDC]; }
-    const uint8 GetRegisterStatus() const { return m_registers[DISPLAY_REG_STAT]; }
-    const uint8 GetRegisterScrollY() const { return m_registers[DISPLAY_REG_SCY]; }
-    const uint8 GetRegisterScrollX() const { return m_registers[DISPLAY_REG_SCX]; }
-    const uint8 GetRegisterCurrentScanline() const { return m_registers[DISPLAY_REG_LY]; }
+    const uint8 GetRegister(DISPLAY_REG reg) { DebugAssert(reg < NUM_DISPLAY_REGS); return m_registers.regs[reg]; }
+    const uint8 GetRegisterControl() const { return m_registers.regs[DISPLAY_REG_LCDC]; }
+    const uint8 GetRegisterStatus() const { return m_registers.regs[DISPLAY_REG_STAT]; }
+    const uint8 GetRegisterScrollY() const { return m_registers.regs[DISPLAY_REG_SCY]; }
+    const uint8 GetRegisterScrollX() const { return m_registers.regs[DISPLAY_REG_SCX]; }
+    const uint8 GetRegisterCurrentScanline() const { return m_registers.regs[DISPLAY_REG_LY]; }
 
     // register writes
-    void SetRegister(DISPLAY_REG reg, uint8 value) { DebugAssert(reg < NUM_DISPLAY_REGS); m_registers[reg] = value; }
-    void SetRegisterControl(uint8 value) { m_registers[DISPLAY_REG_LCDC] = value; }
-    void SetRegisterStatus(uint8 value) { m_registers[DISPLAY_REG_STAT] = value; }
-    void SetRegisterScrollY(uint8 value) { m_registers[DISPLAY_REG_SCY] = value; }
-    void SetRegisterScrollX(uint8 value) { m_registers[DISPLAY_REG_SCX] = value; }
-    void SetRegisterCurrentScanline(uint8 value) { m_registers[DISPLAY_REG_LY] = value; }
+    void SetRegister(DISPLAY_REG reg, uint8 value) { /* todo: read-only registers */ DebugAssert(reg < NUM_DISPLAY_REGS); m_registers.regs[reg] = value; }
+    void SetRegisterControl(uint8 value) { m_registers.regs[DISPLAY_REG_LCDC] = value; }
+    void SetRegisterStatus(uint8 value) { m_registers.regs[DISPLAY_REG_STAT] = value; }
+    void SetRegisterScrollY(uint8 value) { m_registers.regs[DISPLAY_REG_SCY] = value; }
+    void SetRegisterScrollX(uint8 value) { m_registers.regs[DISPLAY_REG_SCX] = value; }
+    void SetRegisterCurrentScanline(uint8 value) { m_registers.regs[DISPLAY_REG_LY] = value; }
 
     // reset
     void Reset();
@@ -45,7 +68,7 @@ private:
     System *m_system;
 
     // registers - use a struct here?
-    uint8 m_registers[NUM_DISPLAY_REGS];
+    Registers m_registers;
 
     // copies of memory
     byte m_vramCopy[0x2000];

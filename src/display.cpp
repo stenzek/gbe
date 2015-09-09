@@ -19,7 +19,7 @@ Display::~Display()
 void Display::Reset()
 {
     Y_memset(m_frameBuffer, 0xFF, sizeof(m_frameBuffer));
-    Y_memzero(m_registers, sizeof(m_registers));
+    Y_memzero(&m_registers, sizeof(m_registers));
     Y_memzero(m_vramCopy, sizeof(m_vramCopy));
     Y_memzero(m_oamCopy, sizeof(m_oamCopy));
 
@@ -153,35 +153,46 @@ bool Display::Step()
 
 void Display::RenderScanline()
 {
+    // read background palette
+    const uint32 grayscale_colors[4] = { 0xFFFFFFFF, 0xFFC0C0C0, 0xFF606060, 0xFF000000 };
+    //const uint32 grayscale_colors[4] = { 0xFF000000, 0xFF606060, 0xFFC0C0C0, 0xFFFFFFFF};
+    uint32 background_palette[4] =
+    {
+        grayscale_colors[m_registers.BGP & 0x3],
+        grayscale_colors[(m_registers.BGP >> 2) & 0x3],
+        grayscale_colors[(m_registers.BGP >> 4) & 0x3],
+        grayscale_colors[(m_registers.BGP >> 6) & 0x3],
+    };
+
     // blank the line
     DebugAssert(m_currentScanLine < SCREEN_HEIGHT);
     byte *pFrameBufferLine = m_frameBuffer + (m_currentScanLine * SCREEN_WIDTH * 4);
     Y_memset(pFrameBufferLine, 0xFF, SCREEN_WIDTH * 4);
 
     // read control register
-    uint8 CR = GetRegisterControl();
-    uint8 LINE = GetRegisterCurrentScanline();
+    uint8 LCDC = m_registers.LCDC;
+    uint8 LINE = m_registers.LY;
 
     // lcd on?
-    if (CR & 0x80)
+    if (LCDC & 0x80)
     {
         const byte *VRAM = m_vramCopy;
 
         // background on?
-        if (CR & 0x01)
+        if (LCDC & 0x01)
         {
-            uint8 SCRLX = GetRegisterScrollX();
-            uint8 SCRLY = GetRegisterScrollY();
-            uint16 BGMAPBASE = (CR & 0x08) ? 0x1C00 : 0x1800;
-            uint16 BGMAPOFFSET = (((LINE + SCRLY) & 255) >> 3) << 5;
+            uint8 SCX = m_registers.SCX;
+            uint8 SCY = m_registers.SCY;
+            uint16 BGMAPBASE = (LCDC & 0x08) ? 0x1C00 : 0x1800;
+            uint16 BGMAPOFFSET = (((LINE + SCY) & 255) >> 3) << 5;
 
-            byte lineOffset = SCRLX >> 3;
+            byte lineOffset = SCX >> 3;
 
-            byte x = SCRLX & 7;
-            byte y = (LINE + SCRLY) & 7;
+            byte x = SCX & 7;
+            byte y = (LINE + SCY) & 7;
 
             // get tile index
-            uint16 BGTILEBASE = (CR & 0x10) ? 0x0000 : 0x0800;
+            uint16 BGTILEBASE = (LCDC & 0x10) ? 0x0000 : 0x0800;
             uint16 tile = VRAM[BGMAPBASE + BGMAPOFFSET + lineOffset];
 
             // 20 tiles of 8x8 = 160 wide
@@ -204,16 +215,7 @@ void Display::RenderScanline()
                 byte colourBit = (tilemem[byteIndex] >> (7 - bitIndex)) & 0x1;
                 colourBit |= ((tilemem[byteIndex + 1] >> (7 - bitIndex)) & 0x1) << 1;
 
-                uint32 color;
-                if (colourBit == 0)
-                    color = 0xFFFFFFFF;
-                else if (colourBit == 1)
-                    color = 0xFFC0C0C0;
-                else if (colourBit == 2)
-                    color = 0xFF606060;
-                else //if (colourBit == 3)
-                    color = 0xFF000000;
-                
+                uint32 color = background_palette[colourBit & 0x3];
                 PutPixel(i, m_currentScanLine, color);
 
                 x++;

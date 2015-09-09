@@ -37,6 +37,7 @@ enum DISPLAY_REG
     DISPLAY_REG_SCX = 0x03,         // R/W
     DISPLAY_REG_LY = 0x04,          // R
     DISPLAY_REG_LYC = 0x05,         // R/W
+    DISPLAY_REG_DMA = 0x06,         // W
     DISPLAY_REG_WY = 0x0A,          // R/W
     DISPLAY_REG_WX = 0x0B,          // R/W
     DISPLAY_REG_BGP = 0x07,         // R/W - non-cgb mode only
