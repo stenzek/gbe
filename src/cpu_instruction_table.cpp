@@ -65,7 +65,7 @@ Log_SetChannel(CPU);
 #define Or(dst, src, length, cycles) { Instruction::Type_Or, dst, src, length, cycles },
 #define Xor(dst, src, length, cycles) { Instruction::Type_Xor, dst, src, length, cycles },
 #define Cmp(dst, src, length, cycles) { Instruction::Type_Cmp, dst, src, length, cycles },
-#define Bit(bitnum, src, length, cycles) { Instruction::Type_Bit, { Instruction::NumAddressModes, (Reg8)bitnum }, src, length, cycles },
+#define Bit(bitnum, src, length, cycles) { Instruction::Type_Bit, NoOperand(), src, length, cycles, (Instruction::LoadStoreAction)bitnum },
 #define JumpRelative(predicate, length, cycles, cycles_skipped) { Instruction::Type_JumpRelative, Imm8(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
 #define JumpAbsolute(predicate, length, cycles, cycles_skipped) { Instruction::Type_JumpAbsolute, Imm16(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
 #define Call(predicate, length, cycles, cycles_skipped) { Instruction::Type_Call, Imm16(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
@@ -73,7 +73,7 @@ Log_SetChannel(CPU);
 #define Push(src, length, cycles) { Instruction::Type_Push, NoOperand(), src, length, cycles },
 #define Pop(dst, length, cycles) { Instruction::Type_Pop, dst, NoOperand(), length, cycles },
 #define Restart(vector, length, cycles) { Instruction::Type_Restart, { Instruction::NumAddressModes, (Reg8)vector }, NoOperand(), length, cycles },
-#define EnableInterrupts(state, length, cycles) { Instruction::Type_EnableInterrupts, { Instruction::NumAddressModes, (Reg8)state }, NoOperand(), length, cycles },
+#define EnableInterrupts(state, length, cycles) { Instruction::Type_EnableInterrupts, NoOperand(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)state },
 #define Prefix() { Instruction::Type_Prefix },
 
 const CPU::Instruction CPU::instructions[256] =

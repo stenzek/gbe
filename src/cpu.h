@@ -272,9 +272,6 @@ public:
                 Reg8 reg8;
                 Reg16 reg16;
                 RotateDirection direction;
-                uint8 bit;
-                uint8 restart_vector;
-                bool interrupt_flag;
             };
         };
 
@@ -288,6 +285,9 @@ public:
             LoadStoreAction load_action;
             Predicate predicate;
             CarryAction carry;
+            uint8 bitnum;
+            uint8 restart_vector;
+            bool interrupt_flag;
         };
         uint32 cycles_skipped;
     };

@@ -821,7 +821,7 @@ uint32 CPU::Step()
 
     case Instruction::Type_Bit:
         {
-            uint8 mask = (1 << source->bit);
+            uint8 mask = (1 << instruction->bitnum);
             uint8 value = 0;
             switch (source->mode)
             {
@@ -937,7 +937,7 @@ uint32 CPU::Step()
     case Instruction::Type_Restart:
         {
             // unlike interrupts, does not push PC
-            m_registers.PC = 0x0000 + source->restart_vector;
+            m_registers.PC = 0x0000 + instruction->restart_vector;
             break;
         }
 
@@ -947,7 +947,7 @@ uint32 CPU::Step()
     case Instruction::Type_EnableInterrupts:
         {
             // switch master interrupt flag
-            m_registers.IME = source->interrupt_flag;
+            m_registers.IME = instruction->interrupt_flag;
             break;
         }
 
