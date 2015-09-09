@@ -867,8 +867,7 @@ uint32 CPU::Step()
         //////////////////////////////////////////////////////////////////////////
         // Test Bit
         //////////////////////////////////////////////////////////////////////////
-
-    case Instruction::Type_Bit:
+    case Instruction::Type_TestBit:
         {
             uint8 mask = (1 << instruction->bitnum);
             uint8 value = 0;
@@ -887,6 +886,46 @@ uint32 CPU::Step()
             m_registers.SetFlagZ((value == 0));
             m_registers.SetFlagN(false);
             m_registers.SetFlagH(true);
+            break;
+        }
+
+        //////////////////////////////////////////////////////////////////////////
+        // Reset Bit
+        //////////////////////////////////////////////////////////////////////////
+    case Instruction::Type_SetBit:
+        {
+            uint8 mask = (1 << instruction->bitnum);
+            switch (destination->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                m_registers.reg8[destination->reg8] |= mask;
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                MemWriteWord(m_registers.reg16[destination->reg16], MemReadByte(m_registers.reg16[destination->reg16]) | mask);
+                break;
+            }
+
+            break;
+        }
+
+        //////////////////////////////////////////////////////////////////////////
+        // Reset Bit
+        //////////////////////////////////////////////////////////////////////////
+    case Instruction::Type_ResetBit:
+        {
+            uint8 mask = (1 << instruction->bitnum);
+            switch (destination->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                m_registers.reg8[destination->reg8] &= ~mask;
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                MemWriteWord(m_registers.reg16[destination->reg16], MemReadByte(m_registers.reg16[destination->reg16]) & ~mask);
+                break;
+            }
+
             break;
         }
 

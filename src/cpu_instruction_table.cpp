@@ -69,7 +69,9 @@ Log_SetChannel(CPU);
 #define Cmp(dst, src, length, cycles) { Instruction::Type_Cmp, dst, src, length, cycles },
 #define Not(dst, src, length, cycles) { Instruction::Type_Not, dst, src, length, cycles },
 #define Swap(dst, src, length, cycles) { Instruction::Type_Swap, dst, src, length, cycles },
-#define Bit(bitnum, src, length, cycles) { Instruction::Type_Bit, NoOperand(), src, length, cycles, (Instruction::LoadStoreAction)bitnum },
+#define TestBit(bitnum, src, length, cycles) { Instruction::Type_TestBit, NoOperand(), src, length, cycles, (Instruction::LoadStoreAction)bitnum },
+#define SetBit(bitnum, dst, length, cycles) { Instruction::Type_SetBit, dst, NoOperand(), length, cycles, (Instruction::LoadStoreAction)bitnum },
+#define ResetBit(bitnum, dst, length, cycles) { Instruction::Type_ResetBit, dst, NoOperand(), length, cycles, (Instruction::LoadStoreAction)bitnum },
 #define JumpRelative(predicate, length, cycles, cycles_skipped) { Instruction::Type_JumpRelative, Imm8(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
 #define JumpAbsolute(predicate, length, cycles, cycles_skipped) { Instruction::Type_JumpAbsolute, Imm16(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
 #define Call(predicate, length, cycles, cycles_skipped) { Instruction::Type_Call, Imm16(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
@@ -414,78 +416,78 @@ const CPU::Instruction CPU::cb_instructions[256] =
     Stub(2, 8)                                              // 0x3D SRL L
     Stub(2, 16)                                             // 0x3E SRL (HL)
     Stub(2, 8)                                              // 0x3F SRL A
-    Bit(0, Reg8(B), 2, 8)                                   // 0x40 BIT 0,B
-    Bit(0, Reg8(C), 2, 8)                                   // 0x41 BIT 0,C
-    Bit(0, Reg8(D), 2, 8)                                   // 0x42 BIT 0,D
-    Bit(0, Reg8(E), 2, 8)                                   // 0x43 BIT 0,E
-    Bit(0, Reg8(H), 2, 8)                                   // 0x44 BIT 0,H
-    Bit(0, Reg8(L), 2, 8)                                   // 0x45 BIT 0,L
-    Bit(0, Mem16(HL), 2, 16)                                // 0x46 BIT 0,(HL)
-    Bit(0, Reg8(A), 2, 8)                                   // 0x47 BIT 0,A
-    Bit(1, Reg8(B), 2, 8)                                   // 0x48 BIT 1,B
-    Bit(1, Reg8(C), 2, 8)                                   // 0x49 BIT 1,C
-    Bit(1, Reg8(D), 2, 8)                                   // 0x4A BIT 1,D
-    Bit(1, Reg8(E), 2, 8)                                   // 0x4B BIT 1,E
-    Bit(1, Reg8(H), 2, 8)                                   // 0x4C BIT 1,H
-    Bit(1, Reg8(L), 2, 8)                                   // 0x4D BIT 1,L
-    Bit(1, Mem16(HL), 2, 16)                                // 0x4E BIT 1,(HL)
-    Bit(1, Reg8(A), 2, 8)                                   // 0x4F BIT 1,A
-    Bit(2, Reg8(B), 2, 8)                                   // 0x50 BIT 2,B
-    Bit(2, Reg8(C), 2, 8)                                   // 0x51 BIT 2,C
-    Bit(2, Reg8(D), 2, 8)                                   // 0x52 BIT 2,D
-    Bit(2, Reg8(E), 2, 8)                                   // 0x53 BIT 2,E
-    Bit(2, Reg8(H), 2, 8)                                   // 0x54 BIT 2,H
-    Bit(2, Reg8(L), 2, 8)                                   // 0x55 BIT 2,L
-    Bit(2, Mem16(HL), 2, 16)                                // 0x56 BIT 2,(HL)
-    Bit(2, Reg8(A), 2, 8)                                   // 0x57 BIT 2,A
-    Bit(3, Reg8(B), 2, 8)                                   // 0x58 BIT 3,B
-    Bit(3, Reg8(C), 2, 8)                                   // 0x59 BIT 3,C
-    Bit(3, Reg8(D), 2, 8)                                   // 0x5A BIT 3,D
-    Bit(3, Reg8(E), 2, 8)                                   // 0x5B BIT 3,E
-    Bit(3, Reg8(H), 2, 8)                                   // 0x5C BIT 3,H
-    Bit(3, Reg8(L), 2, 8)                                   // 0x5D BIT 3,L
-    Bit(3, Mem16(HL), 2, 16)                                // 0x5E BIT 3,(HL)
-    Bit(3, Reg8(A), 2, 8)                                   // 0x5F BIT 3,A
-    Bit(4, Reg8(B), 2, 8)                                   // 0x60 BIT 4,B
-    Bit(4, Reg8(C), 2, 8)                                   // 0x61 BIT 4,C
-    Bit(4, Reg8(D), 2, 8)                                   // 0x62 BIT 4,D
-    Bit(4, Reg8(E), 2, 8)                                   // 0x63 BIT 4,E
-    Bit(4, Reg8(H), 2, 8)                                   // 0x64 BIT 4,H
-    Bit(4, Reg8(L), 2, 8)                                   // 0x65 BIT 4,L
-    Bit(4, Mem16(HL), 2, 16)                                // 0x66 BIT 4,(HL)
-    Bit(4, Reg8(A), 2, 8)                                   // 0x67 BIT 4,A
-    Bit(5, Reg8(B), 2, 8)                                   // 0x68 BIT 5,B
-    Bit(5, Reg8(C), 2, 8)                                   // 0x69 BIT 5,C
-    Bit(5, Reg8(D), 2, 8)                                   // 0x6A BIT 5,D
-    Bit(5, Reg8(E), 2, 8)                                   // 0x6B BIT 5,E
-    Bit(5, Reg8(H), 2, 8)                                   // 0x6C BIT 5,H
-    Bit(5, Reg8(L), 2, 8)                                   // 0x6D BIT 5,L
-    Bit(5, Mem16(HL), 2, 16)                                // 0x6E BIT 5,(HL)
-    Bit(5, Reg8(A), 2, 8)                                   // 0x6F BIT 5,A
-    Bit(6, Reg8(B), 2, 8)                                   // 0x70 BIT 6,B
-    Bit(6, Reg8(C), 2, 8)                                   // 0x71 BIT 6,C
-    Bit(6, Reg8(D), 2, 8)                                   // 0x72 BIT 6,D
-    Bit(6, Reg8(E), 2, 8)                                   // 0x73 BIT 6,E
-    Bit(6, Reg8(H), 2, 8)                                   // 0x74 BIT 6,H
-    Bit(6, Reg8(L), 2, 8)                                   // 0x75 BIT 6,L
-    Bit(6, Mem16(HL), 2, 16)                                // 0x76 BIT 6,(HL)
-    Bit(6, Reg8(A), 2, 8)                                   // 0x77 BIT 6,A
-    Bit(7, Reg8(B), 2, 8)                                   // 0x78 BIT 7,B
-    Bit(7, Reg8(C), 2, 8)                                   // 0x79 BIT 7,C
-    Bit(7, Reg8(D), 2, 8)                                   // 0x7A BIT 7,D
-    Bit(7, Reg8(E), 2, 8)                                   // 0x7B BIT 7,E
-    Bit(7, Reg8(H), 2, 8)                                   // 0x7C BIT 7,H
-    Bit(7, Reg8(L), 2, 8)                                   // 0x7D BIT 7,L
-    Bit(7, Mem16(HL), 2, 16)                                // 0x7E BIT 7,(HL)
-    Bit(7, Reg8(A), 2, 8)                                   // 0x7F BIT 7,A
-    Stub(2, 8)                                              // 0x80 RES 0,B
-    Stub(2, 8)                                              // 0x81 RES 0,C
-    Stub(2, 8)                                              // 0x82 RES 0,D
-    Stub(2, 8)                                              // 0x83 RES 0,E
-    Stub(2, 8)                                              // 0x84 RES 0,H
-    Stub(2, 8)                                              // 0x85 RES 0,L
-    Stub(2, 16)                                             // 0x86 RES 0,(HL)
-    Stub(2, 8)                                              // 0x87 RES 0,A
+    TestBit(0, Reg8(B), 2, 8)                               // 0x40 BIT 0,B
+    TestBit(0, Reg8(C), 2, 8)                               // 0x41 BIT 0,C
+    TestBit(0, Reg8(D), 2, 8)                               // 0x42 BIT 0,D
+    TestBit(0, Reg8(E), 2, 8)                               // 0x43 BIT 0,E
+    TestBit(0, Reg8(H), 2, 8)                               // 0x44 BIT 0,H
+    TestBit(0, Reg8(L), 2, 8)                               // 0x45 BIT 0,L
+    TestBit(0, Mem16(HL), 2, 16)                            // 0x46 BIT 0,(HL)
+    TestBit(0, Reg8(A), 2, 8)                               // 0x47 BIT 0,A
+    TestBit(1, Reg8(B), 2, 8)                               // 0x48 BIT 1,B
+    TestBit(1, Reg8(C), 2, 8)                               // 0x49 BIT 1,C
+    TestBit(1, Reg8(D), 2, 8)                               // 0x4A BIT 1,D
+    TestBit(1, Reg8(E), 2, 8)                               // 0x4B BIT 1,E
+    TestBit(1, Reg8(H), 2, 8)                               // 0x4C BIT 1,H
+    TestBit(1, Reg8(L), 2, 8)                               // 0x4D BIT 1,L
+    TestBit(1, Mem16(HL), 2, 16)                            // 0x4E BIT 1,(HL)
+    TestBit(1, Reg8(A), 2, 8)                               // 0x4F BIT 1,A
+    TestBit(2, Reg8(B), 2, 8)                               // 0x50 BIT 2,B
+    TestBit(2, Reg8(C), 2, 8)                               // 0x51 BIT 2,C
+    TestBit(2, Reg8(D), 2, 8)                               // 0x52 BIT 2,D
+    TestBit(2, Reg8(E), 2, 8)                               // 0x53 BIT 2,E
+    TestBit(2, Reg8(H), 2, 8)                               // 0x54 BIT 2,H
+    TestBit(2, Reg8(L), 2, 8)                               // 0x55 BIT 2,L
+    TestBit(2, Mem16(HL), 2, 16)                            // 0x56 BIT 2,(HL)
+    TestBit(2, Reg8(A), 2, 8)                               // 0x57 BIT 2,A
+    TestBit(3, Reg8(B), 2, 8)                               // 0x58 BIT 3,B
+    TestBit(3, Reg8(C), 2, 8)                               // 0x59 BIT 3,C
+    TestBit(3, Reg8(D), 2, 8)                               // 0x5A BIT 3,D
+    TestBit(3, Reg8(E), 2, 8)                               // 0x5B BIT 3,E
+    TestBit(3, Reg8(H), 2, 8)                               // 0x5C BIT 3,H
+    TestBit(3, Reg8(L), 2, 8)                               // 0x5D BIT 3,L
+    TestBit(3, Mem16(HL), 2, 16)                            // 0x5E BIT 3,(HL)
+    TestBit(3, Reg8(A), 2, 8)                               // 0x5F BIT 3,A
+    TestBit(4, Reg8(B), 2, 8)                               // 0x60 BIT 4,B
+    TestBit(4, Reg8(C), 2, 8)                               // 0x61 BIT 4,C
+    TestBit(4, Reg8(D), 2, 8)                               // 0x62 BIT 4,D
+    TestBit(4, Reg8(E), 2, 8)                               // 0x63 BIT 4,E
+    TestBit(4, Reg8(H), 2, 8)                               // 0x64 BIT 4,H
+    TestBit(4, Reg8(L), 2, 8)                               // 0x65 BIT 4,L
+    TestBit(4, Mem16(HL), 2, 16)                            // 0x66 BIT 4,(HL)
+    TestBit(4, Reg8(A), 2, 8)                               // 0x67 BIT 4,A
+    TestBit(5, Reg8(B), 2, 8)                               // 0x68 BIT 5,B
+    TestBit(5, Reg8(C), 2, 8)                               // 0x69 BIT 5,C
+    TestBit(5, Reg8(D), 2, 8)                               // 0x6A BIT 5,D
+    TestBit(5, Reg8(E), 2, 8)                               // 0x6B BIT 5,E
+    TestBit(5, Reg8(H), 2, 8)                               // 0x6C BIT 5,H
+    TestBit(5, Reg8(L), 2, 8)                               // 0x6D BIT 5,L
+    TestBit(5, Mem16(HL), 2, 16)                            // 0x6E BIT 5,(HL)
+    TestBit(5, Reg8(A), 2, 8)                               // 0x6F BIT 5,A
+    TestBit(6, Reg8(B), 2, 8)                               // 0x70 BIT 6,B
+    TestBit(6, Reg8(C), 2, 8)                               // 0x71 BIT 6,C
+    TestBit(6, Reg8(D), 2, 8)                               // 0x72 BIT 6,D
+    TestBit(6, Reg8(E), 2, 8)                               // 0x73 BIT 6,E
+    TestBit(6, Reg8(H), 2, 8)                               // 0x74 BIT 6,H
+    TestBit(6, Reg8(L), 2, 8)                               // 0x75 BIT 6,L
+    TestBit(6, Mem16(HL), 2, 16)                            // 0x76 BIT 6,(HL)
+    TestBit(6, Reg8(A), 2, 8)                               // 0x77 BIT 6,A
+    TestBit(7, Reg8(B), 2, 8)                               // 0x78 BIT 7,B
+    TestBit(7, Reg8(C), 2, 8)                               // 0x79 BIT 7,C
+    TestBit(7, Reg8(D), 2, 8)                               // 0x7A BIT 7,D
+    TestBit(7, Reg8(E), 2, 8)                               // 0x7B BIT 7,E
+    TestBit(7, Reg8(H), 2, 8)                               // 0x7C BIT 7,H
+    TestBit(7, Reg8(L), 2, 8)                               // 0x7D BIT 7,L
+    TestBit(7, Mem16(HL), 2, 16)                            // 0x7E BIT 7,(HL)
+    TestBit(7, Reg8(A), 2, 8)                               // 0x7F BIT 7,A
+    ResetBit(0, Reg8(B), 2, 8)                              // 0x80 RES 0,B
+    ResetBit(0, Reg8(C), 2, 8)                              // 0x81 RES 0,C
+    ResetBit(0, Reg8(D), 2, 8)                              // 0x82 RES 0,D
+    ResetBit(0, Reg8(E), 2, 8)                              // 0x83 RES 0,E
+    ResetBit(0, Reg8(H), 2, 8)                              // 0x84 RES 0,H
+    ResetBit(0, Reg8(L), 2, 8)                              // 0x85 RES 0,L
+    ResetBit(0, Reg16(HL), 2, 8)                            // 0x86 RES 0,(HL)
+    ResetBit(0, Reg8(A), 2, 8)                              // 0x87 RES 0,A
     Stub(2, 8)                                              // 0x88 RES 1,B
     Stub(2, 8)                                              // 0x89 RES 1,C
     Stub(2, 8)                                              // 0x8A RES 1,D
