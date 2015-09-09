@@ -7,6 +7,7 @@
 #include "YBaseLib/Error.h"
 #include "YBaseLib/Log.h"
 #include "YBaseLib/FileSystem.h"
+#include "YBaseLib/CString.h"
 #include <cstdio>
 Log_SetChannel(Main);
 
@@ -34,7 +35,7 @@ static bool LoadBIOS(const char *filename, bool specified, State *state)
     AutoReleasePtr<ByteStream> pStream = FileSystem::OpenFile(filename, BYTESTREAM_OPEN_READ | BYTESTREAM_OPEN_STREAMED);
     if (pStream == nullptr)
     {
-        if (!specified)
+        if (specified)
             Log_ErrorPrintf("Failed to load bios file '%s'", filename);
 
         return false;
@@ -53,6 +54,7 @@ static bool LoadBIOS(const char *filename, bool specified, State *state)
         return false;
     }
 
+    Log_InfoPrintf("Loaded bios file '%s'.", filename);
     return true;
 }
 
@@ -76,9 +78,42 @@ static bool LoadCart(const char *filename, State *state)
     return true;
 }
 
+static void ShowUsage(const char *progname)
+{
+    fprintf(stderr, "gbe\n");
+    fprintf(stderr, "usage: %s [-h] [-b <bios file>] [cart file]\n", progname);
+
+}
+
 static bool ParseArguments(int argc, char *argv[], ProgramArgs *out_args)
 {
-    return false;
+#define CHECK_ARG(str) !Y_strcmp(argv[i], str)
+#define CHECK_ARG_PARAM(str) !Y_strcmp(argv[i], str) && ((i + 1) < argc)
+
+    out_args->bios_filename = nullptr;
+    out_args->cart_filename = nullptr;
+
+    for (int i = 1; i < argc; i++)
+    {
+        if (CHECK_ARG("-h") || CHECK_ARG("-?"))
+        {
+            ShowUsage(argv[0]);
+            return false;
+        }
+        else if (CHECK_ARG_PARAM("-b"))
+        {
+            out_args->bios_filename = argv[++i];
+        }
+        else
+        {
+            out_args->cart_filename = argv[i];
+        }
+    }
+
+    return true;
+
+#undef CHECK_ARG
+#undef CHECK_ARG_PARAM
 }
 
 static bool InitializeState(const ProgramArgs *args, State *state)
@@ -88,23 +123,42 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     state->system = nullptr;
     state->window = nullptr;
     state->surface = nullptr;
+    state->running = true;
 
+    // create render window
     state->window = SDL_CreateWindow("gbe", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, Display::SCREEN_WIDTH, Display::SCREEN_HEIGHT, 0);
     if (state->window == nullptr)
+    {
+        Log_ErrorPrintf("Failed to crate SDL window: %s", SDL_GetError());
         return false;
+    }
 
+    // get surface to draw to
     state->surface = SDL_GetWindowSurface(state->window);
     if (state->surface == nullptr)
         return false;
 
+    // load bios
+    bool bios_specified = (args->bios_filename != nullptr);
+    const char *bios_filename = (args->bios_filename != nullptr) ? args->bios_filename : "bios.bin";
+    if (!LoadBIOS(bios_filename, bios_specified, state) && bios_specified)
+        return false;
+
+    // load cart
+    if (args->cart_filename != nullptr && !LoadCart(args->cart_filename, state))
+        return false;
+
+    // init system
     state->system = new System();
+    if (state->bios != nullptr)
+        state->system->SetBios(state->bios);
     if (state->cart != nullptr)
         state->system->SetCartridge(state->cart);
     state->system->SetDisplaySurface(state->window, state->surface);
 
     state->system->Reset();
 
-    return false;
+    return true;
 }
 
 static void CleanupState(State *state)
