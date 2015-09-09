@@ -99,7 +99,7 @@ uint32 CPU::Step()
     if (m_registers.IME && !m_registers.I)
     {
         // have we got a pending interrupt?
-        if (m_registers.IF != 0)
+        if ((m_registers.IF & m_registers.IE) != 0)
         {
             // http://bgb.bircd.org/pandocs.htm#interrupts
             // find the first interrupt pending in priority (0 = highest)

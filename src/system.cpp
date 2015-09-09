@@ -325,6 +325,17 @@ uint8 System::CPUReadIORegister(uint8 index) const
 {
     switch (index & 0xF0)
     {
+    case 0x00:
+        {
+            switch (index & 0x0F)
+            {
+                // Joypad
+            case 0x00:
+                // Stub for now
+                return 0;
+            }
+        }
+
     case 0x40:
         {
             // LCD registers
@@ -332,6 +343,10 @@ uint8 System::CPUReadIORegister(uint8 index) const
                 return m_display->GetRegister((DISPLAY_REG)(index - 0x40));
         }
     }
+
+    // "high ram"
+    if (index >= 0x80 && index <= 0xFE)
+        return m_memory_zram[index - 0x80];
 
     Log_DevPrintf("Unhandled CPU IO register read: 0x%02X", index);
     return 0x00;
@@ -360,6 +375,22 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                 return;
             }
         }
+    case 0xF0:
+        {
+            // F0-FE is high ram below, FF = interrupt flag
+            if (index == 0xFF)
+            {
+                m_cpu->GetRegisters()->IE = value;
+                return;
+            }
+        }
+    }
+
+    // "high ram"
+    if (index >= 0x80 && index <= 0xFE)
+    {
+        m_memory_zram[index - 0x80] = value;
+        return;
     }
 
     Log_DevPrintf("Unhandled CPU IO register write: 0x%02X (value 0x%02X)", index, value);
