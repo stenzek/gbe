@@ -523,7 +523,7 @@ uint32 CPU::Step()
             case Instruction::AddressMode_Reg8:
                 {
                     // get value to add
-                    uint8 addend = 0;
+                    uint32 addend = 0;
                     switch (source->mode)
                     {
                     case Instruction::AddressMode_Imm8:
@@ -540,12 +540,13 @@ uint32 CPU::Step()
                     }
 
                     // handle carry
-                    DebugAssert(instruction->carry == Instruction::CarryAction_Ignore);
+                    if (instruction->carry == Instruction::CarryAction_With)
+                        addend += (uint32)m_registers.GetFlagC();
 
                     // store value - only writes to A
                     DebugAssert(destination->reg8 == Reg8_A);
                     uint8 old_value = m_registers.reg8[destination->reg8];
-                    uint32 new_value = old_value + (uint32)addend;
+                    uint32 new_value = old_value + addend;
                     m_registers.reg8[destination->reg8] = (uint8)(new_value & 0xFF);
                     m_registers.SetFlagZ(((new_value & 0xFF) == 0));
                     m_registers.SetFlagN(false);
@@ -619,16 +620,16 @@ uint32 CPU::Step()
             }
 
             // handle carry
-            DebugAssert(instruction->carry == Instruction::CarryAction_Ignore);
+            uint8 carry_in = (uint8)(instruction->carry == Instruction::CarryAction_With && m_registers.GetFlagC());
 
             // store value - only writes to A
             DebugAssert(destination->mode == Instruction::AddressMode_Reg8 && destination->reg8 == Reg8_A);
             uint8 old_value = m_registers.reg8[destination->reg8];
-            uint8 new_value = m_registers.reg8[destination->reg8] = old_value - addend;
+            uint8 new_value = m_registers.reg8[destination->reg8] = old_value - addend - carry_in;
             m_registers.SetFlagZ((new_value == 0));
             m_registers.SetFlagN(true);
             m_registers.SetFlagH((new_value & 0xF) < (old_value & 0xF));
-            m_registers.SetFlagC(new_value < old_value);
+            m_registers.SetFlagC((addend + carry_in) > old_value);
             break;
         }
 
