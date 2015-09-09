@@ -39,6 +39,7 @@ Log_SetChannel(CPU);
 #define Carry Instruction::Predicate_Carry
 #define NotZero Instruction::Predicate_NotZero
 #define NotCarry Instruction::Predicate_NotCarry
+#define FromInterrupt Instruction::Predicate_FromInterrupt
 #define IncrementAddress Instruction::LoadStoreAction_IncrementAddress
 #define DecrementAddress Instruction::LoadStoreAction_DecrementAddress
 #define WithCarry Instruction::CarryAction_With
@@ -71,6 +72,7 @@ Log_SetChannel(CPU);
 #define Return(predicate, length, cycles, cycles_skipped) { Instruction::Type_Return, NoOperand(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
 #define Push(src, length, cycles) { Instruction::Type_Push, NoOperand(), src, length, cycles },
 #define Pop(dst, length, cycles) { Instruction::Type_Pop, dst, NoOperand(), length, cycles },
+#define Restart(vector, length, cycles) { Instruction::Type_Restart, { Instruction::NumAddressModes, (Reg8)vector }, NoOperand(), length, cycles },
 #define Prefix() { Instruction::Type_Prefix },
 
 const CPU::Instruction CPU::instructions[256] =
@@ -284,12 +286,12 @@ const CPU::Instruction CPU::instructions[256] =
     Stub(1, 16)                                             // 0xC7 RST 00H
     Return(Zero, 1, 20, 8)                                  // 0xC8 RET Z
     Return(Always, 1, 16, 16)                               // 0xC9 RET
-    Stub(3, 0)                                              // 0xCA JP Z, a16
+    JumpAbsolute(Zero, 3, 16, 12)                           // 0xCA JP Z, a16
     Prefix()                                                // 0xCB PREFIX CB
     Call(Zero, 3, 24, 12)                                   // 0xCC CALL Z, a16
     Call(Always, 3, 24, 12)                                 // 0xCD CALL a16
     Stub(2, 0)                                              // 0xCE ADC A, d8
-    Stub(1, 0)                                              // 0xCF RST 08H
+    Restart(0x08, 1, 16)                                    // 0xCF RST 08H
     Stub(1, 0)                                              // 0xD0 RET NC
     Stub(1, 0)                                              // 0xD1 POP DE
     Stub(3, 0)                                              // 0xD2 JP NC, a16
@@ -297,15 +299,15 @@ const CPU::Instruction CPU::instructions[256] =
     Call(NotCarry, 3, 24, 12)                               // 0xD4 CALL NC, a16
     Stub(1, 0)                                              // 0xD5 PUSH DE
     Stub(2, 0)                                              // 0xD6 SUB d8
-    Stub(1, 0)                                              // 0xD7 RST 10H
+    Restart(0x10, 1, 16)                                    // 0xD7 RST 10H
     Stub(1, 0)                                              // 0xD8 RET C
-    Stub(1, 0)                                              // 0xD9 RETI
+    Return(FromInterrupt, 1, 16, 16)                        // 0xD9 RETI
     Stub(3, 0)                                              // 0xDA JP C, a16
     Stub(1, 0)                                              // 0xDB
     Call(Carry, 3, 24, 12)                                  // 0xDC CALL C, a16
     Stub(1, 0)                                              // 0xDD
     Stub(2, 0)                                              // 0xDE SBC A, d8
-    Stub(1, 0)                                              // 0xDF RST 18H
+    Restart(0x18, 1, 16)                                    // 0xDF RST 18H
     WriteIOReg(Imm8(), Reg8(A), 2, 12)                      // 0xE0 LDH (a8), A
     Stub(1, 0)                                              // 0xE1 POP HL
     WriteIOReg(Reg8(C), Reg8(A), 1, 8)                      // 0xE2 LD (C), A
@@ -313,7 +315,7 @@ const CPU::Instruction CPU::instructions[256] =
     Stub(1, 0)                                              // 0xE4
     Stub(1, 0)                                              // 0xE5 PUSH HL
     And(Reg8(A), Imm8(), 2, 8)                              // 0xE6 AND d8
-    Stub(1, 0)                                              // 0xE7 RST 20H
+    Restart(0x20, 1, 16)                                    // 0xE7 RST 20H
     Stub(2, 0)                                              // 0xE8 ADD SP, r8
     Stub(1, 0)                                              // 0xE9 JP (HL)
     Store(Addr16(), Reg8(A), 3, 16)                         // 0xEA LD (a16), A
@@ -321,7 +323,7 @@ const CPU::Instruction CPU::instructions[256] =
     Stub(1, 0)                                              // 0xEC
     Stub(1, 0)                                              // 0xED
     Stub(2, 0)                                              // 0xEE XOR d8
-    Stub(1, 0)                                              // 0xEF RST 28H
+    Restart(0x28, 1, 16)                                    // 0xEF RST 28H
     ReadIOReg(Reg8(A), Imm8(), 2, 12)                       // 0xF0 LDH A, (a8)
     Stub(1, 0)                                              // 0xF1 POP AF
     ReadIOReg(Reg8(A), Reg8(C), 1, 8)                       // 0xF2 LD A, (C)
@@ -329,7 +331,7 @@ const CPU::Instruction CPU::instructions[256] =
     Stub(1, 0)                                              // 0xF4
     Stub(1, 0)                                              // 0xF5 PUSH AF
     Stub(2, 0)                                              // 0xF6 OR d8
-    Stub(1, 0)                                              // 0xF7 RST 30H
+    Restart(0x30, 1, 16)                                    // 0xF7 RST 30H
     Stub(2, 0)                                              // 0xF8 LD HL, SP+r8
     Stub(1, 0)                                              // 0xF9 LD SP, HL
     Load(Reg8(A), Addr16(), 3, 16)                          // 0xFA LD A, (a16)
@@ -337,7 +339,7 @@ const CPU::Instruction CPU::instructions[256] =
     Stub(1, 0)                                              // 0xFC
     Stub(1, 0)                                              // 0xFD
     Cmp(Reg8(A), Imm8(), 2, 8)                              // 0xFE CP d8
-    Stub(1, 0)                                              // 0xFF RST 38H
+    Restart(0x38, 1, 16)                                    // 0xFF RST 38H
 };
 
 const CPU::Instruction CPU::cb_instructions[256] =
