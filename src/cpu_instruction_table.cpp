@@ -96,8 +96,8 @@ const CPU::Instruction CPU::instructions[256] =
     Increment(Reg16(BC), 1, 8)                              // 0x03 INC BC
     Increment(Reg8(B), 1, 4)                                // 0x04 INC B
     Decrement(Reg8(B), 1, 4)                                // 0x05 DEC B
-    Load(Reg8(B), Imm8(), 1, 4)                             // 0x06 LD B, d8
-    Rotate(Left, WithCarry, Reg8(A), 2, 8)                  // 0x07 RLCA
+    Load(Reg8(B), Imm8(), 2, 8)                             // 0x06 LD B, d8
+    Rotate(Left, WithCarry, Reg8(A), 1, 4)                  // 0x07 RLCA
     Store(Addr16(), Reg16(SP), 3, 20)                       // 0x08 LD (a16), SP
     Add(WithoutCarry, Reg16(HL), Reg16(BC), 1, 8)           // 0x09 ADD HL, BC
     Load(Reg8(A), Mem16(BC), 1, 8)                          // 0x0A LD A, (BC)
