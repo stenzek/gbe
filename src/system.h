@@ -52,8 +52,10 @@ private:
 
 private:
     void ResetMemory();
+    void ResetTimer();
     void SetPostBootstrapState();
     void CopyFrameBufferToSurface();
+    void UpdateTimer(uint32 cycles);
 
     SDL_Window *m_window;
     SDL_Surface *m_surface;
@@ -74,6 +76,13 @@ private:
     byte m_memory_wram[0x2000];
     byte m_memory_oam[0xFF];
     byte m_memory_zram[127];
+
+    // timer
+    uint32 m_timer_cycles;
+    uint8 m_timer_divider;
+    uint8 m_timer_counter;
+    uint8 m_timer_overflow_value;
+    uint8 m_timer_control;
 
     bool m_biosLatch;
     bool m_vramLocked;

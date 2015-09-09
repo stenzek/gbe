@@ -32,6 +32,7 @@ void System::Reset()
     m_cpu->Reset();
     m_display->Reset();
     ResetMemory();
+    ResetTimer();
 
     // if bios not provided, emulate post-bootstrap state
     if (m_bios == nullptr)
@@ -49,6 +50,8 @@ void System::Step()
         if (m_display->Step())
             CopyFrameBufferToSurface();
     }
+
+    UpdateTimer(cycles);
 }
 
 void System::ResetMemory()
@@ -62,6 +65,15 @@ void System::ResetMemory()
     Y_memzero(m_memory_wram, sizeof(m_memory_wram));
     Y_memzero(m_memory_oam, sizeof(m_memory_oam));
     Y_memzero(m_memory_zram, sizeof(m_memory_zram));
+}
+
+void System::ResetTimer()
+{
+    m_timer_cycles = 0;
+    m_timer_divider = 1;
+    m_timer_counter = 0;
+    m_timer_overflow_value = 0;
+    m_timer_control = 0;
 }
 
 void System::SetPostBootstrapState()
@@ -131,6 +143,22 @@ void System::CopyFrameBufferToSurface()
     }
 
     SDL_UpdateWindowSurface(m_window);
+}
+
+void System::UpdateTimer(uint32 cycles)
+{
+    // timer start/stop
+    if (!(m_timer_control & 0x4))
+        return;
+
+    // add cycles
+    m_timer_cycles += cycles;
+
+    // find timer rate
+    static const uint32 clock_rates[] = { 4096, 262144, 65536, 16384 };
+    uint32 clock_rate = clock_rates[m_timer_control & 0x3];
+
+    // convert cycles to hz
 }
 
 uint8 System::CPURead(uint16 address) const
