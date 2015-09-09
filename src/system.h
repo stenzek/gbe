@@ -52,6 +52,7 @@ private:
 
 private:
     void ResetMemory();
+    void SetPostBootstrapState();
     void CopyFrameBufferToSurface();
 
     SDL_Window *m_window;
@@ -73,9 +74,6 @@ private:
     byte m_memory_wram[0x2000];
     byte m_memory_oam[0xFF];
     byte m_memory_zram[0xFF];
-
-    uint8 m_cpuInterruptFlag;
-    uint8 m_cpuInterruptsEnabled;
 
     bool m_biosLatch;
     bool m_vramLocked;

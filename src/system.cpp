@@ -16,6 +16,9 @@ System::System()
     m_surface = nullptr;
     m_cartridge = nullptr;
     m_bios = nullptr;
+    m_biosLatch = false;
+    m_vramLocked = false;
+    m_oamLocked = false;
 }
 
 System::~System()
@@ -29,6 +32,13 @@ void System::Reset()
     m_cpu->Reset();
     m_display->Reset();
     ResetMemory();
+
+    // if bios not provided, emulate post-bootstrap state
+    if (m_bios == nullptr)
+    {
+        m_biosLatch = false;
+        SetPostBootstrapState();
+    }
 
     CopyFrameBufferToSurface();
 }
@@ -47,7 +57,7 @@ void System::Step()
 void System::ResetMemory()
 {
     // bios is initially mapped
-    m_biosLatch = (m_bios != nullptr);
+    m_biosLatch = true;
 
     // zero all memory
     Y_memzero(m_memory_vram, sizeof(m_memory_vram));
@@ -55,6 +65,11 @@ void System::ResetMemory()
     Y_memzero(m_memory_wram, sizeof(m_memory_wram));
     Y_memzero(m_memory_oam, sizeof(m_memory_oam));
     Y_memzero(m_memory_zram, sizeof(m_memory_zram));
+}
+
+void System::SetPostBootstrapState()
+{
+
 }
 
 void System::CopyFrameBufferToSurface()
