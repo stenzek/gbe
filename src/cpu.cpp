@@ -933,6 +933,16 @@ uint32 CPU::Step()
             break;
         }
 
+        //////////////////////////////////////////////////////////////////////////
+        // Restart
+        //////////////////////////////////////////////////////////////////////////
+    case Instruction::Type_Restart:
+        {
+            // unlike interrupts, does not push PC
+            m_registers.PC = 0x0000 + source->restart_vector;
+            break;
+        }
+
     default:
         UnreachableCode();
         break;
