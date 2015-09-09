@@ -85,6 +85,9 @@ private:
     uint8 m_timer_overflow_value;
     uint8 m_timer_control;
 
+    // pad
+    uint8 m_pad_row_select;
+
     bool m_biosLatch;
     bool m_vramLocked;
     bool m_oamLocked;

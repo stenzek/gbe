@@ -65,6 +65,9 @@ void System::ResetMemory()
     Y_memzero(m_memory_wram, sizeof(m_memory_wram));
     Y_memzero(m_memory_oam, sizeof(m_memory_oam));
     Y_memzero(m_memory_zram, sizeof(m_memory_zram));
+
+    // pad
+    m_pad_row_select = 0;
 }
 
 void System::ResetTimer()
@@ -390,10 +393,8 @@ uint8 System::CPUReadIORegister(uint8 index) const
             {
                 // Joypad
             case 0x00:
-                // Stub for now
-                //return 0;
-                //return (1 << 1) | (1 << 4);
-                return (1 << 4) | (1 << 1) | (1 << 2) | (1 << 3);
+                // Stub for now - nothing pressed
+                return m_pad_row_select | 0xF;
 
                 // Divider timer
             case 0x04:
@@ -433,6 +434,11 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
         {
             switch (index & 0x0F)
             {
+                // pad select
+            case 0x00:
+                m_pad_row_select = value & 0x30;
+                return;
+
             case 0x0F:
                 {
                     // interrupt flag, why would this be written to?
