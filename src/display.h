@@ -63,6 +63,9 @@ public:
 private:
     void RenderScanline();
 
+    void SetMode(uint32 mode);
+    void SetScanline(uint32 scanline);
+
     void PutPixel(uint32 x, uint32 y, uint32 color);
 
     System *m_system;

@@ -27,9 +27,68 @@ void Display::Reset()
     //m_registers[DISPLAY_REG_LCDC] = 0xFF;
 
     // start at the end of vblank which is equal to starting fresh
-    m_mode = 2;
+    SetMode(2);
     m_modeClocksRemaining = 80;
     m_currentScanLine = 0;
+}
+
+void Display::SetMode(uint32 mode)
+{
+    m_mode = mode;
+
+    // update lower two bits of STAT
+    m_registers.STAT = (m_registers.STAT & ~0x3) | (m_mode & 0x3);
+
+    // trigger interrupts
+    switch (mode)
+    {
+        // HBlank
+    case 0:
+        {
+            if (m_registers.STAT & (1 << 3))
+                m_system->CPUInterruptRequest(CPU_INT_LCDSTAT);
+
+            break;
+        }
+
+        // VBlank
+    case 1:
+        {
+            if (m_registers.STAT & (1 << 4))
+                m_system->CPUInterruptRequest(CPU_INT_LCDSTAT);
+
+            m_system->CPUInterruptRequest(CPU_INT_VBLANK);
+            break;
+        }
+
+        // OAM
+    case 2:
+        {
+            if (m_registers.STAT & (1 << 5))
+                m_system->CPUInterruptRequest(CPU_INT_LCDSTAT);
+
+            break;
+        }
+    }
+}
+
+
+void Display::SetScanline(uint32 scanline)
+{
+    m_currentScanLine = scanline;
+    m_registers.LY = scanline & 0xFF;
+
+    // update coincidence flag
+    uint8 coincidence_flag;
+    if (m_registers.STAT & (1 << 2))
+        coincidence_flag = (m_registers.LYC == m_registers.LY) ? 1 : 0;
+    else
+        coincidence_flag = (m_registers.LYC != m_registers.LY) ? 1 : 0;
+    m_registers.STAT = (m_registers.STAT & ~(1 << 2)) | (coincidence_flag << 2);
+
+    // coindcince interrupts
+    if (coincidence_flag && m_registers.STAT & (1 << 6))
+        m_system->CPUInterruptRequest(CPU_INT_LCDSTAT);    
 }
 
 bool Display::Step()
@@ -50,7 +109,7 @@ bool Display::Step()
 
                 // enter scanline mode 3 for 172 clocks
                 m_modeClocksRemaining = 172;
-                m_mode = 3;
+                SetMode(3);
             }
         }
         break;
@@ -66,9 +125,8 @@ bool Display::Step()
                 Y_memcpy(m_vramCopy, m_system->GetVRAM(), sizeof(m_vramCopy));
 
                 // enter hblank
-                m_mode = 0;
+                SetMode(0);
                 m_modeClocksRemaining = 204;
-                SetRegisterStatus((GetRegisterStatus() & ~(0x3)) | 0x0);
 
                 // render the scanline
                 RenderScanline();
@@ -84,14 +142,12 @@ bool Display::Step()
             if (m_modeClocksRemaining == 0)
             {
                 // move to the next line
-                m_currentScanLine++;
+                SetScanline(m_currentScanLine + 1);
                 if (m_currentScanLine == 144)
                 {
                     // enter vblank
-                    m_mode = 1;
+                    SetMode(1);
                     m_modeClocksRemaining = 456;
-                    SetRegisterStatus((GetRegisterStatus() & ~(0x3)) | 0x1);
-                    m_system->CPUInterruptRequest(CPU_INT_VBLANK);
 
                     // write framebuffer
                     pushFrameBuffer = true;
@@ -99,13 +155,9 @@ bool Display::Step()
                 else
                 {
                     // mode to oam for next line
-                    m_mode = 2;
+                    SetMode(2);
                     m_modeClocksRemaining = 80;
-                    SetRegisterStatus((GetRegisterStatus() & ~(0x3)) | 0x2);
                 }
-
-                // update registers
-                SetRegisterCurrentScanline(m_currentScanLine & 0xFF);
             }
         }
         break;
@@ -118,23 +170,19 @@ bool Display::Step()
             if (m_modeClocksRemaining == 0)
             {
                 // move to next line
-                m_currentScanLine++;
+                SetScanline(m_currentScanLine + 1);
                 if (m_currentScanLine == 154)
                 {
                     // return back to oam for first line
-                    m_mode = 2;
+                    SetMode(2);
                     m_modeClocksRemaining = 80;
                     m_currentScanLine = 0;
-                    SetRegisterStatus((GetRegisterStatus() & ~(0x3)) | 0x2);
                 }
                 else
                 {
                     // still in vblank
                     m_modeClocksRemaining = 456;
                 }
-
-                // update registers
-                SetRegisterCurrentScanline(m_currentScanLine & 0xFF);
             }
         }
         break;
