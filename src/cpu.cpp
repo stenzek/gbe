@@ -137,7 +137,12 @@ uint32 CPU::Step()
 
     // if halted, simulate a single cycle to keep the display/audio going
     if (m_halted)
+    {
+        if (!m_registers.IME)
+            Log_ErrorPrintf("CPU halted with interrupts disabled, real cpu would be frozen until reset");
+
         return 4;
+    }
 
     // debug
     static bool disasm_enabled = false;
@@ -552,11 +557,30 @@ uint32 CPU::Step()
                 // 16-bit add
             case Instruction::AddressMode_Reg16:
                 {
-                    // only goes register+register->register
-                    DebugAssert(source->mode == Instruction::AddressMode_Reg16);
-                    uint16 addend = m_registers.reg16[source->reg16];
                     uint16 old_value = m_registers.reg16[destination->reg16];
-                    uint32 new_value = old_value + (uint32)addend;
+                    uint32 new_value;
+
+                    // one instruction: ADD SP, r8
+                    if (source->mode == Instruction::AddressMode_Imm8)
+                    {
+                        // can be signed
+                        int8 r8 = (int8)get_imm8();
+                        if (r8 < 0)
+                            new_value = old_value - (uint16)(-r8);
+                        else
+                            new_value = old_value + (uint16)r8;
+
+                        // clears zero flag for some reason (but reg+reg doesn't)
+                        m_registers.SetFlagZ(false);
+                    }
+                    else
+                    {
+                        // only goes register+register->register
+                        DebugAssert(source->mode == Instruction::AddressMode_Reg16);
+                        uint16 addend = m_registers.reg16[source->reg16];
+                        new_value = old_value + (uint32)addend;
+                    }
+
                     m_registers.reg16[destination->reg16] = new_value & 0xFFFF;
                     m_registers.SetFlagN(false);
                     m_registers.SetFlagH(((new_value & 0xF) + (old_value & 0xF)) > 0xF);
@@ -941,8 +965,24 @@ uint32 CPU::Step()
 
     case Instruction::Type_JumpAbsolute:
         {
+            // get jump location
+            uint16 address;
+            switch (source->mode)
+            {
+            case Instruction::AddressMode_Imm16:
+                address = get_imm16();
+                break;
+
+            case Instruction::AddressMode_Reg16:
+                address = m_registers.reg16[source->reg16];
+                break;
+
+            default:
+                UnreachableCode();
+            }
+
             if (TestPredicate(instruction->predicate))
-                m_registers.PC = get_imm16();
+                m_registers.PC = address;
             else
                 cycles_consumed = instruction->cycles_skipped;
 

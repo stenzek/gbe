@@ -76,7 +76,7 @@ Log_SetChannel(CPU);
 #define SetBit(bitnum, dst, length, cycles) { Instruction::Type_SetBit, dst, NoOperand(), length, cycles, (Instruction::LoadStoreAction)bitnum },
 #define ResetBit(bitnum, dst, length, cycles) { Instruction::Type_ResetBit, dst, NoOperand(), length, cycles, (Instruction::LoadStoreAction)bitnum },
 #define JumpRelative(predicate, length, cycles, cycles_skipped) { Instruction::Type_JumpRelative, Imm8(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
-#define JumpAbsolute(predicate, length, cycles, cycles_skipped) { Instruction::Type_JumpAbsolute, Imm16(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
+#define JumpAbsolute(predicate, src, length, cycles, cycles_skipped) { Instruction::Type_JumpAbsolute, NoOperand(), src, length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
 #define Call(predicate, length, cycles, cycles_skipped) { Instruction::Type_Call, Imm16(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
 #define Return(predicate, length, cycles, cycles_skipped) { Instruction::Type_Return, NoOperand(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
 #define Push(src, length, cycles) { Instruction::Type_Push, NoOperand(), src, length, cycles },
@@ -95,8 +95,8 @@ const CPU::Instruction CPU::instructions[256] =
     Increment(Reg16(BC), 1, 8)                              // 0x03 INC BC
     Increment(Reg8(B), 1, 4)                                // 0x04 INC B
     Decrement(Reg8(B), 1, 4)                                // 0x05 DEC B
-    Load(Reg8(B), Imm8(), 2, 8)                             // 0x06 LD B, d8
-    Stub(1, 4)                                              // 0x07 RLCA
+    Load(Reg8(B), Imm8(), 1, 4)                             // 0x06 LD B, d8
+    Rotate(Left, WithCarry, Reg8(A), 2, 8)                  // 0x07 RLCA
     Store(Addr16(), Reg16(SP), 3, 20)                       // 0x08 LD (a16), SP
     Add(WithoutCarry, Reg16(HL), Reg16(BC), 1, 8)           // 0x09 ADD HL, BC
     Load(Reg8(A), Mem16(BC), 1, 8)                          // 0x0A LD A, (BC)
@@ -104,7 +104,7 @@ const CPU::Instruction CPU::instructions[256] =
     Increment(Reg8(C), 1, 4)                                // 0x0C INC C
     Decrement(Reg8(C), 1, 4)                                // 0x0D DEC C
     Load(Reg8(C), Imm8(), 2, 8)                             // 0x0E LD C, d8
-    Stub(1, 4)                                              // 0x0F RRCA
+    Rotate(Right, WithCarry, Reg8(A), 1, 4)                 // 0x0F RRCA
 
     // 0x10 - 0x1F
     Stub(2, 4)                                              // 0x10 STOP 0
@@ -122,7 +122,7 @@ const CPU::Instruction CPU::instructions[256] =
     Increment(Reg8(E), 1, 4)                                // 0x1C INC E
     Decrement(Reg8(E), 1, 4)                                // 0x1D DEC E
     Load(Reg8(E), Imm8(), 2, 8)                             // 0x1E LD E, d8
-    Stub(0, 0)                                              // 0x1F RRA
+    Rotate(Right, WithoutCarry, Reg8(A), 1, 4)              // 0x1F RRA
 
     // 0x20 - 0x2F
     JumpRelative(NotZero, 2, 12, 8)                         // 0x20 JR NZ, r8
@@ -289,15 +289,15 @@ const CPU::Instruction CPU::instructions[256] =
     Cmp(Reg8(A), Reg8(A), 1, 4)                             // 0xBF CP A
     Return(NotZero, 1, 20, 8)                               // 0xC0 RET NZ
     Pop(Reg16(BC), 1, 12)                                   // 0xC1 POP BC
-    JumpAbsolute(NotZero, 3, 16, 12)                        // 0xC2 JP NZ, a16
-    JumpAbsolute(Always, 3, 16, 16)                         // 0xC3 JP a16
+    JumpAbsolute(NotZero, Imm16(), 3, 16, 12)               // 0xC2 JP NZ, a16
+    JumpAbsolute(Always, Imm16(), 3, 16, 16)                // 0xC3 JP a16
     Call(NotZero, 3, 24, 12)                                // 0xC4 CALL NZ, a16
     Push(Reg16(BC), 1, 16)                                  // 0xC5 PUSH BC
-    Stub(2, 0)                                              // 0xC6 ADD A, d8
+    Add(WithoutCarry, Reg8(A), Imm8(), 2, 8)                // 0xC6 ADD A, d8
     Restart(0, 1, 16)                                       // 0xC7 RST 00H
     Return(Zero, 1, 20, 8)                                  // 0xC8 RET Z
     Return(Always, 1, 16, 16)                               // 0xC9 RET
-    JumpAbsolute(Zero, 3, 16, 12)                           // 0xCA JP Z, a16
+    JumpAbsolute(Zero, Imm16(), 3, 16, 12)                  // 0xCA JP Z, a16
     Prefix()                                                // 0xCB PREFIX CB
     Call(Zero, 3, 24, 12)                                   // 0xCC CALL Z, a16
     Call(Always, 3, 24, 12)                                 // 0xCD CALL a16
@@ -327,8 +327,8 @@ const CPU::Instruction CPU::instructions[256] =
     Push(Reg16(HL), 1, 16)                                  // 0xE5 PUSH HL
     And(Reg8(A), Imm8(), 2, 8)                              // 0xE6 AND d8
     Restart(0x20, 1, 16)                                    // 0xE7 RST 20H
-    Stub(2, 0)                                              // 0xE8 ADD SP, r8
-    Stub(1, 0)                                              // 0xE9 JP (HL)
+    Add(WithoutCarry, Reg16(SP), Imm8(), 2, 16)             // 0xE8 ADD SP, r8
+    JumpAbsolute(Always, Reg16(HL), 1, 4, 4)                // 0xE9 JP (HL)
     Store(Addr16(), Reg8(A), 3, 16)                         // 0xEA LD (a16), A
     Stub(1, 0)                                              // 0xEB
     Stub(1, 0)                                              // 0xEC
