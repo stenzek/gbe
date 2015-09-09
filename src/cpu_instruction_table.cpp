@@ -293,11 +293,11 @@ const CPU::Instruction CPU::instructions[256] =
     Stub(2, 0)                                              // 0xCE ADC A, d8
     Restart(0x08, 1, 16)                                    // 0xCF RST 08H
     Stub(1, 0)                                              // 0xD0 RET NC
-    Stub(1, 0)                                              // 0xD1 POP DE
+    Pop(Reg16(DE), 1, 12)                                   // 0xD1 POP DE
     Stub(3, 0)                                              // 0xD2 JP NC, a16
     Stub(1, 0)                                              // 0xD3
     Call(NotCarry, 3, 24, 12)                               // 0xD4 CALL NC, a16
-    Stub(1, 0)                                              // 0xD5 PUSH DE
+    Push(Reg16(DE), 1, 16)                                  // 0xD5 PUSH DE
     Stub(2, 0)                                              // 0xD6 SUB d8
     Restart(0x10, 1, 16)                                    // 0xD7 RST 10H
     Stub(1, 0)                                              // 0xD8 RET C
@@ -309,11 +309,11 @@ const CPU::Instruction CPU::instructions[256] =
     Stub(2, 0)                                              // 0xDE SBC A, d8
     Restart(0x18, 1, 16)                                    // 0xDF RST 18H
     WriteIOReg(Imm8(), Reg8(A), 2, 12)                      // 0xE0 LDH (a8), A
-    Stub(1, 0)                                              // 0xE1 POP HL
+    Pop(Reg16(HL), 1, 12)                                   // 0xE1 POP HL
     WriteIOReg(Reg8(C), Reg8(A), 1, 8)                      // 0xE2 LD (C), A
     Stub(1, 0)                                              // 0xE3
     Stub(1, 0)                                              // 0xE4
-    Stub(1, 0)                                              // 0xE5 PUSH HL
+    Push(Reg16(HL), 1, 16)                                  // 0xE5 PUSH HL
     And(Reg8(A), Imm8(), 2, 8)                              // 0xE6 AND d8
     Restart(0x20, 1, 16)                                    // 0xE7 RST 20H
     Stub(2, 0)                                              // 0xE8 ADD SP, r8
@@ -325,11 +325,11 @@ const CPU::Instruction CPU::instructions[256] =
     Stub(2, 0)                                              // 0xEE XOR d8
     Restart(0x28, 1, 16)                                    // 0xEF RST 28H
     ReadIOReg(Reg8(A), Imm8(), 2, 12)                       // 0xF0 LDH A, (a8)
-    Stub(1, 0)                                              // 0xF1 POP AF
+    Pop(Reg16(AF), 1, 12)                                   // 0xF1 POP AF
     ReadIOReg(Reg8(A), Reg8(C), 1, 8)                       // 0xF2 LD A, (C)
     Stub(1, 0)                                              // 0xF3 DI
     Stub(1, 0)                                              // 0xF4
-    Stub(1, 0)                                              // 0xF5 PUSH AF
+    Push(Reg16(AF), 1, 16)                                  // 0xF5 PUSH AF
     Stub(2, 0)                                              // 0xF6 OR d8
     Restart(0x30, 1, 16)                                    // 0xF7 RST 30H
     Stub(2, 0)                                              // 0xF8 LD HL, SP+r8
