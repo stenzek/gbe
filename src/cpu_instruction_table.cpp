@@ -491,126 +491,126 @@ const CPU::Instruction CPU::cb_instructions[256] =
     ResetBit(0, Reg8(E), 2, 8)                              // 0x83 RES 0,E
     ResetBit(0, Reg8(H), 2, 8)                              // 0x84 RES 0,H
     ResetBit(0, Reg8(L), 2, 8)                              // 0x85 RES 0,L
-    ResetBit(0, Reg16(HL), 2, 8)                            // 0x86 RES 0,(HL)
+    ResetBit(0, Reg16(HL), 2, 16)                           // 0x86 RES 0,(HL)
     ResetBit(0, Reg8(A), 2, 8)                              // 0x87 RES 0,A
-    Stub(2, 8)                                              // 0x88 RES 1,B
-    Stub(2, 8)                                              // 0x89 RES 1,C
-    Stub(2, 8)                                              // 0x8A RES 1,D
-    Stub(2, 8)                                              // 0x8B RES 1,E
-    Stub(2, 8)                                              // 0x8C RES 1,H
-    Stub(2, 8)                                              // 0x8D RES 1,L
-    Stub(2, 16)                                             // 0x8E RES 1,(HL)
-    Stub(2, 8)                                              // 0x8F RES 1,A
-    Stub(2, 8)                                              // 0x90 RES 2,B
-    Stub(2, 8)                                              // 0x91 RES 2,C
-    Stub(2, 8)                                              // 0x92 RES 2,D
-    Stub(2, 8)                                              // 0x93 RES 2,E
-    Stub(2, 8)                                              // 0x94 RES 2,H
-    Stub(2, 8)                                              // 0x95 RES 2,L
-    Stub(2, 16)                                             // 0x96 RES 2,(HL)
-    Stub(2, 8)                                              // 0x97 RES 2,A
-    Stub(2, 8)                                              // 0x98 RES 3,B
-    Stub(2, 8)                                              // 0x99 RES 3,C
-    Stub(2, 8)                                              // 0x9A RES 3,D
-    Stub(2, 8)                                              // 0x9B RES 3,E
-    Stub(2, 8)                                              // 0x9C RES 3,H
-    Stub(2, 8)                                              // 0x9D RES 3,L
-    Stub(2, 16)                                             // 0x9E RES 3,(HL)
-    Stub(2, 8)                                              // 0x9F RES 3,A
-    Stub(2, 8)                                              // 0xA0 RES 4,B
-    Stub(2, 8)                                              // 0xA1 RES 4,C
-    Stub(2, 8)                                              // 0xA2 RES 4,D
-    Stub(2, 8)                                              // 0xA3 RES 4,E
-    Stub(2, 8)                                              // 0xA4 RES 4,H
-    Stub(2, 8)                                              // 0xA5 RES 4,L
-    Stub(2, 16)                                             // 0xA6 RES 4,(HL)
-    Stub(2, 8)                                              // 0xA7 RES 4,A
-    Stub(2, 8)                                              // 0xA8 RES 5,B
-    Stub(2, 8)                                              // 0xA9 RES 5,C
-    Stub(2, 8)                                              // 0xAA RES 5,D
-    Stub(2, 8)                                              // 0xAB RES 5,E
-    Stub(2, 8)                                              // 0xAC RES 5,H
-    Stub(2, 8)                                              // 0xAD RES 5,L
-    Stub(2, 16)                                             // 0xAE RES 5,(HL)
-    Stub(2, 8)                                              // 0xAF RES 5,A
-    Stub(2, 8)                                              // 0xB0 RES 6,B
-    Stub(2, 8)                                              // 0xB1 RES 6,C
-    Stub(2, 8)                                              // 0xB2 RES 6,D
-    Stub(2, 8)                                              // 0xB3 RES 6,E
-    Stub(2, 8)                                              // 0xB4 RES 6,H
-    Stub(2, 8)                                              // 0xB5 RES 6,L
-    Stub(2, 16)                                             // 0xB6 RES 6,(HL)
-    Stub(2, 8)                                              // 0xB7 RES 6,A
-    Stub(2, 8)                                              // 0xB8 RES 7,B
-    Stub(2, 8)                                              // 0xB9 RES 7,C
-    Stub(2, 8)                                              // 0xBA RES 7,D
-    Stub(2, 8)                                              // 0xBB RES 7,E
-    Stub(2, 8)                                              // 0xBC RES 7,H
-    Stub(2, 8)                                              // 0xBD RES 7,L
-    Stub(2, 16)                                             // 0xBE RES 7,(HL)
-    Stub(2, 8)                                              // 0xBF RES 7,A
-    Stub(2, 8)                                              // 0xC0 SET 0,B
-    Stub(2, 8)                                              // 0xC1 SET 0,C
-    Stub(2, 8)                                              // 0xC2 SET 0,D
-    Stub(2, 8)                                              // 0xC3 SET 0,E
-    Stub(2, 8)                                              // 0xC4 SET 0,H
-    Stub(2, 8)                                              // 0xC5 SET 0,L
-    Stub(2, 16)                                             // 0xC6 SET 0,(HL)
-    Stub(2, 8)                                              // 0xC7 SET 0,A
-    Stub(2, 8)                                              // 0xC8 SET 1,B
-    Stub(2, 8)                                              // 0xC9 SET 1,C
-    Stub(2, 8)                                              // 0xCA SET 1,D
-    Stub(2, 8)                                              // 0xCB SET 1,E
-    Stub(2, 8)                                              // 0xCC SET 1,H
-    Stub(2, 8)                                              // 0xCD SET 1,L
-    Stub(2, 16)                                             // 0xCE SET 1,(HL)
-    Stub(2, 8)                                              // 0xCF SET 1,A
-    Stub(2, 8)                                              // 0xD0 SET 2,B
-    Stub(2, 8)                                              // 0xD1 SET 2,C
-    Stub(2, 8)                                              // 0xD2 SET 2,D
-    Stub(2, 8)                                              // 0xD3 SET 2,E
-    Stub(2, 8)                                              // 0xD4 SET 2,H
-    Stub(2, 8)                                              // 0xD5 SET 2,L
-    Stub(2, 16)                                             // 0xD6 SET 2,(HL)
-    Stub(2, 8)                                              // 0xD7 SET 2,A
-    Stub(2, 8)                                              // 0xD8 SET 3,B
-    Stub(2, 8)                                              // 0xD9 SET 3,C
-    Stub(2, 8)                                              // 0xDA SET 3,D
-    Stub(2, 8)                                              // 0xDB SET 3,E
-    Stub(2, 8)                                              // 0xDC SET 3,H
-    Stub(2, 8)                                              // 0xDD SET 3,L
-    Stub(2, 16)                                             // 0xDE SET 3,(HL)
-    Stub(2, 8)                                              // 0xDF SET 3,A
-    Stub(2, 8)                                              // 0xE0 SET 4,B
-    Stub(2, 8)                                              // 0xE1 SET 4,C
-    Stub(2, 8)                                              // 0xE2 SET 4,D
-    Stub(2, 8)                                              // 0xE3 SET 4,E
-    Stub(2, 8)                                              // 0xE4 SET 4,H
-    Stub(2, 8)                                              // 0xE5 SET 4,L
-    Stub(2, 16)                                             // 0xE6 SET 4,(HL)
-    Stub(2, 8)                                              // 0xE7 SET 4,A
-    Stub(2, 8)                                              // 0xE8 SET 5,B
-    Stub(2, 8)                                              // 0xE9 SET 5,C
-    Stub(2, 8)                                              // 0xEA SET 5,D
-    Stub(2, 8)                                              // 0xEB SET 5,E
-    Stub(2, 8)                                              // 0xEC SET 5,H
-    Stub(2, 8)                                              // 0xED SET 5,L
-    Stub(2, 16)                                             // 0xEE SET 5,(HL)
-    Stub(2, 8)                                              // 0xEF SET 5,A
-    Stub(2, 8)                                              // 0xF0 SET 6,B
-    Stub(2, 8)                                              // 0xF1 SET 6,C
-    Stub(2, 8)                                              // 0xF2 SET 6,D
-    Stub(2, 8)                                              // 0xF3 SET 6,E
-    Stub(2, 8)                                              // 0xF4 SET 6,H
-    Stub(2, 8)                                              // 0xF5 SET 6,L
-    Stub(2, 16)                                             // 0xF6 SET 6,(HL)
-    Stub(2, 8)                                              // 0xF7 SET 6,A
-    Stub(2, 8)                                              // 0xF8 SET 7,B
-    Stub(2, 8)                                              // 0xF9 SET 7,C
-    Stub(2, 8)                                              // 0xFA SET 7,D
-    Stub(2, 8)                                              // 0xFB SET 7,E
-    Stub(2, 8)                                              // 0xFC SET 7,H
-    Stub(2, 8)                                              // 0xFD SET 7,L
-    Stub(2, 16)                                             // 0xFE SET 7,(HL)
-    Stub(2, 8)                                              // 0xFF SET 7,A
+    ResetBit(1, Reg8(B), 2, 8)                              // 0x88 RES 1,B
+    ResetBit(1, Reg8(C), 2, 8)                              // 0x89 RES 1,C
+    ResetBit(1, Reg8(D), 2, 8)                              // 0x8A RES 1,D
+    ResetBit(1, Reg8(E), 2, 8)                              // 0x8B RES 1,E
+    ResetBit(1, Reg8(H), 2, 8)                              // 0x8C RES 1,H
+    ResetBit(1, Reg8(L), 2, 8)                              // 0x8D RES 1,L
+    ResetBit(0, Reg16(HL), 2, 16)                           // 0x8E RES 1,(HL)
+    ResetBit(1, Reg8(A), 2, 8)                              // 0x8F RES 1,A
+    ResetBit(2, Reg8(B), 2, 8)                              // 0x90 RES 2,B
+    ResetBit(2, Reg8(C), 2, 8)                              // 0x91 RES 2,C
+    ResetBit(2, Reg8(D), 2, 8)                              // 0x92 RES 2,D
+    ResetBit(2, Reg8(E), 2, 8)                              // 0x93 RES 2,E
+    ResetBit(2, Reg8(H), 2, 8)                              // 0x94 RES 2,H
+    ResetBit(2, Reg8(L), 2, 8)                              // 0x95 RES 2,L
+    ResetBit(2, Reg16(HL), 2, 16)                           // 0x96 RES 2,(HL)
+    ResetBit(2, Reg8(A), 2, 8)                              // 0x97 RES 2,A
+    ResetBit(3, Reg8(B), 2, 8)                              // 0x98 RES 3,B
+    ResetBit(3, Reg8(C), 2, 8)                              // 0x99 RES 3,C
+    ResetBit(3, Reg8(D), 2, 8)                              // 0x9A RES 3,D
+    ResetBit(3, Reg8(E), 2, 8)                              // 0x9B RES 3,E
+    ResetBit(3, Reg8(H), 2, 8)                              // 0x9C RES 3,H
+    ResetBit(3, Reg8(L), 2, 8)                              // 0x9D RES 3,L
+    ResetBit(3, Reg16(HL), 2, 16)                           // 0x9E RES 3,(HL)
+    ResetBit(3, Reg8(A), 2, 8)                              // 0x9F RES 3,A
+    ResetBit(4, Reg8(B), 2, 8)                              // 0xA0 RES 4,B
+    ResetBit(4, Reg8(C), 2, 8)                              // 0xA1 RES 4,C
+    ResetBit(4, Reg8(D), 2, 8)                              // 0xA2 RES 4,D
+    ResetBit(4, Reg8(E), 2, 8)                              // 0xA3 RES 4,E
+    ResetBit(4, Reg8(H), 2, 8)                              // 0xA4 RES 4,H
+    ResetBit(4, Reg8(L), 2, 8)                              // 0xA5 RES 4,L
+    ResetBit(4, Reg16(HL), 2, 16)                           // 0xA6 RES 4,(HL)
+    ResetBit(4, Reg8(A), 2, 8)                              // 0xA7 RES 4,A
+    ResetBit(5, Reg8(B), 2, 8)                              // 0xA8 RES 5,B
+    ResetBit(5, Reg8(C), 2, 8)                              // 0xA9 RES 5,C
+    ResetBit(5, Reg8(D), 2, 8)                              // 0xAA RES 5,D
+    ResetBit(5, Reg8(E), 2, 8)                              // 0xAB RES 5,E
+    ResetBit(5, Reg8(H), 2, 8)                              // 0xAC RES 5,H
+    ResetBit(5, Reg8(L), 2, 8)                              // 0xAD RES 5,L
+    ResetBit(5, Reg16(HL), 2, 16)                           // 0xAE RES 5,(HL)
+    ResetBit(5, Reg8(A), 2, 8)                              // 0xAF RES 5,A
+    ResetBit(6, Reg8(B), 2, 8)                              // 0xB0 RES 6,B
+    ResetBit(6, Reg8(C), 2, 8)                              // 0xB1 RES 6,C
+    ResetBit(6, Reg8(D), 2, 8)                              // 0xB2 RES 6,D
+    ResetBit(6, Reg8(E), 2, 8)                              // 0xB3 RES 6,E
+    ResetBit(6, Reg8(H), 2, 8)                              // 0xB4 RES 6,H
+    ResetBit(6, Reg8(L), 2, 8)                              // 0xB5 RES 6,L
+    ResetBit(6, Reg16(HL), 2, 16)                           // 0xB6 RES 6,(HL)
+    ResetBit(6, Reg8(A), 2, 8)                              // 0xB7 RES 6,A
+    ResetBit(7, Reg8(B), 2, 8)                              // 0xB8 RES 7,B
+    ResetBit(7, Reg8(C), 2, 8)                              // 0xB9 RES 7,C
+    ResetBit(7, Reg8(D), 2, 8)                              // 0xBA RES 7,D
+    ResetBit(7, Reg8(E), 2, 8)                              // 0xBB RES 7,E
+    ResetBit(7, Reg8(H), 2, 8)                              // 0xBC RES 7,H
+    ResetBit(7, Reg8(L), 2, 8)                              // 0xBD RES 7,L
+    ResetBit(7, Reg16(HL), 2, 16)                           // 0xBE RES 7,(HL)
+    ResetBit(7, Reg8(A), 2, 8)                              // 0xBF RES 7,A
+    SetBit(0, Reg8(B), 2, 8)                                // 0xC0 SET 0,B
+    SetBit(0, Reg8(C), 2, 8)                                // 0xC1 SET 0,C
+    SetBit(0, Reg8(D), 2, 8)                                // 0xC2 SET 0,D
+    SetBit(0, Reg8(E), 2, 8)                                // 0xC3 SET 0,E
+    SetBit(0, Reg8(H), 2, 8)                                // 0xC4 SET 0,H
+    SetBit(0, Reg8(L), 2, 8)                                // 0xC5 SET 0,L
+    SetBit(0, Reg16(HL), 2, 16)                             // 0xC6 SET 0,(HL)
+    SetBit(0, Reg8(A), 2, 8)                                // 0xC7 SET 0,A
+    SetBit(1, Reg8(B), 2, 8)                                // 0xC8 SET 1,B
+    SetBit(1, Reg8(C), 2, 8)                                // 0xC9 SET 1,C
+    SetBit(1, Reg8(D), 2, 8)                                // 0xCA SET 1,D
+    SetBit(1, Reg8(E), 2, 8)                                // 0xCB SET 1,E
+    SetBit(1, Reg8(H), 2, 8)                                // 0xCC SET 1,H
+    SetBit(1, Reg8(L), 2, 8)                                // 0xCD SET 1,L
+    SetBit(1, Reg16(HL), 2, 16)                             // 0xCE SET 1,(HL)
+    SetBit(1, Reg8(A), 2, 8)                                // 0xCF SET 1,A
+    SetBit(2, Reg8(B), 2, 8)                                // 0xD0 SET 2,B
+    SetBit(2, Reg8(C), 2, 8)                                // 0xD1 SET 2,C
+    SetBit(2, Reg8(D), 2, 8)                                // 0xD2 SET 2,D
+    SetBit(2, Reg8(E), 2, 8)                                // 0xD3 SET 2,E
+    SetBit(2, Reg8(H), 2, 8)                                // 0xD4 SET 2,H
+    SetBit(2, Reg8(L), 2, 8)                                // 0xD5 SET 2,L
+    SetBit(2, Reg16(HL), 2, 16)                             // 0xD6 SET 2,(HL)
+    SetBit(2, Reg8(A), 2, 8)                                // 0xD7 SET 2,A
+    SetBit(3, Reg8(B), 2, 8)                                // 0xD8 SET 3,B
+    SetBit(3, Reg8(C), 2, 8)                                // 0xD9 SET 3,C
+    SetBit(3, Reg8(D), 2, 8)                                // 0xDA SET 3,D
+    SetBit(3, Reg8(E), 2, 8)                                // 0xDB SET 3,E
+    SetBit(3, Reg8(H), 2, 8)                                // 0xDC SET 3,H
+    SetBit(3, Reg8(L), 2, 8)                                // 0xDD SET 3,L
+    SetBit(3, Reg16(HL), 2, 16)                             // 0xDE SET 3,(HL)
+    SetBit(3, Reg8(A), 2, 8)                                // 0xDF SET 3,A
+    SetBit(4, Reg8(B), 2, 8)                                // 0xE0 SET 4,B
+    SetBit(4, Reg8(C), 2, 8)                                // 0xE1 SET 4,C
+    SetBit(4, Reg8(D), 2, 8)                                // 0xE2 SET 4,D
+    SetBit(4, Reg8(E), 2, 8)                                // 0xE3 SET 4,E
+    SetBit(4, Reg8(H), 2, 8)                                // 0xE4 SET 4,H
+    SetBit(4, Reg8(L), 2, 8)                                // 0xE5 SET 4,L
+    SetBit(4, Reg16(HL), 2, 16)                             // 0xE6 SET 4,(HL)
+    SetBit(4, Reg8(A), 2, 8)                                // 0xE7 SET 4,A
+    SetBit(5, Reg8(B), 2, 8)                                // 0xE8 SET 5,B
+    SetBit(5, Reg8(C), 2, 8)                                // 0xE9 SET 5,C
+    SetBit(5, Reg8(D), 2, 8)                                // 0xEA SET 5,D
+    SetBit(5, Reg8(E), 2, 8)                                // 0xEB SET 5,E
+    SetBit(5, Reg8(H), 2, 8)                                // 0xEC SET 5,H
+    SetBit(5, Reg8(L), 2, 8)                                // 0xED SET 5,L
+    SetBit(5, Reg16(HL), 2, 16)                             // 0xEE SET 5,(HL)
+    SetBit(5, Reg8(A), 2, 8)                                // 0xEF SET 5,A
+    SetBit(6, Reg8(B), 2, 8)                                // 0xF0 SET 6,B
+    SetBit(6, Reg8(C), 2, 8)                                // 0xF1 SET 6,C
+    SetBit(6, Reg8(D), 2, 8)                                // 0xF2 SET 6,D
+    SetBit(6, Reg8(E), 2, 8)                                // 0xF3 SET 6,E
+    SetBit(6, Reg8(H), 2, 8)                                // 0xF4 SET 6,H
+    SetBit(6, Reg8(L), 2, 8)                                // 0xF5 SET 6,L
+    SetBit(6, Reg16(HL), 2, 16)                             // 0xF6 SET 6,(HL)
+    SetBit(6, Reg8(A), 2, 8)                                // 0xF7 SET 6,A
+    SetBit(7, Reg8(B), 2, 8)                                // 0xF8 SET 7,B
+    SetBit(7, Reg8(C), 2, 8)                                // 0xF9 SET 7,C
+    SetBit(7, Reg8(D), 2, 8)                                // 0xFA SET 7,D
+    SetBit(7, Reg8(E), 2, 8)                                // 0xFB SET 7,E
+    SetBit(7, Reg8(H), 2, 8)                                // 0xFC SET 7,H
+    SetBit(7, Reg8(L), 2, 8)                                // 0xFD SET 7,L
+    SetBit(7, Reg16(HL), 2, 16)                             // 0xFE SET 7,(HL)
+    SetBit(7, Reg8(A), 2, 8)                                // 0xFF SET 7,A
 };
