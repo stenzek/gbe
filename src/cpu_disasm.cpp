@@ -1,5 +1,32 @@
 #include "cpu.h"
 #include "YBaseLib/String.h"
+#include "YBaseLib/NumericLimits.h"
+#include "YBaseLib/Log.h"
+Log_SetChannel(CPU);
+
+void CPU::DisassembleFrom(System *system, uint16 address, uint16 count)
+{
+    uint16 start_address = address;
+    uint16 end_address;
+    if ((uint32)start_address + count > Y_UINT16_MAX)
+        end_address = Y_UINT16_MAX;
+    else
+        end_address = start_address + count;
+
+    for (uint16 current_address = start_address; current_address < end_address; )
+    {
+        SmallString str;
+        if (!Disassemble(&str, system, current_address))
+        {
+            Log_ErrorPrintf("Disasm fail at %04X", address);
+            return;
+        }
+
+        const Instruction *instruction = &instructions[system->CPURead(address)];
+        current_address += (uint16)instruction->length;
+        Log_DevPrint(str);
+    }
+}
 
 bool CPU::Disassemble(String *pDestination, System *memory, uint16 address)
 {

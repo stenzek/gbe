@@ -161,6 +161,7 @@ public:
 
     // disassemble an instruction
     static bool Disassemble(String *pDestination, System *memory, uint16 address);
+    static void DisassembleFrom(System *system, uint16 address, uint16 count);
 
 private:
     // memory read/writes
@@ -248,6 +249,9 @@ public:
             Untyped_EI,
             Untyped_DI,
             Untyped_LDHL,
+            Untyped_SLA,
+            Untyped_SRA,
+            Untyped_SRL,
         };
 
         enum LoadStoreAction
