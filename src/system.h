@@ -69,8 +69,8 @@ private:
     // bios, rom banks 0-1
     //byte m_memory_ROM0[0x4000];
     //byte m_memory_ROM1[0x4000];
-    const byte *m_memory_ROM0;
-    const byte *m_memory_ROM1;
+    //const byte *m_memory_ROM0;
+    //const byte *m_memory_ROM1;
     byte m_memory_vram[0x2000];
     byte m_memory_eram[0x2000];
     byte m_memory_wram[0x2000];

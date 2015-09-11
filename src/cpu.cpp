@@ -130,7 +130,7 @@ uint32 CPU::Step()
                     m_halted = false;
 
                     Log_DevPrintf("Entering interrupt handler for %u", i);
-                    DisassembleFrom(m_system, m_registers.PC, 10);
+                    //DisassembleFrom(m_system, m_registers.PC, 10);
                     break;
                 }
             }
@@ -669,6 +669,7 @@ uint32 CPU::Step()
             m_registers.SetFlagN(false);
             m_registers.SetFlagH(true);
             m_registers.SetFlagC(false);
+            break;
         }
 
         //////////////////////////////////////////////////////////////////////////
@@ -705,6 +706,7 @@ uint32 CPU::Step()
             m_registers.SetFlagN(false);
             m_registers.SetFlagH(false);
             m_registers.SetFlagC(false);
+            break;
         }
 
         //////////////////////////////////////////////////////////////////////////

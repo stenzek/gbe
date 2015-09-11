@@ -73,6 +73,7 @@ void System::ResetMemory()
 void System::ResetTimer()
 {
     m_timer_clocks = 0;
+    m_timer_divider_clocks = 0;
     m_timer_divider = 1;
     m_timer_counter = 0;
     m_timer_overflow_value = 0;
@@ -202,8 +203,13 @@ uint8 System::CPURead(uint16 address) const
         // bios/rom0
     case 0x0000:
         {
-            if (m_biosLatch && address < GB_BIOS_LENGTH)
-                return m_bios[address];
+            if (m_biosLatch && address < GB_BIOS_LENGTH && m_bios != nullptr)
+            {
+                if (m_bios == nullptr)
+                    Log_WarningPrintf("Reading from BIOS area (0x%04X) with bios unmapped.", address);
+                else
+                    return m_bios[address];
+            }
 
             return (m_cartridge != nullptr) ? m_cartridge->GetROM0()[address] : 0x00;
         }
@@ -376,7 +382,6 @@ void System::CPUWrite(uint16 address, uint8 value)
                 }
             }
         }
-        break;
     }
 
     // unhandled write
@@ -408,6 +413,8 @@ uint8 System::CPUReadIORegister(uint8 index) const
             case 0x07:
                 return m_timer_control;
             }
+
+            break;
         }
 
     case 0x40:
@@ -415,6 +422,8 @@ uint8 System::CPUReadIORegister(uint8 index) const
             // LCD registers
             if (index <= 0x4B)
                 return m_display->GetRegister((DISPLAY_REG)(index - 0x40));
+
+            break;
         }
     }
 
@@ -464,6 +473,8 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                 m_timer_control = value;
                 return;
             }
+
+            break;
         }
     case 0x40:
         {
@@ -473,6 +484,8 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                 m_display->SetRegister((DISPLAY_REG)(index - 0x40), value);
                 return;
             }
+
+            break;
         }
     case 0x50:
         {
@@ -483,6 +496,8 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                 m_biosLatch = (value == 0);
                 return;
             }
+
+            break;
         }
     case 0xF0:
         {
@@ -492,6 +507,8 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                 m_cpu->GetRegisters()->IE = value;
                 return;
             }
+
+            break;
         }
     }
 
