@@ -291,6 +291,7 @@ public:
                 Reg8 reg8;
                 Reg16 reg16;
                 RotateDirection direction;
+                uint8 restart_vector;
             };
         };
 
@@ -306,7 +307,6 @@ public:
             CarryAction carry;
             Untyped untyped_opcode;
             uint8 bitnum;
-            uint8 restart_vector;
         };
         uint32 cycles_skipped;
     };

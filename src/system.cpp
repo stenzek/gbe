@@ -44,7 +44,7 @@ void System::Reset()
 void System::Step()
 {
     uint32 cycles = m_cpu->Step();
-    for (uint32 i = 0; i < cycles; i++)
+    for (uint32 i = 0; i < cycles / 4; i++)
     {
         // TODO: Pass cycles as argument
         if (m_display->Step())
@@ -198,6 +198,9 @@ void System::UpdateTimer(uint32 clocks)
 
 uint8 System::CPURead(uint16 address) const
 {
+//     if (address == 0xc009)
+//         __debugbreak();
+
     switch (address & 0xF000)
     {
         // bios/rom0
@@ -297,6 +300,9 @@ uint8 System::CPURead(uint16 address) const
 
 void System::CPUWrite(uint16 address, uint8 value)
 {
+//     if (address == 0xc009)
+//         __debugbreak();
+
     switch (address & 0xF000)
     {
         // ROM0/ROM1 not writable
@@ -399,7 +405,10 @@ uint8 System::CPUReadIORegister(uint8 index) const
                 // Joypad
             case 0x00:
                 // Stub for now - nothing pressed
-                return m_pad_row_select | 0xF;
+                {
+                    static uint8 mask = 0xF;
+                    return m_pad_row_select | mask;
+                }
 
                 // Divider timer
             case 0x04:
@@ -425,11 +434,26 @@ uint8 System::CPUReadIORegister(uint8 index) const
 
             break;
         }
+
+    case 0xF0:
+        {
+            switch (index & 0x0F)
+            {
+                // FFFF = IF
+            case 0x0F:
+                return m_cpu->GetRegisters()->IF;
+
+            }
+            break;
+        }
     }
 
     // "high ram"
-    if (index >= 0x80 && index <= 0xFE)
+    if (index >= 0x80)
+    {
+        DebugAssert(index != 0xFF);
         return m_memory_zram[index - 0x80];
+    }
 
     Log_DevPrintf("Unhandled CPU IO register read: 0x%02X", index);
     return 0x00;
@@ -448,12 +472,13 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                 m_pad_row_select = value & 0x30;
                 return;
 
-            case 0x0F:
-                {
-                    // interrupt flag, why would this be written to?
-                    m_cpu->GetRegisters()->IF = value;
-                    return;
-                }
+                // FF01 - SB serial data
+            case 0x01:
+                return;
+
+                // FF02 - SC serial control
+            case 0x02:
+                return;                
 
                 // Divider timer
             case 0x04:
@@ -472,9 +497,76 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             case 0x07:
                 m_timer_control = value;
                 return;
+
+                // interrupt flag
+            case 0x0F:
+                m_cpu->GetRegisters()->IF = value;
+                return;
             }
 
             break;
+        }
+    case 0x10:
+        {
+            switch (index & 0x0F)
+            {
+                // FF10 - NR10 - Channel 1 Sweep register (R/W)
+            case 0x00:
+                return;
+
+                // FF12 - NR12 - Channel 1 Volume Envelope (R/W)
+            case 0x02:
+                return;
+
+                // FF13 - NR13 - Channel 1 Frequency lo (Write Only)
+            case 0x03:
+                return;
+
+                // FF14 - NR14 - Channel 1 Frequency hi (R/W)
+            case 0x04:
+                return;
+
+                // FF19 - NR24 - Channel 2 Frequency hi data (R/W)
+            case 0x09:
+                return;
+
+                // FF1A - NR30 - Channel 3 Sound on/off (R/W)
+            case 0x0A:
+                return;
+
+                // FF1B - NR31 - Channel 3 Sound Length
+            case 0x0B:
+                return;
+
+                // FF1C - NR32 - Channel 3 Select output level (R/W)
+            case 0x0C:
+                return;
+
+                // FF1D - NR33 - Channel 3 Frequency's lower data (W)
+            case 0x0D:
+                return;
+
+                // FF1E - NR34 - Channel 3 Frequency's higher data (R/W)
+            case 0x0E:
+                return;
+            }
+        }
+    case 0x20:
+        {
+            switch (index & 0x0F)
+            {
+                // FF24 - NR50 - Channel control / ON-OFF / Volume (R/W)
+            case 0x04:
+                return;
+
+                // FF25 - NR51 - Selection of Sound output terminal (R/W)
+            case 0x05:
+                return;
+
+                // FF26 - NR52 - sound on/off
+            case 0x06:
+                return;
+            }
         }
     case 0x40:
         {
@@ -501,9 +593,10 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
         }
     case 0xF0:
         {
-            // F0-FE is high ram below, FF = interrupt flag
-            if (index == 0xFF)
+            switch (index & 0x0F)
             {
+            case 0x0F:
+                // F0-FE is high ram below, FF = interrupt flag
                 m_cpu->GetRegisters()->IE = value;
                 return;
             }
@@ -513,8 +606,9 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
     }
 
     // "high ram"
-    if (index >= 0x80 && index <= 0xFE)
+    if (index >= 0x80)
     {
+        DebugAssert(index != 0xFF);
         m_memory_zram[index - 0x80] = value;
         return;
     }

@@ -175,8 +175,8 @@ bool Display::Step()
                 {
                     // return back to oam for first line
                     SetMode(2);
+                    SetScanline(0);
                     m_modeClocksRemaining = 80;
-                    m_currentScanLine = 0;
                 }
                 else
                 {

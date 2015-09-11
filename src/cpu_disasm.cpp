@@ -22,7 +22,10 @@ void CPU::DisassembleFrom(System *system, uint16 address, uint16 count)
             return;
         }
 
-        const Instruction *instruction = &instructions[system->CPURead(address)];
+        const Instruction *instruction = &instructions[system->CPURead(current_address)];
+        if (instruction->type == Instruction::Type_Prefix)
+            instruction = &cb_instructions[system->CPURead(current_address + 1)];
+
         current_address += (uint16)instruction->length;
         Log_DevPrint(str);
     }

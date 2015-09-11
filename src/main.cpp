@@ -193,7 +193,7 @@ extern "C" int main(int argc, char *argv[])
 {
     // set log flags
     g_pLog->SetConsoleOutputParams(true);
-    g_pLog->SetDebugOutputParams(true);
+    //g_pLog->SetDebugOutputParams(true);
 
 #if defined(__WIN32__)
     // fix up stdout/stderr on win32

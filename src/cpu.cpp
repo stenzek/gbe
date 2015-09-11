@@ -123,6 +123,7 @@ uint32 CPU::Step()
                         0x0048,     // lcdc
                         0x0050,     // timer
                         0x0058,     // serial
+                        0x0060,     // joypad
                     };
 
                     PushWord(m_registers.PC);
@@ -145,6 +146,9 @@ uint32 CPU::Step()
 
         return 4;
     }
+
+//     if (m_registers.PC == 0x0203)
+//         __debugbreak();
 
     // debug
     static bool disasm_enabled = false;
@@ -282,6 +286,15 @@ uint32 CPU::Step()
 
                             break;
                         }
+
+                    case Instruction::AddressMode_Addr16:
+                        {
+                            value = MemReadByte(get_imm16());
+                            break;
+                        }
+
+                    default:
+                        UnreachableCode();
                     }
                     m_registers.reg8[destination->reg8] = value;
                     break;
@@ -841,6 +854,10 @@ uint32 CPU::Step()
             case Instruction::AddressMode_Mem16:
                 value = MemReadByte(m_registers.reg16[source->reg16]);
                 break;
+
+            default:
+                UnreachableCode();
+                break;
             }
 
             // swap nibbles
@@ -855,6 +872,10 @@ uint32 CPU::Step()
 
             case Instruction::AddressMode_Mem16:
                 MemWriteByte(m_registers.reg16[destination->reg16], value);
+                break;
+
+            default:
+                UnreachableCode();
                 break;
             }
             break;
@@ -915,6 +936,10 @@ uint32 CPU::Step()
             case Instruction::AddressMode_Mem16:
                 value = MemReadByte(m_registers.reg16[source->reg16]);
                 break;
+
+            default:
+                UnreachableCode();
+                break;
             }
 
             value &= mask;
@@ -939,6 +964,10 @@ uint32 CPU::Step()
             case Instruction::AddressMode_Mem16:
                 MemWriteWord(m_registers.reg16[destination->reg16], MemReadByte(m_registers.reg16[destination->reg16]) | mask);
                 break;
+            default:
+                UnreachableCode();
+                break;
+
             }
 
             break;
@@ -958,6 +987,10 @@ uint32 CPU::Step()
 
             case Instruction::AddressMode_Mem16:
                 MemWriteWord(m_registers.reg16[destination->reg16], MemReadByte(m_registers.reg16[destination->reg16]) & ~mask);
+                break;
+
+            default:
+                UnreachableCode();
                 break;
             }
 
@@ -1075,8 +1108,8 @@ uint32 CPU::Step()
         //////////////////////////////////////////////////////////////////////////
     case Instruction::Type_Restart:
         {
-            // unlike interrupts, does not push PC
-            m_registers.PC = 0x0000 + instruction->restart_vector;
+            PushWord(m_registers.PC);
+            m_registers.PC = 0x0000 + destination->restart_vector;
             break;
         }
 
@@ -1101,7 +1134,7 @@ uint32 CPU::Step()
 
             case Instruction::Untyped_HALT:
                 m_halted = true;
-                Log_DevPrintf("CPU Halt");
+                Log_DevPrintf("CPU Halt at %04X", original_pc);
                 break;
 
             case Instruction::Untyped_STOP:

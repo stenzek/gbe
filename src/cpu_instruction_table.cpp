@@ -159,7 +159,7 @@ const CPU::Instruction CPU::instructions[256] =
     Untyped(SCF, 1, 4)                                      // 0x37 SCF
     JumpRelative(Carry, 2, 12, 8)                           // 0x38 JR C, r8
     Add(WithoutCarry, Reg16(HL), Reg16(SP), 1, 8)           // 0x39 ADD HL, SP
-    LoadAnd(DecrementAddress, Reg8(A), Reg16(HL), 1, 8)     // 0x3A LDD A, (HL)
+    LoadAnd(DecrementAddress, Reg8(A), Mem16(HL), 1, 8)     // 0x3A LDD A, (HL)
     Decrement(Reg16(SP), 1, 8)                              // 0x3B DEC SP
     Increment(Reg8(A), 1, 4)                                // 0x3C INC A
     Decrement(Reg8(A), 1, 4)                                // 0x3D DEC A
@@ -195,7 +195,7 @@ const CPU::Instruction CPU::instructions[256] =
     Move(Reg8(E), Reg8(E), 1, 4)                            // 0x5B LD E, E
     Move(Reg8(E), Reg8(H), 1, 4)                            // 0x5C LD E, H
     Move(Reg8(E), Reg8(L), 1, 4)                            // 0x5D LD E, L
-    Load(Reg8(E), Reg16(HL), 1, 8)                          // 0x5E LD E, (HL)
+    Load(Reg8(E), Mem16(HL), 1, 8)                          // 0x5E LD E, (HL)
     Move(Reg8(E), Reg8(A), 1, 4)                            // 0x5F LD E, A
     Move(Reg8(H), Reg8(B), 1, 4)                            // 0x60 LD H, B
     Move(Reg8(H), Reg8(C), 1, 4)                            // 0x61 LD H, C
@@ -230,13 +230,13 @@ const CPU::Instruction CPU::instructions[256] =
     Load(Reg8(A), Mem16(HL), 1, 8)                          // 0x7E LD A, (HL)
     Move(Reg8(A), Reg8(A), 1, 4)                            // 0x7F LD A, A
     Add(WithoutCarry, Reg8(A), Reg8(B), 1, 4)               // 0x80 ADD A, B
-    Add(WithoutCarry, Reg8(A), Reg8(B), 1, 4)               // 0x81 ADD A, C
-    Add(WithoutCarry, Reg8(A), Reg8(B), 1, 4)               // 0x82 ADD A, D
-    Add(WithoutCarry, Reg8(A), Reg8(B), 1, 4)               // 0x83 ADD A, E
-    Add(WithoutCarry, Reg8(A), Reg8(B), 1, 4)               // 0x84 ADD A, H
-    Add(WithoutCarry, Reg8(A), Reg8(B), 1, 4)               // 0x85 ADD A, L
+    Add(WithoutCarry, Reg8(A), Reg8(C), 1, 4)               // 0x81 ADD A, C
+    Add(WithoutCarry, Reg8(A), Reg8(D), 1, 4)               // 0x82 ADD A, D
+    Add(WithoutCarry, Reg8(A), Reg8(E), 1, 4)               // 0x83 ADD A, E
+    Add(WithoutCarry, Reg8(A), Reg8(F), 1, 4)               // 0x84 ADD A, H
+    Add(WithoutCarry, Reg8(A), Reg8(L), 1, 4)               // 0x85 ADD A, L
     Add(WithoutCarry, Reg8(A), Mem16(HL), 1, 8)             // 0x86 ADD A, (HL)
-    Add(WithoutCarry, Reg8(A), Reg8(B), 1, 4)               // 0x87 ADD A, A
+    Add(WithoutCarry, Reg8(A), Reg8(A), 1, 4)               // 0x87 ADD A, A
     Add(WithCarry, Reg8(A), Reg8(B), 1, 4)                  // 0x88 ADC A, B
     Add(WithCarry, Reg8(A), Reg8(C), 1, 4)                  // 0x89 ADC A, C
     Add(WithCarry, Reg8(A), Reg8(D), 1, 4)                  // 0x8A ADC A, D
@@ -386,11 +386,11 @@ const CPU::Instruction CPU::cb_instructions[256] =
     Rotate(Left, WithoutCarry, Mem16(HL), 2, 16)            // 0x16 RL (HL)
     Rotate(Right, WithoutCarry, Reg8(A), 2, 8)              // 0x17 RL A
     Rotate(Right, WithoutCarry, Reg8(B), 2, 8)              // 0x18 RR B
-    Rotate(Right, WithoutCarry, Reg8(B), 2, 8)              // 0x19 RR C
-    Rotate(Right, WithoutCarry, Reg8(B), 2, 8)              // 0x1A RR D
-    Rotate(Right, WithoutCarry, Reg8(B), 2, 8)              // 0x1B RR E
-    Rotate(Right, WithoutCarry, Reg8(B), 2, 8)              // 0x1C RR H
-    Rotate(Right, WithoutCarry, Reg8(B), 2, 8)              // 0x1D RR L
+    Rotate(Right, WithoutCarry, Reg8(C), 2, 8)              // 0x19 RR C
+    Rotate(Right, WithoutCarry, Reg8(D), 2, 8)              // 0x1A RR D
+    Rotate(Right, WithoutCarry, Reg8(E), 2, 8)              // 0x1B RR E
+    Rotate(Right, WithoutCarry, Reg8(H), 2, 8)              // 0x1C RR H
+    Rotate(Right, WithoutCarry, Reg8(L), 2, 8)              // 0x1D RR L
     Rotate(Right, WithoutCarry, Mem16(HL), 2, 16)           // 0x1E RR (HL)
     Rotate(Right, WithoutCarry, Reg8(B), 2, 8)              // 0x1F RR A
     UntypedSD(SLA, Reg8(B), Reg8(B), 2, 8)                  // 0x20 SLA B
@@ -495,7 +495,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     ResetBit(0, Reg8(E), 2, 8)                              // 0x83 RES 0,E
     ResetBit(0, Reg8(H), 2, 8)                              // 0x84 RES 0,H
     ResetBit(0, Reg8(L), 2, 8)                              // 0x85 RES 0,L
-    ResetBit(0, Reg16(HL), 2, 16)                           // 0x86 RES 0,(HL)
+    ResetBit(0, Mem16(HL), 2, 16)                           // 0x86 RES 0,(HL)
     ResetBit(0, Reg8(A), 2, 8)                              // 0x87 RES 0,A
     ResetBit(1, Reg8(B), 2, 8)                              // 0x88 RES 1,B
     ResetBit(1, Reg8(C), 2, 8)                              // 0x89 RES 1,C
@@ -503,7 +503,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     ResetBit(1, Reg8(E), 2, 8)                              // 0x8B RES 1,E
     ResetBit(1, Reg8(H), 2, 8)                              // 0x8C RES 1,H
     ResetBit(1, Reg8(L), 2, 8)                              // 0x8D RES 1,L
-    ResetBit(0, Reg16(HL), 2, 16)                           // 0x8E RES 1,(HL)
+    ResetBit(1, Mem16(HL), 2, 16)                           // 0x8E RES 1,(HL)
     ResetBit(1, Reg8(A), 2, 8)                              // 0x8F RES 1,A
     ResetBit(2, Reg8(B), 2, 8)                              // 0x90 RES 2,B
     ResetBit(2, Reg8(C), 2, 8)                              // 0x91 RES 2,C
@@ -511,7 +511,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     ResetBit(2, Reg8(E), 2, 8)                              // 0x93 RES 2,E
     ResetBit(2, Reg8(H), 2, 8)                              // 0x94 RES 2,H
     ResetBit(2, Reg8(L), 2, 8)                              // 0x95 RES 2,L
-    ResetBit(2, Reg16(HL), 2, 16)                           // 0x96 RES 2,(HL)
+    ResetBit(2, Mem16(HL), 2, 16)                           // 0x96 RES 2,(HL)
     ResetBit(2, Reg8(A), 2, 8)                              // 0x97 RES 2,A
     ResetBit(3, Reg8(B), 2, 8)                              // 0x98 RES 3,B
     ResetBit(3, Reg8(C), 2, 8)                              // 0x99 RES 3,C
@@ -519,7 +519,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     ResetBit(3, Reg8(E), 2, 8)                              // 0x9B RES 3,E
     ResetBit(3, Reg8(H), 2, 8)                              // 0x9C RES 3,H
     ResetBit(3, Reg8(L), 2, 8)                              // 0x9D RES 3,L
-    ResetBit(3, Reg16(HL), 2, 16)                           // 0x9E RES 3,(HL)
+    ResetBit(3, Mem16(HL), 2, 16)                           // 0x9E RES 3,(HL)
     ResetBit(3, Reg8(A), 2, 8)                              // 0x9F RES 3,A
     ResetBit(4, Reg8(B), 2, 8)                              // 0xA0 RES 4,B
     ResetBit(4, Reg8(C), 2, 8)                              // 0xA1 RES 4,C
@@ -527,7 +527,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     ResetBit(4, Reg8(E), 2, 8)                              // 0xA3 RES 4,E
     ResetBit(4, Reg8(H), 2, 8)                              // 0xA4 RES 4,H
     ResetBit(4, Reg8(L), 2, 8)                              // 0xA5 RES 4,L
-    ResetBit(4, Reg16(HL), 2, 16)                           // 0xA6 RES 4,(HL)
+    ResetBit(4, Mem16(HL), 2, 16)                           // 0xA6 RES 4,(HL)
     ResetBit(4, Reg8(A), 2, 8)                              // 0xA7 RES 4,A
     ResetBit(5, Reg8(B), 2, 8)                              // 0xA8 RES 5,B
     ResetBit(5, Reg8(C), 2, 8)                              // 0xA9 RES 5,C
@@ -535,7 +535,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     ResetBit(5, Reg8(E), 2, 8)                              // 0xAB RES 5,E
     ResetBit(5, Reg8(H), 2, 8)                              // 0xAC RES 5,H
     ResetBit(5, Reg8(L), 2, 8)                              // 0xAD RES 5,L
-    ResetBit(5, Reg16(HL), 2, 16)                           // 0xAE RES 5,(HL)
+    ResetBit(5, Mem16(HL), 2, 16)                           // 0xAE RES 5,(HL)
     ResetBit(5, Reg8(A), 2, 8)                              // 0xAF RES 5,A
     ResetBit(6, Reg8(B), 2, 8)                              // 0xB0 RES 6,B
     ResetBit(6, Reg8(C), 2, 8)                              // 0xB1 RES 6,C
@@ -543,7 +543,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     ResetBit(6, Reg8(E), 2, 8)                              // 0xB3 RES 6,E
     ResetBit(6, Reg8(H), 2, 8)                              // 0xB4 RES 6,H
     ResetBit(6, Reg8(L), 2, 8)                              // 0xB5 RES 6,L
-    ResetBit(6, Reg16(HL), 2, 16)                           // 0xB6 RES 6,(HL)
+    ResetBit(6, Mem16(HL), 2, 16)                           // 0xB6 RES 6,(HL)
     ResetBit(6, Reg8(A), 2, 8)                              // 0xB7 RES 6,A
     ResetBit(7, Reg8(B), 2, 8)                              // 0xB8 RES 7,B
     ResetBit(7, Reg8(C), 2, 8)                              // 0xB9 RES 7,C
@@ -551,7 +551,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     ResetBit(7, Reg8(E), 2, 8)                              // 0xBB RES 7,E
     ResetBit(7, Reg8(H), 2, 8)                              // 0xBC RES 7,H
     ResetBit(7, Reg8(L), 2, 8)                              // 0xBD RES 7,L
-    ResetBit(7, Reg16(HL), 2, 16)                           // 0xBE RES 7,(HL)
+    ResetBit(7, Mem16(HL), 2, 16)                           // 0xBE RES 7,(HL)
     ResetBit(7, Reg8(A), 2, 8)                              // 0xBF RES 7,A
     SetBit(0, Reg8(B), 2, 8)                                // 0xC0 SET 0,B
     SetBit(0, Reg8(C), 2, 8)                                // 0xC1 SET 0,C
@@ -559,7 +559,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     SetBit(0, Reg8(E), 2, 8)                                // 0xC3 SET 0,E
     SetBit(0, Reg8(H), 2, 8)                                // 0xC4 SET 0,H
     SetBit(0, Reg8(L), 2, 8)                                // 0xC5 SET 0,L
-    SetBit(0, Reg16(HL), 2, 16)                             // 0xC6 SET 0,(HL)
+    SetBit(0, Mem16(HL), 2, 16)                             // 0xC6 SET 0,(HL)
     SetBit(0, Reg8(A), 2, 8)                                // 0xC7 SET 0,A
     SetBit(1, Reg8(B), 2, 8)                                // 0xC8 SET 1,B
     SetBit(1, Reg8(C), 2, 8)                                // 0xC9 SET 1,C
@@ -567,7 +567,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     SetBit(1, Reg8(E), 2, 8)                                // 0xCB SET 1,E
     SetBit(1, Reg8(H), 2, 8)                                // 0xCC SET 1,H
     SetBit(1, Reg8(L), 2, 8)                                // 0xCD SET 1,L
-    SetBit(1, Reg16(HL), 2, 16)                             // 0xCE SET 1,(HL)
+    SetBit(1, Mem16(HL), 2, 16)                             // 0xCE SET 1,(HL)
     SetBit(1, Reg8(A), 2, 8)                                // 0xCF SET 1,A
     SetBit(2, Reg8(B), 2, 8)                                // 0xD0 SET 2,B
     SetBit(2, Reg8(C), 2, 8)                                // 0xD1 SET 2,C
@@ -575,7 +575,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     SetBit(2, Reg8(E), 2, 8)                                // 0xD3 SET 2,E
     SetBit(2, Reg8(H), 2, 8)                                // 0xD4 SET 2,H
     SetBit(2, Reg8(L), 2, 8)                                // 0xD5 SET 2,L
-    SetBit(2, Reg16(HL), 2, 16)                             // 0xD6 SET 2,(HL)
+    SetBit(2, Mem16(HL), 2, 16)                             // 0xD6 SET 2,(HL)
     SetBit(2, Reg8(A), 2, 8)                                // 0xD7 SET 2,A
     SetBit(3, Reg8(B), 2, 8)                                // 0xD8 SET 3,B
     SetBit(3, Reg8(C), 2, 8)                                // 0xD9 SET 3,C
@@ -583,7 +583,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     SetBit(3, Reg8(E), 2, 8)                                // 0xDB SET 3,E
     SetBit(3, Reg8(H), 2, 8)                                // 0xDC SET 3,H
     SetBit(3, Reg8(L), 2, 8)                                // 0xDD SET 3,L
-    SetBit(3, Reg16(HL), 2, 16)                             // 0xDE SET 3,(HL)
+    SetBit(3, Mem16(HL), 2, 16)                             // 0xDE SET 3,(HL)
     SetBit(3, Reg8(A), 2, 8)                                // 0xDF SET 3,A
     SetBit(4, Reg8(B), 2, 8)                                // 0xE0 SET 4,B
     SetBit(4, Reg8(C), 2, 8)                                // 0xE1 SET 4,C
@@ -591,7 +591,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     SetBit(4, Reg8(E), 2, 8)                                // 0xE3 SET 4,E
     SetBit(4, Reg8(H), 2, 8)                                // 0xE4 SET 4,H
     SetBit(4, Reg8(L), 2, 8)                                // 0xE5 SET 4,L
-    SetBit(4, Reg16(HL), 2, 16)                             // 0xE6 SET 4,(HL)
+    SetBit(4, Mem16(HL), 2, 16)                             // 0xE6 SET 4,(HL)
     SetBit(4, Reg8(A), 2, 8)                                // 0xE7 SET 4,A
     SetBit(5, Reg8(B), 2, 8)                                // 0xE8 SET 5,B
     SetBit(5, Reg8(C), 2, 8)                                // 0xE9 SET 5,C
@@ -599,7 +599,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     SetBit(5, Reg8(E), 2, 8)                                // 0xEB SET 5,E
     SetBit(5, Reg8(H), 2, 8)                                // 0xEC SET 5,H
     SetBit(5, Reg8(L), 2, 8)                                // 0xED SET 5,L
-    SetBit(5, Reg16(HL), 2, 16)                             // 0xEE SET 5,(HL)
+    SetBit(5, Mem16(HL), 2, 16)                             // 0xEE SET 5,(HL)
     SetBit(5, Reg8(A), 2, 8)                                // 0xEF SET 5,A
     SetBit(6, Reg8(B), 2, 8)                                // 0xF0 SET 6,B
     SetBit(6, Reg8(C), 2, 8)                                // 0xF1 SET 6,C
@@ -607,7 +607,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     SetBit(6, Reg8(E), 2, 8)                                // 0xF3 SET 6,E
     SetBit(6, Reg8(H), 2, 8)                                // 0xF4 SET 6,H
     SetBit(6, Reg8(L), 2, 8)                                // 0xF5 SET 6,L
-    SetBit(6, Reg16(HL), 2, 16)                             // 0xF6 SET 6,(HL)
+    SetBit(6, Mem16(HL), 2, 16)                             // 0xF6 SET 6,(HL)
     SetBit(6, Reg8(A), 2, 8)                                // 0xF7 SET 6,A
     SetBit(7, Reg8(B), 2, 8)                                // 0xF8 SET 7,B
     SetBit(7, Reg8(C), 2, 8)                                // 0xF9 SET 7,C
@@ -615,6 +615,6 @@ const CPU::Instruction CPU::cb_instructions[256] =
     SetBit(7, Reg8(E), 2, 8)                                // 0xFB SET 7,E
     SetBit(7, Reg8(H), 2, 8)                                // 0xFC SET 7,H
     SetBit(7, Reg8(L), 2, 8)                                // 0xFD SET 7,L
-    SetBit(7, Reg16(HL), 2, 16)                             // 0xFE SET 7,(HL)
+    SetBit(7, Mem16(HL), 2, 16)                             // 0xFE SET 7,(HL)
     SetBit(7, Reg8(A), 2, 8)                                // 0xFF SET 7,A
 };
