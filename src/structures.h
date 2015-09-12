@@ -9,11 +9,11 @@ struct OAM_ENTRY
     byte y;
     byte x;
     byte tile;
-    byte priority : 1;
-    byte vflip : 1;
-    byte hflip : 1;
-    byte palette : 1;
     byte __unused : 4;
+    byte palette : 1;
+    byte hflip : 1;
+    byte vflip : 1;
+    byte priority : 1;
 };
 #pragma pack(pop)
 

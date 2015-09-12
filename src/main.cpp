@@ -163,6 +163,7 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     state->system->SetDisplaySurface(state->window, state->surface);
 
     state->system->Reset();
+    state->system->SetPadDirection(PAD_DIRECTION_DOWN);
 
     return true;
 }
@@ -254,7 +255,7 @@ extern "C" int main(int argc, char *argv[])
 {
     // set log flags
     g_pLog->SetConsoleOutputParams(true);
-    g_pLog->SetConsoleOutputParams(true, "CPU System");
+    //g_pLog->SetConsoleOutputParams(true, "CPU System");
     //g_pLog->SetDebugOutputParams(true);
 
 #if defined(__WIN32__)

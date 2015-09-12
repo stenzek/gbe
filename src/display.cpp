@@ -199,12 +199,10 @@ bool Display::Step()
     return pushFrameBuffer;
 }
 
-uint8 Display::ReadTile(uint8 tileset, uint16 tile, uint8 x, uint8 y) const
+uint8 Display::ReadTile(bool high_tileset, uint16 tile, uint8 x, uint8 y) const
 {
-    DebugAssert(tileset <= 1);
-
     // find the base address of this tile
-    uint16 BGTILEBASE = (tileset) ? 0x0000 : 0x0800;
+    uint16 BGTILEBASE = (high_tileset) ? 0x0800 : 0x0000;
     const byte *tilemem = m_vramCopy + BGTILEBASE + (tile * 16);
 
     // 2 bytes represent a line, with the LSB on the even byte
@@ -260,8 +258,8 @@ void Display::RenderScanline()
     uint16 bg_tile = VRAM[BGMAPBASE + BGMAPOFFSET + lineOffset];
 
     // read sprite palettes
-    uint32 obj_palette0[4] = { 0xFFFFFFFF, grayscale_colors[(m_registers.OBP0 >> 2) & 0x3], grayscale_colors[(m_registers.OBP0 >> 4) & 0x3], grayscale_colors[(m_registers.OBP0 >> 6) & 0x3] };
-    uint32 obj_palette1[4] = { 0xFFFFFFFF, grayscale_colors[(m_registers.OBP1 >> 2) & 0x3], grayscale_colors[(m_registers.OBP1 >> 4) & 0x3], grayscale_colors[(m_registers.OBP1 >> 6) & 0x3] };
+    uint32 obj_palette0[4] = { 0xFF555555, grayscale_colors[(m_registers.OBP0 >> 2) & 0x3], grayscale_colors[(m_registers.OBP0 >> 4) & 0x3], grayscale_colors[(m_registers.OBP0 >> 6) & 0x3] };
+    uint32 obj_palette1[4] = { 0xFF555555, grayscale_colors[(m_registers.OBP1 >> 2) & 0x3], grayscale_colors[(m_registers.OBP1 >> 4) & 0x3], grayscale_colors[(m_registers.OBP1 >> 6) & 0x3] };
 
     // read sprites
     OAM_ENTRY active_sprites[40];
@@ -318,7 +316,7 @@ void Display::RenderScanline()
         if (BGENABLE)
         {
             // read the tile pattern, access palette
-            bgcolor_index = ReadTile(BGTILESET_SELECT, bg_tile, bg_x, bg_y);
+            bgcolor_index = ReadTile((BGTILESET_SELECT == 0), bg_tile, bg_x, bg_y);
             color = background_palette[bgcolor_index];
 
             // increment position

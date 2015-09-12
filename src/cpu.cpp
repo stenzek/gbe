@@ -455,10 +455,12 @@ uint32 CPU::Step()
             case Instruction::AddressMode_Reg8:
                 {
                     // 8-bit register increment
-                    uint8 value = ++m_registers.reg8[destination->reg8];
+                    uint8 old_value = m_registers.reg8[destination->reg8];
+                    uint8 value = old_value + 1;
                     m_registers.SetFlagZ(value == 0);
                     m_registers.SetFlagN(false);
-                    m_registers.SetFlagH((value & 0xF) == 0);
+                    m_registers.SetFlagH((old_value & 0xF) == 0xF);
+                    m_registers.reg8[destination->reg8] = value;
                     break;
                 }
 
@@ -466,10 +468,11 @@ uint32 CPU::Step()
                 {
                     // 8-bit memory increment
                     uint16 address = m_registers.reg16[destination->reg16];
-                    uint8 value = MemReadByte(address) + 1;
+                    uint8 old_value = MemReadByte(address);
+                    uint8 value = old_value + 1;
                     m_registers.SetFlagZ(value == 0);
                     m_registers.SetFlagN(false);
-                    m_registers.SetFlagH((value & 0xF) == 0);
+                    m_registers.SetFlagH((old_value & 0xF) == 0xF);
                     MemWriteByte(address, value);
                     break;
                 }
@@ -499,7 +502,7 @@ uint32 CPU::Step()
                     uint8 value = --m_registers.reg8[destination->reg8];
                     m_registers.SetFlagZ(value == 0);
                     m_registers.SetFlagN(false);
-                    m_registers.SetFlagH((value & 0xF) == 0);
+                    m_registers.SetFlagH((value & 0xF) == 0xF);
                     break;
                 }
 
@@ -510,7 +513,7 @@ uint32 CPU::Step()
                     uint8 value = MemReadByte(address) - 1;
                     m_registers.SetFlagZ(value == 0);
                     m_registers.SetFlagN(false);
-                    m_registers.SetFlagH((value & 0xF) == 0);
+                    m_registers.SetFlagH((value & 0xF) == 0xF);
                     MemWriteByte(address, value);
                     break;
                 }
@@ -599,7 +602,7 @@ uint32 CPU::Step()
 
                     m_registers.reg16[destination->reg16] = new_value & 0xFFFF;
                     m_registers.SetFlagN(false);
-                    m_registers.SetFlagH(((new_value & 0xF) + (old_value & 0xF)) > 0xF);
+                    m_registers.SetFlagH((new_value & 0xFFF) < ((uint32)old_value & 0xFFF));
                     m_registers.SetFlagC(new_value > 0xFFFF); // correct?
                     break;
                 }
