@@ -182,6 +182,67 @@ static int Run(State *state)
     while (state->running)
     {
         SDL_PumpEvents();
+        for (;;)
+        {
+            SDL_Event events[16];
+            int nevents = SDL_PeepEvents(events, countof(events), SDL_GETEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT);
+            if (nevents == 0)
+                break;
+
+            for (int i = 0; i < nevents; i++)
+            {
+                const SDL_Event *event = events + i;
+                switch (event->type)
+                {
+                case SDL_KEYDOWN:
+                case SDL_KEYUP:
+                    {
+                        bool down = (event->type == SDL_KEYDOWN);
+                        switch (event->key.keysym.sym)
+                        {
+                        case SDLK_w:
+                        case SDLK_UP:
+                            state->system->SetPadDirection(PAD_DIRECTION_UP, down);
+                            break;
+
+                        case SDLK_a:
+                        case SDLK_LEFT:
+                            state->system->SetPadDirection(PAD_DIRECTION_LEFT, down);
+                            break;
+
+                        case SDLK_s:
+                        case SDLK_DOWN:
+                            state->system->SetPadDirection(PAD_DIRECTION_DOWN, down);
+                            break;
+
+                        case SDLK_d:
+                        case SDLK_RIGHT:
+                            state->system->SetPadDirection(PAD_DIRECTION_RIGHT, down);
+                            break;
+
+                        case SDLK_z:
+                            state->system->SetPadButton(PAD_BUTTON_B, down);
+                            break;
+
+                        case SDLK_x:
+                            state->system->SetPadButton(PAD_BUTTON_A, down);
+                            break;
+
+                        case SDLK_c:
+                            state->system->SetPadButton(PAD_BUTTON_SELECT, down);
+                            break;
+
+                        case SDLK_v:
+                            state->system->SetPadButton(PAD_BUTTON_START, down);
+                            break;
+                        }
+
+                        break;
+                    }
+                }
+            }
+        }
+
         state->system->Step();
     }
 
@@ -193,6 +254,7 @@ extern "C" int main(int argc, char *argv[])
 {
     // set log flags
     g_pLog->SetConsoleOutputParams(true);
+    g_pLog->SetConsoleOutputParams(true, "CPU");
     //g_pLog->SetDebugOutputParams(true);
 
 #if defined(__WIN32__)

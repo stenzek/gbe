@@ -33,6 +33,7 @@ void System::Reset()
     m_display->Reset();
     ResetMemory();
     ResetTimer();
+    ResetPad();
 
     // if bios not provided, emulate post-bootstrap state
     if (m_bios == nullptr)
@@ -52,6 +53,49 @@ void System::Step()
     }
 
     UpdateTimer(cycles);
+}
+
+void System::SetPadDirection(PAD_DIRECTION direction)
+{
+    uint8 old_direction_state = m_pad_direction_state;
+    m_pad_direction_state = ~(PAD_DIRECTION_MASK & direction) & PAD_DIRECTION_MASK;
+    if (old_direction_state != m_pad_direction_state)
+    {
+        Log_DevPrintf("Pad direction set to 0x%02X", direction);
+        CPUInterruptRequest(CPU_INT_JOYPAD);
+    }
+}
+
+void System::SetPadDirection(PAD_DIRECTION direction, bool state)
+{
+    uint8 old_direction_state = m_pad_direction_state;
+
+    if (!state)
+        m_pad_direction_state |= 0xF & direction;
+    else
+        m_pad_direction_state &= ~(0xF & direction);
+
+    if (old_direction_state != m_pad_direction_state)
+    {
+        Log_DevPrintf("Pad direction 0x%02X set %s", direction, state ? "on" : "off");
+        CPUInterruptRequest(CPU_INT_JOYPAD);
+    }
+}
+
+void System::SetPadButton(PAD_BUTTON button, bool state)
+{
+    uint8 old_button_state = m_pad_button_state;
+
+    if (!state)
+        m_pad_button_state |= 0xF & button;
+    else
+        m_pad_button_state &= ~(0xF & button);
+
+    if (old_button_state != m_pad_button_state)
+    {
+        Log_DevPrintf("Pad button 0x%02X set %s", button, state ? "on" : "off");
+        CPUInterruptRequest(CPU_INT_JOYPAD);
+    }
 }
 
 void System::DMATransfer(uint16 source_address, uint16 destination_address, uint32 bytes)
@@ -89,6 +133,13 @@ void System::ResetTimer()
     m_timer_counter = 0;
     m_timer_overflow_value = 0;
     m_timer_control = 0;
+}
+
+void System::ResetPad()
+{
+    m_pad_row_select = 0x30;        // neither selected
+    m_pad_direction_state = 0x0F;   // nothing down
+    m_pad_button_state = 0x0F;      // nothing down
 }
 
 void System::SetPostBootstrapState()
@@ -415,12 +466,11 @@ uint8 System::CPUReadIORegister(uint8 index) const
             {
                 // Joypad
             case 0x00:
-                // Stub for now - nothing pressed
                 {
                     if ((m_pad_row_select & 0x10) == 0)
-                        return m_pad_row_select | 0x0F;
+                        return m_pad_row_select | m_pad_direction_state;
                     else if ((m_pad_row_select & 0x20) == 0)
-                        return m_pad_row_select | 0x0E;
+                        return m_pad_row_select | m_pad_button_state;
 
                     return m_pad_row_select | 0x0F;
                 }

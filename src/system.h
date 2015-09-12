@@ -30,6 +30,11 @@ public:
     // TODO: Rename to RunFrame
     void Step();
 
+    // Pad direction
+    void SetPadDirection(PAD_DIRECTION direction);
+    void SetPadDirection(PAD_DIRECTION direction, bool state);
+    void SetPadButton(PAD_BUTTON button, bool state);
+
 private:
     // cpu view of memory
     uint8 CPURead(uint16 address) const;
@@ -56,6 +61,7 @@ private:
 private:
     void ResetMemory();
     void ResetTimer();
+    void ResetPad();
     void SetPostBootstrapState();
     void CopyFrameBufferToSurface();
     void UpdateTimer(uint32 clocks);
@@ -90,6 +96,8 @@ private:
 
     // pad
     uint8 m_pad_row_select;
+    uint8 m_pad_direction_state;
+    uint8 m_pad_button_state;
 
     bool m_biosLatch;
     bool m_vramLocked;

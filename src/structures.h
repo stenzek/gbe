@@ -52,3 +52,22 @@ enum DISPLAY_CGBREG
     // Range of 0xFF60
     //DISPLAY_CGBREG_
 };
+
+enum PAD_DIRECTION
+{
+    PAD_DIRECTION_NONE          = 0x00,
+    PAD_DIRECTION_RIGHT         = 0x01,
+    PAD_DIRECTION_LEFT          = 0x02,
+    PAD_DIRECTION_UP            = 0x04,
+    PAD_DIRECTION_DOWN          = 0x08,
+    PAD_DIRECTION_MASK          = 0x0F
+};
+
+enum PAD_BUTTON
+{
+    PAD_BUTTON_A                = 0x01,
+    PAD_BUTTON_B                = 0x02,
+    PAD_BUTTON_SELECT           = 0x04,
+    PAD_BUTTON_START            = 0x08,
+    PAD_BUTTON_MASK             = 0x0F
+};
