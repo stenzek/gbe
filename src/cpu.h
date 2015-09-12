@@ -218,24 +218,29 @@ public:
             Type_Move,
             Type_JumpRelative,
             Type_JumpAbsolute,
-            Type_Call,
-            Type_Return,
-            Type_Push,
-            Type_Pop, 
-            Type_Increment,
-            Type_Decrement,
-            Type_Add,
-            Type_Sub,
-            Type_And,
-            Type_Or,
-            Type_Xor,
-            Type_Not,
+            Type_CALL,
+            Type_RET,
+            Type_RETI,
+            Type_PUSH,
+            Type_POP, 
+            Type_INC,
+            Type_DEC,
+            Type_ADD,
+            Type_ADD16,
+            Type_ADDS8,
+            Type_ADC,
+            Type_SUB,
+            Type_SBC,
+            Type_AND,
+            Type_OR,
+            Type_XOR,
+            Type_CPL,
             Type_Swap,
             Type_Rotate,
             Type_Cmp,
-            Type_TestBit,
-            Type_SetBit,
-            Type_ResetBit,
+            Type_BIT,
+            Type_SET,
+            Type_RES,
             Type_RST,
             Type_CCF,
             Type_SCF,
@@ -263,7 +268,6 @@ public:
             Predicate_Carry,
             Predicate_NotZero,
             Predicate_NotCarry,
-            Predicate_FromInterrupt,
         };
 
         enum CarryAction
@@ -291,8 +295,8 @@ public:
         };
 
         Type type;
-        Operand destination;
-        Operand source;
+        Operand operand;
+        Operand operand2;
         uint32 length;
         uint32 cycles;
         union

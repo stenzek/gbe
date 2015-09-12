@@ -83,12 +83,6 @@ bool CPU::TestPredicate(Instruction::Predicate condition)
     case Instruction::Predicate_NotCarry:
         return !m_registers.GetFlagC();
 
-    case Instruction::Predicate_FromInterrupt:
-        //DebugAssert(!m_registers.IME);
-        m_registers.IME = true;
-        Log_DevPrintf("Interrupts enabled from RETI");
-        return true;
-
     default:
         UnreachableCode();
         return false;
@@ -211,8 +205,9 @@ uint32 CPU::Step()
     }
 
     // get source/destination operands
-    const Instruction::Operand *source = &instruction->source;
-    const Instruction::Operand *destination = &instruction->destination;
+    const Instruction::Operand *operand = &instruction->operand;
+    const Instruction::Operand *destination = &instruction->operand;
+    const Instruction::Operand *source = &instruction->operand2;
 
     // helper macros for reading immediate values
     #define get_imm8() (instruction_buffer[1])
@@ -448,26 +443,26 @@ uint32 CPU::Step()
         // Increment
         //////////////////////////////////////////////////////////////////////////
 
-    case Instruction::Type_Increment:
+    case Instruction::Type_INC:
         {
-            switch (destination->mode)
+            switch (operand->mode)
             {
             case Instruction::AddressMode_Reg8:
                 {
                     // 8-bit register increment
-                    uint8 old_value = m_registers.reg8[destination->reg8];
+                    uint8 old_value = m_registers.reg8[operand->reg8];
                     uint8 value = old_value + 1;
                     m_registers.SetFlagZ(value == 0);
                     m_registers.SetFlagN(false);
                     m_registers.SetFlagH((old_value & 0xF) == 0xF);
-                    m_registers.reg8[destination->reg8] = value;
+                    m_registers.reg8[operand->reg8] = value;
                     break;
                 }
 
             case Instruction::AddressMode_Mem16:
                 {
                     // 8-bit memory increment
-                    uint16 address = m_registers.reg16[destination->reg16];
+                    uint16 address = m_registers.reg16[operand->reg16];
                     uint8 old_value = MemReadByte(address);
                     uint8 value = old_value + 1;
                     m_registers.SetFlagZ(value == 0);
@@ -480,7 +475,7 @@ uint32 CPU::Step()
             case Instruction::AddressMode_Reg16:
                 {
                     // 16-bit register increment does not alter flags
-                    m_registers.reg16[destination->reg16]++;
+                    m_registers.reg16[operand->reg16]++;
                     break;
                 }
             }
@@ -492,14 +487,14 @@ uint32 CPU::Step()
         // Decrement
         //////////////////////////////////////////////////////////////////////////
 
-    case Instruction::Type_Decrement:
+    case Instruction::Type_DEC:
         {
-            switch (destination->mode)
+            switch (operand->mode)
             {
             case Instruction::AddressMode_Reg8:
                 {
                     // 8-bit register decrement
-                    uint8 value = --m_registers.reg8[destination->reg8];
+                    uint8 value = --m_registers.reg8[operand->reg8];
                     m_registers.SetFlagZ(value == 0);
                     m_registers.SetFlagN(false);
                     m_registers.SetFlagH((value & 0xF) == 0xF);
@@ -509,7 +504,7 @@ uint32 CPU::Step()
             case Instruction::AddressMode_Mem16:
                 {
                     // 8-bit memory decrement
-                    uint16 address = m_registers.reg16[destination->reg16];
+                    uint16 address = m_registers.reg16[operand->reg16];
                     uint8 value = MemReadByte(address) - 1;
                     m_registers.SetFlagZ(value == 0);
                     m_registers.SetFlagN(false);
@@ -521,7 +516,7 @@ uint32 CPU::Step()
             case Instruction::AddressMode_Reg16:
                 {
                     // 16-bit register decrement does not alter flags
-                    m_registers.reg16[destination->reg16]--;
+                    m_registers.reg16[operand->reg16]--;
                     break;
                 }
             }
@@ -533,95 +528,153 @@ uint32 CPU::Step()
         // Add
         //////////////////////////////////////////////////////////////////////////
 
-    case Instruction::Type_Add:
+    case Instruction::Type_ADD:
         {
-            switch (destination->mode)
+            // get value to add
+            uint32 addend;
+            switch (operand->mode)
             {
-                // 8-bit add
+            case Instruction::AddressMode_Imm8:
+                addend = get_imm8();
+                break;
+
             case Instruction::AddressMode_Reg8:
-                {
-                    // get value to add
-                    uint32 addend = 0;
-                    switch (source->mode)
-                    {
-                    case Instruction::AddressMode_Imm8:
-                        addend = get_imm8();
-                        break;
+                addend = m_registers.reg8[operand->reg8];
+                break;
 
-                    case Instruction::AddressMode_Reg8:
-                        addend = m_registers.reg8[source->reg8];
-                        break;
-
-                    case Instruction::AddressMode_Mem16:
-                        addend = MemReadByte(m_registers.reg16[source->reg16]);
-                        break;
-                    }
-
-                    // handle carry
-                    if (instruction->carry == Instruction::CarryAction_With)
-                        addend += (uint32)m_registers.GetFlagC();
-
-                    // store value - only writes to A
-                    DebugAssert(destination->reg8 == Reg8_A);
-                    uint8 old_value = m_registers.reg8[destination->reg8];
-                    uint32 new_value = old_value + addend;
-                    m_registers.reg8[destination->reg8] = (uint8)(new_value & 0xFF);
-                    m_registers.SetFlagZ(((new_value & 0xFF) == 0));
-                    m_registers.SetFlagN(false);
-                    m_registers.SetFlagH(((new_value & 0xF) + (old_value & 0xF)) > 0xF);
-                    m_registers.SetFlagC(new_value > 0xFF);
-                    break;
-                }
-
-                // 16-bit add
-            case Instruction::AddressMode_Reg16:
-                {
-                    uint16 old_value = m_registers.reg16[destination->reg16];
-                    uint32 new_value;
-
-                    // one instruction: ADD SP, r8
-                    if (source->mode == Instruction::AddressMode_Imm8)
-                    {
-                        // can be signed
-                        int8 r8 = (int8)get_imm8();
-                        if (r8 < 0)
-                            new_value = old_value - (uint16)(-r8);
-                        else
-                            new_value = old_value + (uint16)r8;
-
-                        // clears zero flag for some reason (but reg+reg doesn't)
-                        m_registers.SetFlagZ(false);
-                    }
-                    else
-                    {
-                        // only goes register+register->register
-                        DebugAssert(source->mode == Instruction::AddressMode_Reg16);
-                        uint16 addend = m_registers.reg16[source->reg16];
-                        new_value = old_value + (uint32)addend;
-                    }
-
-                    m_registers.reg16[destination->reg16] = new_value & 0xFFFF;
-                    m_registers.SetFlagN(false);
-                    m_registers.SetFlagH((new_value & 0xFFF) < ((uint32)old_value & 0xFFF));
-                    m_registers.SetFlagC(new_value > 0xFFFF); // correct?
-                    break;
-                }
+            case Instruction::AddressMode_Mem16:
+                addend = MemReadByte(m_registers.reg16[operand->reg16]);
+                break;
 
             default:
                 UnreachableCode();
+                addend = 0;
             }
 
+            // store value - only writes to A
+            uint8 old_value = m_registers.A;
+            uint32 new_value = old_value + addend;
+            m_registers.A = (uint8)(new_value & 0xFF);
+            m_registers.SetFlagZ(((new_value & 0xFF) == 0));
+            m_registers.SetFlagN(false);
+            m_registers.SetFlagH(((new_value & 0xF) + (old_value & 0xF)) > 0xF);
+            m_registers.SetFlagC(new_value > 0xFF);
             break;
         }
 
-        //////////////////////////////////////////////////////////////////////////
-        // Subtract
-        //////////////////////////////////////////////////////////////////////////
+    case Instruction::Type_ADD16:
+        {
+            // 16-bit add of 2 registers
+            uint16 old_value = m_registers.reg16[destination->reg16];
+            uint16 addend = m_registers.reg16[source->reg16];
+            uint32 new_value = old_value + (uint32)addend;
+            m_registers.reg16[destination->reg16] = new_value & 0xFFFF;
+            m_registers.SetFlagN(false);
+            m_registers.SetFlagH((new_value & 0xFFF) < ((uint32)old_value & 0xFFF));
+            m_registers.SetFlagC(new_value > 0xFFFF); // correct?
+            break;
+        }
 
-    case Instruction::Type_Sub:
+    case Instruction::Type_ADDS8:
+        {
+            // Add 8-bit signed value to R16
+            uint16 old_value = m_registers.reg16[destination->reg16];
+            uint32 new_value;
+
+            // can be signed
+            int8 r8 = (int8)get_imm8();
+            if (r8 < 0)
+                new_value = old_value - (uint16)(-r8);
+            else
+                new_value = old_value + (uint16)r8;
+
+            // clears zero flag for some reason (but reg+reg doesn't)
+            m_registers.reg16[destination->reg16] = new_value & 0xFFFF;
+            m_registers.SetFlagZ(false);
+            m_registers.SetFlagN(false);
+            m_registers.SetFlagH((new_value & 0xFFF) < ((uint32)old_value & 0xFFF));
+            m_registers.SetFlagC(new_value > 0xFFFF); // correct?
+            break;
+        }
+
+    case Instruction::Type_ADC:
+        {
+            // get value to add
+            uint32 addend;
+            switch (operand->mode)
+            {
+            case Instruction::AddressMode_Imm8:
+                addend = get_imm8();
+                break;
+
+            case Instruction::AddressMode_Reg8:
+                addend = m_registers.reg8[operand->reg8];
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                addend = MemReadByte(m_registers.reg16[operand->reg16]);
+                break;
+
+            default:
+                UnreachableCode();
+                addend = 0;
+            }
+
+            // handle carry
+            addend += (uint32)m_registers.GetFlagC();
+
+            // do operation
+            uint8 old_value = m_registers.A;
+            uint32 new_value = old_value + addend;
+            m_registers.A = old_value & 0xFF;
+
+            // update flags
+            m_registers.SetFlagZ(((new_value & 0xFF) == 0));
+            m_registers.SetFlagN(false);
+            m_registers.SetFlagH(((new_value & 0xF) + (old_value & 0xF)) > 0x10);
+            m_registers.SetFlagC(new_value > 0xFF);
+            break;
+        }
+
+    case Instruction::Type_SUB:
         {
             // get value to subtract
-            uint8 addend = 0;
+            uint8 addend;
+            switch (operand->mode)
+            {
+            case Instruction::AddressMode_Imm8:
+                addend = get_imm8();
+                break;
+
+            case Instruction::AddressMode_Reg8:
+                addend = m_registers.reg8[operand->reg8];
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                addend = MemReadByte(m_registers.reg16[operand->reg16]);
+                break;
+
+            default:
+                UnreachableCode();
+                addend = 0;
+            }
+
+            // store value - only writes to A
+            uint8 old_value = m_registers.A;
+            uint8 new_value = old_value - addend;
+            m_registers.A = new_value;
+
+            m_registers.SetFlagZ((new_value == 0));
+            m_registers.SetFlagN(true);
+            m_registers.SetFlagH((new_value & 0xF) > (old_value & 0xF));
+            m_registers.SetFlagC(addend > old_value);
+            break;
+        }
+
+    case Instruction::Type_SBC:
+        {
+            // get value to subtract
+            uint8 addend;
             switch (source->mode)
             {
             case Instruction::AddressMode_Imm8:
@@ -635,37 +688,38 @@ uint32 CPU::Step()
             case Instruction::AddressMode_Mem16:
                 addend = MemReadByte(m_registers.reg16[source->reg16]);
                 break;
+
+            default:
+                UnreachableCode();
+                addend = 0;
             }
 
             // handle carry
-            uint8 carry_in = (uint8)(instruction->carry == Instruction::CarryAction_With && m_registers.GetFlagC());
-
-            // store value - only writes to A
-            DebugAssert(destination->mode == Instruction::AddressMode_Reg8 && destination->reg8 == Reg8_A);
-            uint8 old_value = m_registers.reg8[destination->reg8];
-            uint8 new_value = m_registers.reg8[destination->reg8] = old_value - addend - carry_in;
+            uint8 carry_in = (uint8)m_registers.GetFlagC();
+            uint8 old_value = m_registers.A;
+            uint8 new_value = old_value - addend - carry_in;
+            m_registers.A = new_value;
+              
+            // update flags
             m_registers.SetFlagZ((new_value == 0));
             m_registers.SetFlagN(true);
-            m_registers.SetFlagH((new_value & 0xF) < (old_value & 0xF));
+            m_registers.SetFlagH(((addend & 0xF) + carry_in) > (old_value & 0xF));
             m_registers.SetFlagC((addend + carry_in) > old_value);
             break;
         }
 
-        //////////////////////////////////////////////////////////////////////////
-        // And
-        //////////////////////////////////////////////////////////////////////////
-    case Instruction::Type_And:
+    case Instruction::Type_AND:
         {
             // get value
-            uint8 value = 0;
-            switch (source->mode)
+            uint8 value;
+            switch (operand->mode)
             {
             case Instruction::AddressMode_Reg8:
-                value = m_registers.reg8[source->reg8];
+                value = m_registers.reg8[operand->reg8];
                 break;
 
             case Instruction::AddressMode_Mem16:
-                value = MemReadByte(m_registers.reg16[source->reg16]);
+                value = MemReadByte(m_registers.reg16[operand->reg16]);
                 break;
 
             case Instruction::AddressMode_Imm8:
@@ -674,14 +728,14 @@ uint32 CPU::Step()
 
             default:
                 UnreachableCode();
+                value = 0;
             }
 
             // AND accumulator with value
-            DebugAssert(destination->mode == Instruction::AddressMode_Reg8 && destination->reg8 == Reg8_A);
-            value = m_registers.reg8[destination->reg8] &= value;
+            m_registers.A &= value;
             
             // update flags
-            m_registers.SetFlagZ((value == 0));
+            m_registers.SetFlagZ((m_registers.A == 0));
             m_registers.SetFlagN(false);
             m_registers.SetFlagH(true);
             m_registers.SetFlagC(false);
@@ -691,18 +745,18 @@ uint32 CPU::Step()
         //////////////////////////////////////////////////////////////////////////
         // Or
         //////////////////////////////////////////////////////////////////////////
-    case Instruction::Type_Or:
+    case Instruction::Type_OR:
         {
             // get value
-            uint8 value = 0;
-            switch (source->mode)
+            uint8 value;
+            switch (operand->mode)
             {
             case Instruction::AddressMode_Reg8:
-                value = m_registers.reg8[source->reg8];
+                value = m_registers.reg8[operand->reg8];
                 break;
 
             case Instruction::AddressMode_Mem16:
-                value = MemReadByte(m_registers.reg16[source->reg16]);
+                value = MemReadByte(m_registers.reg16[operand->reg16]);
                 break;
 
             case Instruction::AddressMode_Imm8:
@@ -711,35 +765,32 @@ uint32 CPU::Step()
 
             default:
                 UnreachableCode();
+                value = 0;
             }
 
             // OR accumulator with value
-            DebugAssert(destination->mode == Instruction::AddressMode_Reg8 && destination->reg8 == Reg8_A);
-            value = m_registers.reg8[destination->reg8] |= value;
-            
+            m_registers.A |= value;
+
             // update flags
-            m_registers.SetFlagZ((value == 0));
+            m_registers.SetFlagZ((m_registers.A == 0));
             m_registers.SetFlagN(false);
             m_registers.SetFlagH(false);
             m_registers.SetFlagC(false);
             break;
         }
 
-        //////////////////////////////////////////////////////////////////////////
-        // Xor
-        //////////////////////////////////////////////////////////////////////////
-    case Instruction::Type_Xor:
+    case Instruction::Type_XOR:
         {
             // get value
-            uint8 value = 0;
-            switch (source->mode)
+            uint8 value;
+            switch (operand->mode)
             {
             case Instruction::AddressMode_Reg8:
-                value = m_registers.reg8[source->reg8];
+                value = m_registers.reg8[operand->reg8];
                 break;
 
             case Instruction::AddressMode_Mem16:
-                value = MemReadByte(m_registers.reg16[source->reg16]);
+                value = MemReadByte(m_registers.reg16[operand->reg16]);
                 break;
 
             case Instruction::AddressMode_Imm8:
@@ -748,12 +799,12 @@ uint32 CPU::Step()
 
             default:
                 UnreachableCode();
+                value = 0;
             }
 
             // XOR accumulator with value
-            DebugAssert(destination->mode == Instruction::AddressMode_Reg8 && destination->reg8 == Reg8_A);
-            value = m_registers.reg8[destination->reg8] ^= value;
-            m_registers.SetFlagZ(value == 0);
+            m_registers.A ^= value;
+            m_registers.SetFlagZ((m_registers.A == 0));
             m_registers.SetFlagN(false);
             m_registers.SetFlagH(false);
             m_registers.SetFlagC(false);
@@ -830,13 +881,9 @@ uint32 CPU::Step()
             break;
         }
 
-        //////////////////////////////////////////////////////////////////////////
-        // CPL ie Not
-        //////////////////////////////////////////////////////////////////////////
-    case Instruction::Type_Not:
+    case Instruction::Type_CPL:
         {
-            DebugAssert(destination->mode == Instruction::AddressMode_Reg8 && destination->reg8 == Reg8_A);
-            m_registers.reg8[destination->reg8] = ~m_registers.reg8[source->reg8];
+            m_registers.A = ~m_registers.A;
             m_registers.SetFlagN(true);
             m_registers.SetFlagH(true);
             break;
@@ -926,7 +973,7 @@ uint32 CPU::Step()
         //////////////////////////////////////////////////////////////////////////
         // Test Bit
         //////////////////////////////////////////////////////////////////////////
-    case Instruction::Type_TestBit:
+    case Instruction::Type_BIT:
         {
             uint8 mask = (1 << instruction->bitnum);
             uint8 value = 0;
@@ -955,7 +1002,7 @@ uint32 CPU::Step()
         //////////////////////////////////////////////////////////////////////////
         // Reset Bit
         //////////////////////////////////////////////////////////////////////////
-    case Instruction::Type_SetBit:
+    case Instruction::Type_SET:
         {
             uint8 mask = (1 << instruction->bitnum);
             switch (destination->mode)
@@ -979,7 +1026,7 @@ uint32 CPU::Step()
         //////////////////////////////////////////////////////////////////////////
         // Reset Bit
         //////////////////////////////////////////////////////////////////////////
-    case Instruction::Type_ResetBit:
+    case Instruction::Type_RES:
         {
             uint8 mask = (1 << instruction->bitnum);
             switch (destination->mode)
@@ -1008,14 +1055,14 @@ uint32 CPU::Step()
         {
             // get jump location
             uint16 address;
-            switch (source->mode)
+            switch (operand->mode)
             {
             case Instruction::AddressMode_Imm16:
                 address = get_imm16();
                 break;
 
             case Instruction::AddressMode_Reg16:
-                address = m_registers.reg16[source->reg16];
+                address = m_registers.reg16[operand->reg16];
                 break;
 
             default:
@@ -1058,7 +1105,7 @@ uint32 CPU::Step()
         // Call
         //////////////////////////////////////////////////////////////////////////
 
-    case Instruction::Type_Call:
+    case Instruction::Type_CALL:
         {
             if (TestPredicate(instruction->predicate))
             {
@@ -1077,7 +1124,7 @@ uint32 CPU::Step()
         // Return
         //////////////////////////////////////////////////////////////////////////
 
-    case Instruction::Type_Return:
+    case Instruction::Type_RET:
         {
             if (TestPredicate(instruction->predicate))
                 m_registers.PC = PopWord();
@@ -1087,10 +1134,19 @@ uint32 CPU::Step()
             break;
         }
 
+    case Instruction::Type_RETI:
+        {
+            //DebugAssert(!m_registers.IME);
+            m_registers.IME = true;
+            Log_DevPrintf("Interrupts enabled from RETI");
+            m_registers.PC = PopWord();
+            break;
+        }
+
         //////////////////////////////////////////////////////////////////////////
         // Push
         //////////////////////////////////////////////////////////////////////////
-    case Instruction::Type_Push:
+    case Instruction::Type_PUSH:
         {
             DebugAssert(source->mode == Instruction::AddressMode_Reg16);
             PushWord(m_registers.reg16[source->reg16]);
@@ -1100,7 +1156,7 @@ uint32 CPU::Step()
         //////////////////////////////////////////////////////////////////////////
         // Pop
         //////////////////////////////////////////////////////////////////////////
-    case Instruction::Type_Pop:
+    case Instruction::Type_POP:
         {
             DebugAssert(destination->mode == Instruction::AddressMode_Reg16);
             m_registers.reg16[destination->reg16] = PopWord();
@@ -1117,9 +1173,6 @@ uint32 CPU::Step()
             break;
         }
 
-        //////////////////////////////////////////////////////////////////////////
-        // Untyped instructions
-        //////////////////////////////////////////////////////////////////////////
     case Instruction::Type_SCF:
         {
             m_registers.SetFlagN(false);
@@ -1188,14 +1241,14 @@ uint32 CPU::Step()
     case Instruction::Type_SLA:
         {
             uint8 value;
-            switch (source->mode)
+            switch (operand->mode)
             {
             case Instruction::AddressMode_Reg8:
-                value = m_registers.reg8[source->reg8];
+                value = m_registers.reg8[operand->reg8];
                 break;
 
             case Instruction::AddressMode_Mem16:
-                value = MemReadByte(m_registers.reg16[source->reg16]);
+                value = MemReadByte(m_registers.reg16[operand->reg16]);
                 break;
 
             default:
@@ -1213,14 +1266,14 @@ uint32 CPU::Step()
             m_registers.SetFlagN(false);
 
             // write back
-            switch (destination->mode)
+            switch (operand->mode)
             {
             case Instruction::AddressMode_Reg8:
-                m_registers.reg8[destination->reg8] = value;
+                m_registers.reg8[operand->reg8] = value;
                 break;
 
             case Instruction::AddressMode_Mem16:
-                MemWriteByte(m_registers.reg16[source->reg16], value);
+                MemWriteByte(m_registers.reg16[operand->reg16], value);
                 break;
 
             default:
@@ -1234,14 +1287,14 @@ uint32 CPU::Step()
     case Instruction::Type_SRA:
         {
             uint8 value;
-            switch (source->mode)
+            switch (operand->mode)
             {
             case Instruction::AddressMode_Reg8:
-                value = m_registers.reg8[source->reg8];
+                value = m_registers.reg8[operand->reg8];
                 break;
 
             case Instruction::AddressMode_Mem16:
-                value = MemReadByte(m_registers.reg16[source->reg16]);
+                value = MemReadByte(m_registers.reg16[operand->reg16]);
                 break;
 
             default:
@@ -1259,14 +1312,14 @@ uint32 CPU::Step()
             m_registers.SetFlagN(false);
 
             // write back
-            switch (destination->mode)
+            switch (operand->mode)
             {
             case Instruction::AddressMode_Reg8:
-                m_registers.reg8[destination->reg8] = value;
+                m_registers.reg8[operand->reg8] = value;
                 break;
 
             case Instruction::AddressMode_Mem16:
-                MemWriteByte(m_registers.reg16[source->reg16], value);
+                MemWriteByte(m_registers.reg16[operand->reg16], value);
                 break;
 
             default:
@@ -1280,14 +1333,14 @@ uint32 CPU::Step()
     case Instruction::Type_SRL:
         {
             uint8 value;
-            switch (source->mode)
+            switch (operand->mode)
             {
             case Instruction::AddressMode_Reg8:
-                value = m_registers.reg8[source->reg8];
+                value = m_registers.reg8[operand->reg8];
                 break;
 
             case Instruction::AddressMode_Mem16:
-                value = MemReadByte(m_registers.reg16[source->reg16]);
+                value = MemReadByte(m_registers.reg16[operand->reg16]);
                 break;
 
             default:
@@ -1305,14 +1358,14 @@ uint32 CPU::Step()
             m_registers.SetFlagN(false);
 
             // write back
-            switch (destination->mode)
+            switch (operand->mode)
             {
             case Instruction::AddressMode_Reg8:
-                m_registers.reg8[destination->reg8] = value;
+                m_registers.reg8[operand->reg8] = value;
                 break;
 
             case Instruction::AddressMode_Mem16:
-                MemWriteByte(m_registers.reg16[source->reg16], value);
+                MemWriteByte(m_registers.reg16[operand->reg16], value);
                 break;
 
             default:
