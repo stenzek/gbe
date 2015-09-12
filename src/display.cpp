@@ -273,7 +273,7 @@ void Display::RenderScanline()
         {
             // x/y in oam describes the bottom-right corner position (to position sprite at 0,0 it would be 8,16)
             const OAM_ENTRY *attributes = &m_oamCopy[i];
-            if (attributes->x == 0 || attributes->y == 0)       // offscreen
+            if (attributes->x == 0 || attributes->y == 0 || attributes->x >= 168 || attributes->y >= 160)       // offscreen
                 continue;
 
             // translate to upper left/top, test if within our scanline
@@ -346,7 +346,7 @@ void Display::RenderScanline()
                     continue;
 
                 // Y should already be in range
-                DebugAssert((int32)LINE >= sprite_start_y && (int32)LINE < sprite_end_y);
+                DebugAssert((int32)LINE >= sprite_start_y && (int32)LINE <= sprite_end_y);
 
                 // found a sprite! check the priority, priority1 = behind bg color 1-3
                 if (sprite->priority == 1 && bgcolor_index != 0)

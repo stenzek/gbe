@@ -848,7 +848,7 @@ uint32 CPU::Step()
             switch (source->mode)
             {
             case Instruction::AddressMode_Reg8:
-                value = m_registers.reg8[source->mode];
+                value = m_registers.reg8[source->reg8];
                 break;
 
             case Instruction::AddressMode_Mem16:
@@ -867,7 +867,7 @@ uint32 CPU::Step()
             switch (destination->mode)
             {
             case Instruction::AddressMode_Reg8:
-                m_registers.reg8[destination->mode] = value;
+                m_registers.reg8[destination->reg8] = value;
                 break;
 
             case Instruction::AddressMode_Mem16:
@@ -1017,6 +1017,7 @@ uint32 CPU::Step()
 
             default:
                 UnreachableCode();
+                address = 0;
             }
 
             if (TestPredicate(instruction->predicate))

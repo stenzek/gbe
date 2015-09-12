@@ -615,6 +615,8 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             case 0x0E:
                 return;
             }
+
+            break;
         }
     case 0x20:
         {
@@ -632,6 +634,8 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             case 0x06:
                 return;
             }
+
+            break;
         }
     case 0x40:
         {
@@ -702,6 +706,8 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             case 0x0B:
                 return;
             }
+
+            break;
 
         }
     case 0xF0:

@@ -254,7 +254,7 @@ extern "C" int main(int argc, char *argv[])
 {
     // set log flags
     g_pLog->SetConsoleOutputParams(true);
-    g_pLog->SetConsoleOutputParams(true, "CPU");
+    g_pLog->SetConsoleOutputParams(true, "CPU System");
     //g_pLog->SetDebugOutputParams(true);
 
 #if defined(__WIN32__)
