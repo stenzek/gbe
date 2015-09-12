@@ -65,12 +65,16 @@ Log_SetChannel(CPU);
 #define SUB(src, length, cycles) { Instruction::Type_SUB, src, NoOperand(), length, cycles },
 #define SBC(src, length, cycles) { Instruction::Type_SBC, src, NoOperand(), length, cycles },
 #define Rotate(direction, carry, dst, length, cycles) { Instruction::Type_Rotate, dst, { Instruction::NumAddressModes, (Reg8)direction }, length, carry, (Instruction::LoadStoreAction)carry }, 
+#define RL(dst, length, cycles) { Instruction::Type_RL, dst, NoOperand(), length }, 
+#define RR(dst, length, cycles) { Instruction::Type_RR, dst, NoOperand(), length }, 
+#define RLC(dst, length, cycles) { Instruction::Type_RLC, dst, NoOperand(), length }, 
+#define RRC(dst, length, cycles) { Instruction::Type_RRC, dst, NoOperand(), length }, 
 #define AND(src, length, cycles) { Instruction::Type_AND, src, NoOperand(), length, cycles },
 #define OR(src, length, cycles) { Instruction::Type_OR, src, NoOperand(), length, cycles },
 #define XOR(src, length, cycles) { Instruction::Type_XOR, src, NoOperand(), length, cycles },
 #define Cmp(dst, src, length, cycles) { Instruction::Type_Cmp, dst, src, length, cycles },
 #define CPL(length, cycles) { Instruction::Type_CPL, NoOperand(), NoOperand(), length, cycles },
-#define Swap(dst, src, length, cycles) { Instruction::Type_Swap, dst, src, length, cycles },
+#define SWAP(dst, length, cycles) { Instruction::Type_SWAP, dst, NoOperand(), length, cycles },
 #define BIT(bitnum, src, length, cycles) { Instruction::Type_BIT, NoOperand(), src, length, cycles, (Instruction::LoadStoreAction)bitnum },
 #define SET(bitnum, dst, length, cycles) { Instruction::Type_SET, dst, NoOperand(), length, cycles, (Instruction::LoadStoreAction)bitnum },
 #define RES(bitnum, dst, length, cycles) { Instruction::Type_RES, dst, NoOperand(), length, cycles, (Instruction::LoadStoreAction)bitnum },
@@ -104,7 +108,7 @@ const CPU::Instruction CPU::instructions[256] =
     INC(Reg8(B), 1, 4)                                // 0x04 INC B
     DEC(Reg8(B), 1, 4)                                // 0x05 DEC B
     Load(Reg8(B), Imm8(), 2, 8)                             // 0x06 LD B, d8
-    Rotate(Left, WithCarry, Reg8(A), 1, 4)                  // 0x07 RLCA
+    RLC(Reg8(A), 1, 4)                  // 0x07 RLCA
     Store(Addr16(), Reg16(SP), 3, 20)                       // 0x08 LD (a16), SP
     ADD16(Reg16(HL), Reg16(BC), 1, 8)           // 0x09 ADD HL, BC
     Load(Reg8(A), Mem16(BC), 1, 8)                          // 0x0A LD A, (BC)
@@ -112,7 +116,7 @@ const CPU::Instruction CPU::instructions[256] =
     INC(Reg8(C), 1, 4)                                // 0x0C INC C
     DEC(Reg8(C), 1, 4)                                // 0x0D DEC C
     Load(Reg8(C), Imm8(), 2, 8)                             // 0x0E LD C, d8
-    Rotate(Right, WithCarry, Reg8(A), 1, 4)                 // 0x0F RRCA
+    RRC(Reg8(A), 1, 4)                 // 0x0F RRCA
 
     // 0x10 - 0x1F
     STOP(2, 4)                                              // 0x10 STOP 0
@@ -122,7 +126,7 @@ const CPU::Instruction CPU::instructions[256] =
     INC(Reg8(D), 1, 4)                                // 0x14 INC D
     DEC(Reg8(D), 1, 4)                                // 0x15 DEC D
     Load(Reg8(D), Imm8(), 2, 8)                             // 0x16 LD D, d8
-    Rotate(Left, WithoutCarry, Reg8(A), 1, 4)               // 0x17 RLA
+    RL(Reg8(A), 1, 4)               // 0x17 RLA
     JumpRelative(Always, 2, 12, 12)                         // 0x18 JR r8
     ADD16(Reg16(HL), Reg16(DE), 1, 8)           // 0x19 ADD HL, DE
     Load(Reg8(A), Mem16(DE), 1, 8)                          // 0x1A LD A, (DE)
@@ -130,7 +134,7 @@ const CPU::Instruction CPU::instructions[256] =
     INC(Reg8(E), 1, 4)                                // 0x1C INC E
     DEC(Reg8(E), 1, 4)                                // 0x1D DEC E
     Load(Reg8(E), Imm8(), 2, 8)                             // 0x1E LD E, d8
-    Rotate(Right, WithoutCarry, Reg8(A), 1, 4)              // 0x1F RRA
+    RR(Reg8(A), 1, 4)              // 0x1F RRA
 
     // 0x20 - 0x2F
     JumpRelative(NotZero, 2, 12, 8)                         // 0x20 JR NZ, r8
@@ -411,14 +415,14 @@ const CPU::Instruction CPU::cb_instructions[256] =
     SRA(Reg8(L), 2, 8)                                      // 0x2D SRA L
     SRA(Mem16(HL), 2, 16)                                   // 0x2E SRA (HL)
     SRA(Reg8(B), 2, 8)                                      // 0x2F SRA A
-    Swap(Reg8(A), Reg8(B), 2, 8)                            // 0x30 SWAP B
-    Swap(Reg8(A), Reg8(C), 2, 8)                            // 0x31 SWAP C
-    Swap(Reg8(A), Reg8(D), 2, 8)                            // 0x32 SWAP D
-    Swap(Reg8(A), Reg8(E), 2, 8)                            // 0x33 SWAP E
-    Swap(Reg8(A), Reg8(H), 2, 8)                            // 0x34 SWAP H
-    Swap(Reg8(A), Reg8(L), 2, 8)                            // 0x35 SWAP L
-    Swap(Mem16(HL), Mem16(HL), 2, 16)                       // 0x36 SWAP (HL)
-    Swap(Reg8(A), Reg8(A), 2, 8)                            // 0x37 SWAP A
+    SWAP(Reg8(B), 2, 8)                            // 0x30 SWAP B
+    SWAP(Reg8(C), 2, 8)                            // 0x31 SWAP C
+    SWAP(Reg8(D), 2, 8)                            // 0x32 SWAP D
+    SWAP(Reg8(E), 2, 8)                            // 0x33 SWAP E
+    SWAP(Reg8(H), 2, 8)                            // 0x34 SWAP H
+    SWAP(Reg8(L), 2, 8)                            // 0x35 SWAP L
+    SWAP(Mem16(HL), 2, 16)                       // 0x36 SWAP (HL)
+    SWAP(Reg8(A), 2, 8)                            // 0x37 SWAP A
     SRL(Reg8(B), 2, 8)                                      // 0x38 SRL B
     SRL(Reg8(C), 2, 8)                                      // 0x39 SRL C
     SRL(Reg8(D), 2, 8)                                      // 0x3A SRL D

@@ -742,9 +742,6 @@ uint32 CPU::Step()
             break;
         }
 
-        //////////////////////////////////////////////////////////////////////////
-        // Or
-        //////////////////////////////////////////////////////////////////////////
     case Instruction::Type_OR:
         {
             // get value
@@ -811,9 +808,109 @@ uint32 CPU::Step()
             break;
         }
 
-        //////////////////////////////////////////////////////////////////////////
-        // Rotate
-        //////////////////////////////////////////////////////////////////////////
+    case Instruction::Type_RL:
+        {
+            break;
+        }
+
+    case Instruction::Type_RR:
+        {
+            break;
+        }
+
+    case Instruction::Type_RLC:
+        {
+            uint8 value;
+            switch (operand->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                value = m_registers.reg8[operand->reg8];
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                value = MemReadByte(m_registers.reg16[operand->reg16]);
+                break;
+
+            default:
+                UnreachableCode();
+                value = 0;
+            }
+
+            // bit 7 -> carry
+            m_registers.SetFlagC((value & 0x80) != 0);
+
+            // rotate to left
+            value = ((value & 0x80) >> 7) | (value << 1);
+
+            // update flags
+            m_registers.SetFlagZ((value == 0));
+            m_registers.SetFlagH(false);
+            m_registers.SetFlagN(false);
+
+            // write back
+            switch (operand->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                m_registers.reg8[operand->reg8] = value;
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                MemWriteByte(m_registers.reg16[operand->reg16], value);
+                break;
+
+            default:
+                UnreachableCode();
+            }
+
+            break;
+        }
+
+    case Instruction::Type_RRC:
+        {
+            uint8 value;
+            switch (operand->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                value = m_registers.reg8[operand->reg8];
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                value = MemReadByte(m_registers.reg16[operand->reg16]);
+                break;
+
+            default:
+                UnreachableCode();
+                value = 0;
+            }
+
+            // bit 0 -> carry
+            m_registers.SetFlagC((value & 0x01) != 0);
+
+            // rotate to right
+            value = ((value & 0x01) << 7) | (value >> 1);
+
+            // update flags
+            m_registers.SetFlagZ((value == 0));
+            m_registers.SetFlagH(false);
+            m_registers.SetFlagN(false);
+
+            // write back
+            switch (operand->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                m_registers.reg8[operand->reg8] = value;
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                MemWriteByte(m_registers.reg16[operand->reg16], value);
+                break;
+
+            default:
+                UnreachableCode();
+            }
+
+            break;
+        }
 
     case Instruction::Type_Rotate:
         {
@@ -889,44 +986,41 @@ uint32 CPU::Step()
             break;
         }
 
-        //////////////////////////////////////////////////////////////////////////
-        // Swap high/low nibbles
-        //////////////////////////////////////////////////////////////////////////
-    case Instruction::Type_Swap:
+    case Instruction::Type_SWAP:
         {
-            uint8 value = 0;
-            switch (source->mode)
+            uint8 value;
+            switch (operand->mode)
             {
             case Instruction::AddressMode_Reg8:
-                value = m_registers.reg8[source->reg8];
+                value = m_registers.reg8[operand->reg8];
                 break;
 
             case Instruction::AddressMode_Mem16:
-                value = MemReadByte(m_registers.reg16[source->reg16]);
+                value = MemReadByte(m_registers.reg16[operand->reg16]);
                 break;
 
             default:
                 UnreachableCode();
-                break;
+                value = 0;
             }
 
             // swap nibbles
             value = (value << 4) | (value >> 4);
 
             // write value
-            switch (destination->mode)
+            switch (operand->mode)
             {
             case Instruction::AddressMode_Reg8:
-                m_registers.reg8[destination->reg8] = value;
+                m_registers.reg8[operand->reg8] = value;
                 break;
 
             case Instruction::AddressMode_Mem16:
-                MemWriteByte(m_registers.reg16[destination->reg16], value);
+                MemWriteByte(m_registers.reg16[operand->reg16], value);
                 break;
 
             default:
                 UnreachableCode();
-                break;
+                value = 0;
             }
             break;
         }
