@@ -383,22 +383,18 @@ uint32 CPU::Step()
             break;
         }
 
-        //////////////////////////////////////////////////////////////////////////
-        // Read IO registers
-        //////////////////////////////////////////////////////////////////////////
-
-    case Instruction::Type_ReadIOReg:
+    case Instruction::Type_READIO:
         {
             // get register offset
             uint8 regnum = 0;
-            switch (source->mode)
+            switch (operand->mode)
             {
             case Instruction::AddressMode_Imm8:
                 regnum = get_imm8();
                 break;
 
             case Instruction::AddressMode_Reg8:
-                regnum = m_registers.reg8[source->reg8];
+                regnum = m_registers.reg8[operand->reg8];
                 break;
 
             default:
@@ -406,27 +402,22 @@ uint32 CPU::Step()
             }
 
             // read memory
-            DebugAssert(destination->mode == Instruction::AddressMode_Reg8);
-            m_registers.reg8[destination->reg8] = m_system->CPUReadIORegister(regnum);
+            m_registers.A = m_system->CPUReadIORegister(regnum);
             break;
         }
 
-        //////////////////////////////////////////////////////////////////////////
-        // Write IO registers
-        //////////////////////////////////////////////////////////////////////////
-
-    case Instruction::Type_WriteIOReg:
+    case Instruction::Type_WRITEIO:
         {
             // get register offset
             uint8 regnum = 0;
-            switch (destination->mode)
+            switch (operand->mode)
             {
             case Instruction::AddressMode_Imm8:
                 regnum = get_imm8();
                 break;
 
             case Instruction::AddressMode_Reg8:
-                regnum = m_registers.reg8[destination->reg8];
+                regnum = m_registers.reg8[operand->reg8];
                 break;
 
             default:
@@ -434,14 +425,9 @@ uint32 CPU::Step()
             }
 
             // write memory
-            DebugAssert(source->mode == Instruction::AddressMode_Reg8);
-            m_system->CPUWriteIORegister(regnum, m_registers.reg8[source->reg8]);
+            m_system->CPUWriteIORegister(regnum, m_registers.A);
             break;
         }
-
-        //////////////////////////////////////////////////////////////////////////
-        // Increment
-        //////////////////////////////////////////////////////////////////////////
 
     case Instruction::Type_INC:
         {
@@ -483,10 +469,6 @@ uint32 CPU::Step()
             break;
         }
 
-        //////////////////////////////////////////////////////////////////////////
-        // Decrement
-        //////////////////////////////////////////////////////////////////////////
-
     case Instruction::Type_DEC:
         {
             switch (operand->mode)
@@ -523,10 +505,6 @@ uint32 CPU::Step()
 
             break;
         }
-
-        //////////////////////////////////////////////////////////////////////////
-        // Add
-        //////////////////////////////////////////////////////////////////////////
 
     case Instruction::Type_ADD:
         {
@@ -1046,26 +1024,22 @@ uint32 CPU::Step()
         // Compare
         //////////////////////////////////////////////////////////////////////////
 
-    case Instruction::Type_Cmp:
+    case Instruction::Type_CP:
         {
-            // get lhs
-            DebugAssert(destination->mode == Instruction::AddressMode_Reg8 && destination->reg8 == Reg8_A);
-            uint8 lhs = m_registers.reg8[destination->reg8];
-
             // get rhs
-            uint8 rhs = 0;
-            switch (source->mode)
+            uint8 comparand = 0;
+            switch (operand->mode)
             {
             case Instruction::AddressMode_Imm8:
-                rhs = get_imm8();
+                comparand = get_imm8();
                 break;
 
             case Instruction::AddressMode_Reg8:
-                rhs = m_registers.reg8[source->reg8];
+                comparand = m_registers.reg8[operand->reg8];
                 break;
 
             case Instruction::AddressMode_Mem16:
-                rhs = MemReadByte(m_registers.reg16[source->reg16]);
+                comparand = MemReadByte(m_registers.reg16[operand->reg16]);
                 break;
 
             default:
@@ -1073,10 +1047,10 @@ uint32 CPU::Step()
             }
 
             // implemented in hardware as a subtraction?
-            m_registers.SetFlagZ(lhs == rhs);
+            m_registers.SetFlagZ(m_registers.A == comparand);
             m_registers.SetFlagN(true);
-            m_registers.SetFlagH((lhs & 0xF) < (rhs & 0xF));
-            m_registers.SetFlagC(lhs < rhs);
+            m_registers.SetFlagH((m_registers.A & 0xF) < (comparand & 0xF));
+            m_registers.SetFlagC(m_registers.A < comparand);
             break;
         }
 
@@ -1162,7 +1136,7 @@ uint32 CPU::Step()
         // Jump Absolute
         //////////////////////////////////////////////////////////////////////////
 
-    case Instruction::Type_JumpAbsolute:
+    case Instruction::Type_JP:
         {
             // get jump location
             uint16 address;
@@ -1193,15 +1167,15 @@ uint32 CPU::Step()
         // Jump Relative
         //////////////////////////////////////////////////////////////////////////
 
-    case Instruction::Type_JumpRelative:
+    case Instruction::Type_JR:
         {
             if (TestPredicate(instruction->predicate))
             {
                 int8 d8 = (int8)get_imm8();
                 if (d8 < 0)
-                    m_registers.PC -= -d8;
+                    m_registers.PC -= (uint16)-d8;
                 else
-                    m_registers.PC += d8;
+                    m_registers.PC += (uint16)d8;
             }
             else
             {

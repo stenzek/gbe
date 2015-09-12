@@ -49,8 +49,8 @@ Log_SetChannel(CPU);
 #define Move(dst, src, length, cycles)  { Instruction::Type_Move, dst, src, length, cycles },
 #define LoadAnd(action, dst, src, length, cycles) { Instruction::Type_Load, dst, src, length, cycles, action },
 #define StoreAnd(action, dst, src, length, cycles) { Instruction::Type_Store, dst, src, length, cycles, action },
-#define ReadIOReg(dst, src, length, cycles) { Instruction::Type_ReadIOReg, dst, src, length, cycles },
-#define WriteIOReg(dst, src, length, cycles) { Instruction::Type_WriteIOReg, dst, src, length, cycles },
+#define READIO(offset, length, cycles) { Instruction::Type_READIO, offset, NoOperand(), length, cycles },
+#define WRITEIO(offset, length, cycles) { Instruction::Type_WRITEIO, offset, NoOperand(), length, cycles },
 #define INC(dst, length, cycles) { Instruction::Type_INC, dst, NoOperand(), length, cycles },
 #define DEC(dst, length, cycles) { Instruction::Type_DEC, dst, NoOperand(), length, cycles },
 #define ADD(src, length, cycles) { Instruction::Type_ADD, src, NoOperand(), length, cycles },
@@ -66,14 +66,14 @@ Log_SetChannel(CPU);
 #define AND(src, length, cycles) { Instruction::Type_AND, src, NoOperand(), length, cycles },
 #define OR(src, length, cycles) { Instruction::Type_OR, src, NoOperand(), length, cycles },
 #define XOR(src, length, cycles) { Instruction::Type_XOR, src, NoOperand(), length, cycles },
-#define Cmp(dst, src, length, cycles) { Instruction::Type_Cmp, dst, src, length, cycles },
+#define CP(src, length, cycles) { Instruction::Type_CP, src, NoOperand(), length, cycles },
 #define CPL(length, cycles) { Instruction::Type_CPL, NoOperand(), NoOperand(), length, cycles },
 #define SWAP(dst, length, cycles) { Instruction::Type_SWAP, dst, NoOperand(), length, cycles },
 #define BIT(bitnum, src, length, cycles) { Instruction::Type_BIT, NoOperand(), src, length, cycles, (Instruction::LoadStoreAction)bitnum },
 #define SET(bitnum, dst, length, cycles) { Instruction::Type_SET, dst, NoOperand(), length, cycles, (Instruction::LoadStoreAction)bitnum },
 #define RES(bitnum, dst, length, cycles) { Instruction::Type_RES, dst, NoOperand(), length, cycles, (Instruction::LoadStoreAction)bitnum },
-#define JumpRelative(predicate, length, cycles, cycles_skipped) { Instruction::Type_JumpRelative, Imm8(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
-#define JumpAbsolute(predicate, src, length, cycles, cycles_skipped) { Instruction::Type_JumpAbsolute, src, NoOperand(), length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
+#define JR(predicate, length, cycles, cycles_skipped) { Instruction::Type_JR, Imm8(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
+#define JP(predicate, src, length, cycles, cycles_skipped) { Instruction::Type_JP, src, NoOperand(), length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
 #define CALL(predicate, length, cycles, cycles_skipped) { Instruction::Type_CALL, Imm16(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
 #define RET(predicate, length, cycles, cycles_skipped) { Instruction::Type_RET, NoOperand(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
 #define RETI(length, cycles) { Instruction::Type_RETI, NoOperand(), NoOperand(), length, cycles },
@@ -90,7 +90,7 @@ Log_SetChannel(CPU);
 #define SLA(dst, length, cycles) { Instruction::Type_SLA, dst, NoOperand(), length, cycles },
 #define SRA(dst, length, cycles) { Instruction::Type_SRA, dst, NoOperand(), length, cycles },
 #define SRL(dst, length, cycles) { Instruction::Type_SRL, dst, NoOperand(), length, cycles },
-#define Prefix() { Instruction::Type_Prefix },
+#define PREFIX() { Instruction::Type_Prefix },
 
 const CPU::Instruction CPU::instructions[256] =
 {
@@ -121,7 +121,7 @@ const CPU::Instruction CPU::instructions[256] =
     DEC(Reg8(D), 1, 4)                                // 0x15 DEC D
     Load(Reg8(D), Imm8(), 2, 8)                             // 0x16 LD D, d8
     RL(Reg8(A), 1, 4)               // 0x17 RLA
-    JumpRelative(Always, 2, 12, 12)                         // 0x18 JR r8
+    JR(Always, 2, 12, 12)                         // 0x18 JR r8
     ADD16(Reg16(HL), Reg16(DE), 1, 8)           // 0x19 ADD HL, DE
     Load(Reg8(A), Mem16(DE), 1, 8)                          // 0x1A LD A, (DE)
     DEC(Reg16(DE), 1, 8)                              // 0x1B DEC DE
@@ -131,7 +131,7 @@ const CPU::Instruction CPU::instructions[256] =
     RR(Reg8(A), 1, 4)              // 0x1F RRA
 
     // 0x20 - 0x2F
-    JumpRelative(NotZero, 2, 12, 8)                         // 0x20 JR NZ, r8
+    JR(NotZero, 2, 12, 8)                         // 0x20 JR NZ, r8
     Load(Reg16(HL), Imm16(), 3, 12)                         // 0x21 LD HL, d16
     StoreAnd(IncrementAddress, Mem16(HL), Reg8(A), 1, 8)    // 0x22 LDI (HL), A
     INC(Reg16(HL), 1, 8)                              // 0x23 INC HL
@@ -139,7 +139,7 @@ const CPU::Instruction CPU::instructions[256] =
     DEC(Reg8(H), 1, 4)                                // 0x25 DEC H
     Load(Reg8(H), Imm8(), 2, 8)                             // 0x26 LD H, d8
     Stub(1, 4)                                              // 0x27 DAA
-    JumpRelative(Zero, 2, 12, 8)                            // 0x28 JR Z, r8
+    JR(Zero, 2, 12, 8)                            // 0x28 JR Z, r8
     ADD16(Reg16(HL), Reg16(HL), 1, 8)           // 0x29 ADD HL, HL
     LoadAnd(IncrementAddress, Reg8(A), Mem16(HL), 1, 8)     // 0x2A LDI A, (HL)
     DEC(Reg16(HL), 1, 8)                              // 0x2B DEC HL
@@ -149,7 +149,7 @@ const CPU::Instruction CPU::instructions[256] =
     CPL(1, 4)                             // 0x2F CPL
 
     // 0x30 - 0x3F
-    JumpRelative(NotCarry, 2, 12, 8)                        // 0x30 JR NC, r8
+    JR(NotCarry, 2, 12, 8)                        // 0x30 JR NC, r8
     Load(Reg16(SP), Imm16(), 3, 12)                         // 0x31 LD SP, d16
     StoreAnd(DecrementAddress, Mem16(HL), Reg8(A), 1, 8)    // 0x32 LDD (HL), A
     INC(Reg16(SP), 1, 8)                              // 0x33 INC SP
@@ -157,7 +157,7 @@ const CPU::Instruction CPU::instructions[256] =
     DEC(Mem16(HL), 1, 12)                             // 0x35 DEC (HL)
     Store(Mem16(HL), Imm8(), 2, 12)                         // 0x36 LD (HL), d8
     SCF(1, 4)                                               // 0x37 SCF
-    JumpRelative(Carry, 2, 12, 8)                           // 0x38 JR C, r8
+    JR(Carry, 2, 12, 8)                           // 0x38 JR C, r8
     ADD16(Reg16(HL), Reg16(SP), 1, 8)           // 0x39 ADD HL, SP
     LoadAnd(DecrementAddress, Reg8(A), Mem16(HL), 1, 8)     // 0x3A LDD A, (HL)
     DEC(Reg16(SP), 1, 8)                              // 0x3B DEC SP
@@ -285,33 +285,33 @@ const CPU::Instruction CPU::instructions[256] =
     OR(Reg8(L), 1, 4)                              // 0xB5 OR L
     OR(Mem16(HL), 1, 8)                            // 0xB6 OR (HL)
     OR(Reg8(A), 1, 4)                              // 0xB7 OR A
-    Cmp(Reg8(A), Reg8(B), 1, 4)                             // 0xB8 CP B
-    Cmp(Reg8(A), Reg8(C), 1, 4)                             // 0xB9 CP C
-    Cmp(Reg8(A), Reg8(D), 1, 4)                             // 0xBA CP D
-    Cmp(Reg8(A), Reg8(E), 1, 4)                             // 0xBB CP E
-    Cmp(Reg8(A), Reg8(H), 1, 4)                             // 0xBC CP H
-    Cmp(Reg8(A), Reg8(L), 1, 4)                             // 0xBD CP L
-    Cmp(Reg8(A), Mem16(HL), 1, 8)                           // 0xBE CP (HL)
-    Cmp(Reg8(A), Reg8(A), 1, 4)                             // 0xBF CP A
+    CP(Reg8(B), 1, 4)                             // 0xB8 CP B
+    CP(Reg8(C), 1, 4)                             // 0xB9 CP C
+    CP(Reg8(D), 1, 4)                             // 0xBA CP D
+    CP(Reg8(E), 1, 4)                             // 0xBB CP E
+    CP(Reg8(H), 1, 4)                             // 0xBC CP H
+    CP(Reg8(L), 1, 4)                             // 0xBD CP L
+    CP(Mem16(HL), 1, 8)                           // 0xBE CP (HL)
+    CP(Reg8(A), 1, 4)                             // 0xBF CP A
     RET(NotZero, 1, 20, 8)                               // 0xC0 RET NZ
     POP(Reg16(BC), 1, 12)                                   // 0xC1 POP BC
-    JumpAbsolute(NotZero, Imm16(), 3, 16, 12)               // 0xC2 JP NZ, a16
-    JumpAbsolute(Always, Imm16(), 3, 16, 16)                // 0xC3 JP a16
+    JP(NotZero, Imm16(), 3, 16, 12)               // 0xC2 JP NZ, a16
+    JP(Always, Imm16(), 3, 16, 16)                // 0xC3 JP a16
     CALL(NotZero, 3, 24, 12)                                // 0xC4 CALL NZ, a16
     PUSH(Reg16(BC), 1, 16)                                  // 0xC5 PUSH BC
     ADD(Imm8(), 2, 8)                // 0xC6 ADD A, d8
     RST(0, 1, 16)                                           // 0xC7 RST 00H
     RET(Zero, 1, 20, 8)                                  // 0xC8 RET Z
     RET(Always, 1, 16, 16)                               // 0xC9 RET
-    JumpAbsolute(Zero, Imm16(), 3, 16, 12)                  // 0xCA JP Z, a16
-    Prefix()                                                // 0xCB PREFIX CB
+    JP(Zero, Imm16(), 3, 16, 12)                  // 0xCA JP Z, a16
+    PREFIX()                                                // 0xCB PREFIX CB
     CALL(Zero, 3, 24, 12)                                   // 0xCC CALL Z, a16
     CALL(Always, 3, 24, 12)                                 // 0xCD CALL a16
     ADC(Imm8(), 2, 8)                   // 0xCE ADC A, d8
     RST(0x08, 1, 16)                                        // 0xCF RST 08H
     RET(NotCarry, 1, 20, 8)                              // 0xD0 RET NC
     POP(Reg16(DE), 1, 12)                                   // 0xD1 POP DE
-    JumpAbsolute(NotCarry, Imm16(), 3, 16, 12)              // 0xD2 JP NC, a16
+    JP(NotCarry, Imm16(), 3, 16, 12)              // 0xD2 JP NC, a16
     Stub(1, 0)                                              // 0xD3
     CALL(NotCarry, 3, 24, 12)                               // 0xD4 CALL NC, a16
     PUSH(Reg16(DE), 1, 16)                                  // 0xD5 PUSH DE
@@ -319,31 +319,31 @@ const CPU::Instruction CPU::instructions[256] =
     RST(0x10, 1, 16)                                        // 0xD7 RST 10H
     RET(Carry, 1, 20, 8)                                    // 0xD8 RET C
     RETI(1, 16)                                             // 0xD9 RETI
-    JumpAbsolute(Carry, Imm16(), 3, 16, 12)                 // 0xDA JP C, a16
+    JP(Carry, Imm16(), 3, 16, 12)                 // 0xDA JP C, a16
     Stub(1, 0)                                              // 0xDB
     CALL(Carry, 3, 24, 12)                                  // 0xDC CALL C, a16
     Stub(1, 0)                                              // 0xDD
     SBC(Imm8(), 2, 8)                   // 0xDE SBC A, d8
     RST(0x18, 1, 16)                                        // 0xDF RST 18H
-    WriteIOReg(Imm8(), Reg8(A), 2, 12)                      // 0xE0 LDH (a8), A
+    WRITEIO(Imm8(), 2, 12)                      // 0xE0 LDH (a8), A
     POP(Reg16(HL), 1, 12)                                   // 0xE1 POP HL
-    WriteIOReg(Reg8(C), Reg8(A), 1, 8)                      // 0xE2 LD (C), A
+    WRITEIO(Reg8(C), 1, 8)                      // 0xE2 LD (C), A
     Stub(1, 0)                                              // 0xE3
     Stub(1, 0)                                              // 0xE4
     PUSH(Reg16(HL), 1, 16)                                  // 0xE5 PUSH HL
     AND(Imm8(), 2, 8)                              // 0xE6 AND d8
     RST(0x20, 1, 16)                                        // 0xE7 RST 20H
     ADDS8(Reg16(SP), Imm8(), 2, 16)             // 0xE8 ADD SP, r8
-    JumpAbsolute(Always, Reg16(HL), 1, 4, 4)                // 0xE9 JP (HL)
+    JP(Always, Reg16(HL), 1, 4, 4)                // 0xE9 JP (HL)
     Store(Addr16(), Reg8(A), 3, 16)                         // 0xEA LD (a16), A
     Stub(1, 0)                                              // 0xEB
     Stub(1, 0)                                              // 0xEC
     Stub(1, 0)                                              // 0xED
     XOR(Imm8(), 2, 8)                              // 0xEE XOR d8
     RST(0x28, 1, 16)                                        // 0xEF RST 28H
-    ReadIOReg(Reg8(A), Imm8(), 2, 12)                       // 0xF0 LDH A, (a8)
+    READIO(Imm8(), 2, 12)                       // 0xF0 LDH A, (a8)
     POP(Reg16(AF), 1, 12)                                   // 0xF1 POP AF
-    ReadIOReg(Reg8(A), Reg8(C), 1, 8)                       // 0xF2 LD A, (C)
+    READIO(Reg8(C), 1, 8)                       // 0xF2 LD A, (C)
     DI(1, 4)                                                // 0xF3 DI
     Stub(1, 0)                                              // 0xF4
     PUSH(Reg16(AF), 1, 16)                                  // 0xF5 PUSH AF
@@ -355,7 +355,7 @@ const CPU::Instruction CPU::instructions[256] =
     EI(1, 4)                                                // 0xFB EI
     Stub(1, 0)                                              // 0xFC
     Stub(1, 0)                                              // 0xFD
-    Cmp(Reg8(A), Imm8(), 2, 8)                              // 0xFE CP d8
+    CP(Imm8(), 2, 8)                              // 0xFE CP d8
     RST(0x38, 1, 16)                                        // 0xFF RST 38H
 };
 
