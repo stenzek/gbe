@@ -212,7 +212,7 @@ const CPU::Instruction CPU::instructions[256] =
     Move(Reg8(L), Reg8(H), 1, 4)                            // 0x6C LD L, H
     Move(Reg8(L), Reg8(L), 1, 4)                            // 0x6D LD L, L
     Load(Reg8(L), Mem16(HL), 1, 8)                          // 0x6E LD L, (HL)
-    Move(Reg8(L), Reg8(B), 1, 4)                            // 0x6F LD L, A
+    Move(Reg8(L), Reg8(A), 1, 4)                            // 0x6F LD L, A
     Store(Mem16(HL), Reg8(B), 1, 8)                         // 0x70 LD (HL), B
     Store(Mem16(HL), Reg8(C), 1, 8)                         // 0x71 LD (HL), C
     Store(Mem16(HL), Reg8(D), 1, 8)                         // 0x72 LD (HL), D
