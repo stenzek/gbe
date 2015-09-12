@@ -68,6 +68,9 @@ private:
 
     void PutPixel(uint32 x, uint32 y, uint32 color);
 
+    // returns index into palette
+    uint8 ReadTile(uint8 tileset, uint16 tile, uint8 x, uint8 y) const;
+
     System *m_system;
 
     // registers - use a struct here?

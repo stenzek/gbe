@@ -406,8 +406,12 @@ uint8 System::CPUReadIORegister(uint8 index) const
             case 0x00:
                 // Stub for now - nothing pressed
                 {
-                    static uint8 mask = 0xF;
-                    return m_pad_row_select | mask;
+                    if ((m_pad_row_select & 0x10) == 0)
+                        return m_pad_row_select | 0x0F;
+                    else if ((m_pad_row_select & 0x20) == 0)
+                        return m_pad_row_select | 0x0E;
+
+                    return m_pad_row_select | 0x0F;
                 }
 
                 // Divider timer
@@ -576,6 +580,15 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                 m_display->SetRegister((DISPLAY_REG)(index - 0x40), value);
                 return;
             }
+            else
+            {
+                switch (index & 0x0F)
+                {
+                    // FF4F - VBK - CGB Mode Only - VRAM Bank
+                case 0x0F:
+                    return;
+                }
+            }
 
             break;
         }
@@ -590,6 +603,28 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             }
 
             break;
+        }
+    case 0x60:
+        {
+            switch (index & 0x0F)
+            {
+                // FF68 - BCPS / BGPI - CGB Mode Only - Background Palette Index
+            case 0x08:
+                return;
+
+                // FF69 - BCPD/BGPD - CGB Mode Only - Background Palette Data
+            case 0x09:
+                return;
+
+                // FF6A - OCPS/OBPI - CGB Mode Only - Sprite Palette Index
+            case 0x0A:
+                return;
+
+                // FF6B - OCPD/OBPD - CGB Mode Only - Sprite Palette Data
+            case 0x0B:
+                return;
+            }
+
         }
     case 0xF0:
         {
