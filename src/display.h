@@ -62,6 +62,9 @@ public:
 
 private:
     void RenderScanline();
+    void RenderFull();
+    void DumpTiles();
+    void DisplayTiles();
 
     void SetMode(uint32 mode);
     void SetScanline(uint32 scanline);
@@ -69,16 +72,12 @@ private:
     void PutPixel(uint32 x, uint32 y, uint32 color);
 
     // returns index into palette
-    uint8 ReadTile(bool high_tileset, uint16 tile, uint8 x, uint8 y) const;
+    uint8 ReadTile(bool high_tileset, int32 tile, uint8 x, uint8 y) const;
 
     System *m_system;
 
     // registers - use a struct here?
     Registers m_registers;
-
-    // copies of memory
-    byte m_vramCopy[0x2000];
-    OAM_ENTRY m_oamCopy[40];
 
     // state
     uint32 m_mode;

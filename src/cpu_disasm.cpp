@@ -48,7 +48,7 @@ bool CPU::Disassemble(String *pDestination, System *memory, uint16 address)
         return true;
 
     case 0x01:
-        pDestination->Format("%04X 01       LD BC,nn", address);
+        pDestination->Format("%04X 01       LD BC,$%04X", address, imm16);
         return true;
 
     case 0x02:
@@ -112,7 +112,7 @@ bool CPU::Disassemble(String *pDestination, System *memory, uint16 address)
         return true;
 
     case 0x11:
-        pDestination->Format("%04X 11       LD DE,nn", address);
+        pDestination->Format("%04X 11       LD DE, $%04X", address, imm16);
         return true;
 
     case 0x12:
@@ -176,7 +176,7 @@ bool CPU::Disassemble(String *pDestination, System *memory, uint16 address)
         return true;
 
     case 0x21:
-        pDestination->Format("%04X 21 %02X %02X LD HL, $%04X", address, imm16b1, imm16b2, imm16);
+        pDestination->Format("%04X 21 %02X %02X LD HL,$%04X", address, imm16b1, imm16b2, imm16);
         return true;
 
     case 0x22:
@@ -820,7 +820,7 @@ bool CPU::Disassemble(String *pDestination, System *memory, uint16 address)
         return true;
 
     case 0xC2:
-        pDestination->Format("%04X C2       JP NZ,nn", address);
+        pDestination->Format("%04X C2       JP NZ,$%04X", address, imm16);
         return true;
 
     case 0xC3:
@@ -828,7 +828,7 @@ bool CPU::Disassemble(String *pDestination, System *memory, uint16 address)
         return true;
 
     case 0xC4:
-        pDestination->Format("%04X C4       CALL NZ,nn", address);
+        pDestination->Format("%04X C4       CALL NZ,$%04X", address, imm16);
         return true;
 
     case 0xC5:
@@ -2008,7 +2008,7 @@ bool CPU::Disassemble(String *pDestination, System *memory, uint16 address)
         return true;
 
     case 0xEA:
-        pDestination->Format("%04X EA       LD (nn),A", address);
+        pDestination->Format("%04X EA       LD $%04X,A", imm16, address);
         return true;
 
     case 0xEB:
@@ -2072,7 +2072,7 @@ bool CPU::Disassemble(String *pDestination, System *memory, uint16 address)
         return true;
 
     case 0xFA:
-        pDestination->Format("%04X FA       LD A,(nn)", address);
+        pDestination->Format("%04X FA       LD A,($%04X)", address, imm16);
         return true;
 
     case 0xFB:
