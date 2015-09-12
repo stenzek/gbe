@@ -236,7 +236,6 @@ public:
             Type_XOR,
             Type_CPL,
             Type_SWAP,
-            Type_Rotate,
             Type_RL,
             Type_RR,
             Type_RLC,
@@ -274,18 +273,6 @@ public:
             Predicate_NotCarry,
         };
 
-        enum CarryAction
-        {
-            CarryAction_With,
-            CarryAction_Ignore
-        };
-
-        enum RotateDirection
-        {
-            RotateDirection_Left,
-            RotateDirection_Right
-        };
-
         struct Operand
         {
             AddressMode mode;
@@ -293,7 +280,6 @@ public:
             {
                 Reg8 reg8;
                 Reg16 reg16;
-                RotateDirection direction;
                 uint8 restart_vector;
             };
         };
@@ -307,7 +293,6 @@ public:
         {
             LoadStoreAction load_action;
             Predicate predicate;
-            CarryAction carry;
             uint8 bitnum;
         };
         uint32 cycles_skipped;

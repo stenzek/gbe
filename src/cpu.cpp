@@ -565,6 +565,7 @@ uint32 CPU::Step()
     case Instruction::Type_ADD16:
         {
             // 16-bit add of 2 registers
+            DebugAssert(source->mode == Instruction::AddressMode_Reg16 && destination->mode == Instruction::AddressMode_Reg16);
             uint16 old_value = m_registers.reg16[destination->reg16];
             uint16 addend = m_registers.reg16[source->reg16];
             uint32 new_value = old_value + (uint32)addend;
@@ -675,14 +676,14 @@ uint32 CPU::Step()
         {
             // get value to subtract
             uint8 addend;
-            switch (source->mode)
+            switch (operand->mode)
             {
             case Instruction::AddressMode_Imm8:
                 addend = get_imm8();
                 break;
 
             case Instruction::AddressMode_Reg8:
-                addend = m_registers.reg8[source->reg8];
+                addend = m_registers.reg8[operand->reg8];
                 break;
 
             case Instruction::AddressMode_Mem16:
@@ -810,11 +811,93 @@ uint32 CPU::Step()
 
     case Instruction::Type_RL:
         {
+            uint8 value;
+            switch (operand->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                value = m_registers.reg8[operand->reg8];
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                value = MemReadByte(m_registers.reg16[operand->reg16]);
+                break;
+
+            default:
+                UnreachableCode();
+                value = 0;
+            }
+
+            // 9-bit rotation, carry -> bit 0
+            uint8 old_value = value;
+            value = (value << 1) | (uint8)m_registers.GetFlagC();
+
+            // update flags
+            m_registers.SetFlagC(!!(old_value & 0x80));
+            m_registers.SetFlagZ((value == 0));
+            m_registers.SetFlagH(false);
+            m_registers.SetFlagN(false);
+
+            // write back
+            switch (operand->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                m_registers.reg8[operand->reg8] = value;
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                MemWriteByte(m_registers.reg16[operand->reg16], value);
+                break;
+
+            default:
+                UnreachableCode();
+            }
+
             break;
         }
 
     case Instruction::Type_RR:
         {
+            uint8 value;
+            switch (operand->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                value = m_registers.reg8[operand->reg8];
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                value = MemReadByte(m_registers.reg16[operand->reg16]);
+                break;
+
+            default:
+                UnreachableCode();
+                value = 0;
+            }
+
+            // 9-bit rotation, carry -> bit 7
+            uint8 old_value = value;
+            value = (value >> 1) | ((uint8)m_registers.GetFlagC() << 7);
+
+            // update flags
+            m_registers.SetFlagC(!!(old_value & 0x01));
+            m_registers.SetFlagZ((value == 0));
+            m_registers.SetFlagH(false);
+            m_registers.SetFlagN(false);
+
+            // write back
+            switch (operand->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                m_registers.reg8[operand->reg8] = value;
+                break;
+
+            case Instruction::AddressMode_Mem16:
+                MemWriteByte(m_registers.reg16[operand->reg16], value);
+                break;
+
+            default:
+                UnreachableCode();
+            }
+
             break;
         }
 
@@ -909,72 +992,6 @@ uint32 CPU::Step()
                 UnreachableCode();
             }
 
-            break;
-        }
-
-    case Instruction::Type_Rotate:
-        {
-            // read value
-            uint8 carry_in = (uint8)m_registers.GetFlagC();
-            uint8 old_value = 0;
-            switch (destination->mode)
-            {
-            case Instruction::AddressMode_Reg8:
-                old_value = m_registers.reg8[destination->reg8];
-                break;
-
-            case Instruction::AddressMode_Mem16:
-                old_value = MemReadByte(m_registers.reg16[destination->reg16]);
-                break;
-
-            default:
-                UnreachableCode();
-            }
-
-            // get output value
-            uint8 carry_out = carry_in;
-            uint8 new_value = old_value;
-
-            // kinda counter-intuitive - but RL = 9-bit rotation, RLC = 8-bit rotation
-            // we do a 9-bit rotation anyway, so just replace the first bit (the old carry bit)
-            Instruction::RotateDirection dir = source->direction;
-            if (dir == Instruction::RotateDirection_Left)
-            {
-                carry_out = (old_value >> 7);
-                if (instruction->carry == Instruction::CarryAction_With)
-                    carry_in = carry_out;
-
-                new_value = (old_value << 1) | (carry_in);
-            }
-            else
-            {
-                carry_out = (old_value & 1);
-                if (instruction->carry == Instruction::CarryAction_With)
-                    carry_in = carry_out;
-
-                new_value = (old_value >> 1) | (carry_in << 7);
-            }
-
-            // set new values
-            switch (destination->mode)
-            {
-            case Instruction::AddressMode_Reg8:
-                m_registers.reg8[destination->reg8] = new_value;
-                break;
-
-            case Instruction::AddressMode_Mem16:
-                MemWriteByte(m_registers.reg16[destination->reg16], new_value);
-                break;
-
-            default:
-                UnreachableCode();
-            }
-
-            // update flags
-            m_registers.SetFlagZ(false);
-            m_registers.SetFlagN(false);
-            m_registers.SetFlagH(false);
-            m_registers.SetFlagC(carry_out != 0);
             break;
         }
 
@@ -1313,21 +1330,21 @@ uint32 CPU::Step()
 
     case Instruction::Type_LDHL_SPR8:
         {
-            uint16 load_address = m_registers.SP;
+            uint16 value = m_registers.SP;
+            uint16 old_value = value;
             int8 offset = (int8)get_imm8();
             if (offset < 0)
-                load_address -= -offset;
+                value -= -offset;
             else
-                load_address += offset;
+                value += offset;
 
-            // load to HL
-            m_registers.HL = MemReadWord(load_address);
+            m_registers.HL = value;
 
             // affects flags, only load that does. how??
             m_registers.SetFlagZ(false);
             m_registers.SetFlagN(false);
-            m_registers.SetFlagH(false);
-            m_registers.SetFlagC(false);
+            m_registers.SetFlagH((value & 0xF) < (old_value & 0xF));
+            m_registers.SetFlagC((value & 0xFF) < (old_value & 0xFF));
             break;
         }
 
