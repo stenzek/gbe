@@ -469,6 +469,9 @@ uint32 CPU::Step()
                     m_registers.reg16[operand->reg16]++;
                     break;
                 }
+
+            default:
+                UnreachableCode();
             }
 
             break;
@@ -506,6 +509,9 @@ uint32 CPU::Step()
                     m_registers.reg16[operand->reg16]--;
                     break;
                 }
+
+            default:
+                UnreachableCode();
             }
 
             break;
@@ -816,9 +822,14 @@ uint32 CPU::Step()
 
             // update flags
             m_registers.SetFlagC(!!(old_value & 0x80));
-            m_registers.SetFlagZ((value == 0));
             m_registers.SetFlagH(false);
             m_registers.SetFlagN(false);
+
+            // non-prefixed rotates zero z flag
+            if (instruction->length > 1)
+                m_registers.SetFlagZ((value == 0));
+            else
+                m_registers.SetFlagZ(false);
 
             // write back
             switch (operand->mode)
@@ -862,9 +873,14 @@ uint32 CPU::Step()
 
             // update flags
             m_registers.SetFlagC(!!(old_value & 0x01));
-            m_registers.SetFlagZ((value == 0));
             m_registers.SetFlagH(false);
             m_registers.SetFlagN(false);
+
+            // non-prefixed rotates zero z flag
+            if (instruction->length > 1)
+                m_registers.SetFlagZ((value == 0));
+            else
+                m_registers.SetFlagZ(false);
 
             // write back
             switch (operand->mode)
@@ -909,9 +925,14 @@ uint32 CPU::Step()
             value = ((value & 0x80) >> 7) | (value << 1);
 
             // update flags
-            m_registers.SetFlagZ((value == 0));
             m_registers.SetFlagH(false);
             m_registers.SetFlagN(false);
+
+            // non-prefixed rotates zero z flag
+            if (instruction->length > 1)
+                m_registers.SetFlagZ((value == 0));
+            else
+                m_registers.SetFlagZ(false);
 
             // write back
             switch (operand->mode)
@@ -956,9 +977,14 @@ uint32 CPU::Step()
             value = ((value & 0x01) << 7) | (value >> 1);
 
             // update flags
-            m_registers.SetFlagZ((value == 0));
             m_registers.SetFlagH(false);
             m_registers.SetFlagN(false);
+
+            // non-prefixed rotates zero z flag
+            if (instruction->length > 1)
+                m_registers.SetFlagZ((value == 0));
+            else
+                m_registers.SetFlagZ(false);
 
             // write back
             switch (operand->mode)

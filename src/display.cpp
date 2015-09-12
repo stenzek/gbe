@@ -200,7 +200,7 @@ uint8 Display::ReadTile(bool high_tileset, int32 tile, uint8 x, uint8 y) const
     if (high_tileset)
         tilemem += 0x800 + ((tile + 128) * 16);
     else
-        tilemem += (tile * 16);
+        tilemem += ((uint8)tile * 16);
 
     // 2 bytes represent a line, with the LSB on the even byte
     // and the MSB on the odd byte
@@ -348,7 +348,7 @@ void Display::RenderScanline()
 
                 // found a sprite! check the priority, priority1 = behind bg color 1-3
                 if (sprite->priority == 1 && bgcolor_index != 0)
-                    break;
+                    break; // or continue??
 
                 // turn the x position and scanline into tile-space coordinates
                 int32 tile_x = (int32)pixel_x - sprite_start_x;
