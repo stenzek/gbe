@@ -54,6 +54,17 @@ void System::Step()
     UpdateTimer(cycles);
 }
 
+void System::DMATransfer(uint16 source_address, uint16 destination_address, uint32 bytes)
+{
+    // slow but due to the ranges has to be done this awy
+    uint16 current_source_address = source_address;
+    uint16 current_destination_address = destination_address;
+    for (uint32 i = 0; i < bytes; i++, current_source_address++, current_destination_address++)
+        CPUWrite(current_destination_address, CPURead(current_source_address));
+
+    // TODO: Stall memory access for 160 cycles
+}
+
 void System::ResetMemory()
 {
     // bios is initially mapped
@@ -597,7 +608,8 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                     // It takes 160 microseconds until the transfer has completed (80 microseconds in CGB Double Speed Mode), during this time the CPU can access only HRAM (memory at FF80-FFFE).
                     uint16 source_address = (uint16)value * 256;
                     uint16 destination_address = 0xFE00;
-                    Log_DevPrintf("TODO: OAM DMA Transfer 0x%04X -> 0x%04X", source_address, destination_address);
+                    Log_DevPrintf("OAM DMA Transfer 0x%04X -> 0x%04X", source_address, destination_address);
+                    DMATransfer(source_address, destination_address, 160);
                     return;
                 }
 

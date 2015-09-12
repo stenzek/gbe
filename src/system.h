@@ -50,6 +50,9 @@ private:
     const byte *GetVRAM() const { return m_memory_vram; }
     void SetVRAMLock(bool locked) { m_vramLocked = locked; }
 
+    // OAM DMA Transfer
+    void DMATransfer(uint16 source_address, uint16 destination_address, uint32 bytes);
+
 private:
     void ResetMemory();
     void ResetTimer();
