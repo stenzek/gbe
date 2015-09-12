@@ -236,22 +236,17 @@ public:
             Type_TestBit,
             Type_SetBit,
             Type_ResetBit,
-            Type_Restart,
-            Type_Untyped,
-        };
-
-        enum Untyped
-        {
-            Untyped_CCF,
-            Untyped_SCF,
-            Untyped_HALT,
-            Untyped_STOP,
-            Untyped_EI,
-            Untyped_DI,
-            Untyped_LDHL,
-            Untyped_SLA,
-            Untyped_SRA,
-            Untyped_SRL,
+            Type_RST,
+            Type_CCF,
+            Type_SCF,
+            Type_HALT,
+            Type_STOP,
+            Type_EI,
+            Type_DI,
+            Type_LDHL_SPR8,
+            Type_SLA,
+            Type_SRA,
+            Type_SRL,
         };
 
         enum LoadStoreAction
@@ -305,7 +300,6 @@ public:
             LoadStoreAction load_action;
             Predicate predicate;
             CarryAction carry;
-            Untyped untyped_opcode;
             uint8 bitnum;
         };
         uint32 cycles_skipped;

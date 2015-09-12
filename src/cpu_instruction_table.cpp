@@ -46,16 +46,6 @@ Log_SetChannel(CPU);
 #define WithoutCarry Instruction::CarryAction_Ignore
 #define Left Instruction::RotateDirection_Left
 #define Right Instruction::RotateDirection_Right
-#define SCF Instruction::Untyped_SCF
-#define CCF Instruction::Untyped_CCF
-#define HALT Instruction::Untyped_HALT
-#define STOP Instruction::Untyped_STOP
-#define EI Instruction::Untyped_EI
-#define DI Instruction::Untyped_DI
-#define LDHL Instruction::Untyped_LDHL
-#define SLA Instruction::Untyped_SLA
-#define SRA Instruction::Untyped_SRA
-#define SRL Instruction::Untyped_SRL
 
 #define Stub(length, cycles) { Instruction::Type_Stub, NoOperand(), NoOperand(), length, cycles },
 #define Nop(length, cycles) { Instruction::Type_Nop, NoOperand(), NoOperand(), length, cycles },
@@ -86,10 +76,17 @@ Log_SetChannel(CPU);
 #define Return(predicate, length, cycles, cycles_skipped) { Instruction::Type_Return, NoOperand(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)predicate, cycles_skipped },
 #define Push(src, length, cycles) { Instruction::Type_Push, NoOperand(), src, length, cycles },
 #define Pop(dst, length, cycles) { Instruction::Type_Pop, dst, NoOperand(), length, cycles },
-#define Restart(vector, length, cycles) { Instruction::Type_Restart, { Instruction::NumAddressModes, (Reg8)vector }, NoOperand(), length, cycles },
-#define EnableInterrupts(state, length, cycles) { Instruction::Type_EnableInterrupts, NoOperand(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)state },
-#define Untyped(type, length, cycles) { Instruction::Type_Untyped, NoOperand(), NoOperand(), length, cycles, (Instruction::LoadStoreAction)type },
-#define UntypedSD(type, dst, src, length, cycles) { Instruction::Type_Untyped, dst, src, length, cycles, (Instruction::LoadStoreAction)type },
+#define RST(vector, length, cycles) { Instruction::Type_RST, { Instruction::NumAddressModes, (Reg8)vector }, NoOperand(), length, cycles },
+#define CCF(length, cycles) { Instruction::Type_CCF, NoOperand(), NoOperand(), length, cycles },
+#define SCF(length, cycles) { Instruction::Type_SCF, NoOperand(), NoOperand(), length, cycles },
+#define HALT(length, cycles) { Instruction::Type_HALT, NoOperand(), NoOperand(), length, cycles },
+#define STOP(length, cycles) { Instruction::Type_STOP, NoOperand(), NoOperand(), length, cycles },
+#define EI(length, cycles) { Instruction::Type_EI, NoOperand(), NoOperand(), length, cycles },
+#define DI(length, cycles) { Instruction::Type_DI, NoOperand(), NoOperand(), length, cycles },
+#define LDHL_SPR8(length, cycles) { Instruction::Type_LDHL_SPR8, NoOperand(), NoOperand(), length, cycles },
+#define SLA(dst, length, cycles) { Instruction::Type_SLA, dst, NoOperand(), length, cycles },
+#define SRA(dst, length, cycles) { Instruction::Type_SRA, dst, NoOperand(), length, cycles },
+#define SRL(dst, length, cycles) { Instruction::Type_SRL, dst, NoOperand(), length, cycles },
 #define Prefix() { Instruction::Type_Prefix },
 
 const CPU::Instruction CPU::instructions[256] =
@@ -113,7 +110,7 @@ const CPU::Instruction CPU::instructions[256] =
     Rotate(Right, WithCarry, Reg8(A), 1, 4)                 // 0x0F RRCA
 
     // 0x10 - 0x1F
-    Untyped(STOP, 2, 4)                                     // 0x10 STOP 0
+    STOP(2, 4)                                              // 0x10 STOP 0
     Load(Reg16(DE), Imm16(), 3, 12)                         // 0x11 LD DE, d16
     Store(Mem16(DE), Reg8(A), 1, 8)                         // 0x12 LD (DE), A
     Increment(Reg16(DE), 1, 8)                              // 0x13 INC DE
@@ -156,7 +153,7 @@ const CPU::Instruction CPU::instructions[256] =
     Increment(Mem16(HL), 1, 12)                             // 0x34 INC (HL)
     Decrement(Mem16(HL), 1, 12)                             // 0x35 DEC (HL)
     Store(Mem16(HL), Imm8(), 2, 12)                         // 0x36 LD (HL), d8
-    Untyped(SCF, 1, 4)                                      // 0x37 SCF
+    SCF(1, 4)                                               // 0x37 SCF
     JumpRelative(Carry, 2, 12, 8)                           // 0x38 JR C, r8
     Add(WithoutCarry, Reg16(HL), Reg16(SP), 1, 8)           // 0x39 ADD HL, SP
     LoadAnd(DecrementAddress, Reg8(A), Mem16(HL), 1, 8)     // 0x3A LDD A, (HL)
@@ -164,7 +161,7 @@ const CPU::Instruction CPU::instructions[256] =
     Increment(Reg8(A), 1, 4)                                // 0x3C INC A
     Decrement(Reg8(A), 1, 4)                                // 0x3D DEC A
     Load(Reg8(A), Imm8(), 2, 8)                             // 0x3E LD A, d8
-    Untyped(CCF, 1, 4)                                      // 0x3F CCF
+    CCF(1, 4)                                               // 0x3F CCF
     Move(Reg8(B), Reg8(B), 1, 4)                            // 0x40 LD B, B
     Move(Reg8(B), Reg8(C), 1, 4)                            // 0x41 LD B, C
     Move(Reg8(B), Reg8(D), 1, 4)                            // 0x42 LD B, D
@@ -219,7 +216,7 @@ const CPU::Instruction CPU::instructions[256] =
     Store(Mem16(HL), Reg8(E), 1, 8)                         // 0x73 LD (HL), E
     Store(Mem16(HL), Reg8(H), 1, 8)                         // 0x74 LD (HL), H
     Store(Mem16(HL), Reg8(L), 1, 8)                         // 0x75 LD (HL), L
-    Untyped(HALT, 1, 4)                                     // 0x76 HALT
+    HALT(1, 4)                                              // 0x76 HALT
     Store(Mem16(HL), Reg8(A), 1, 8)                         // 0x77 LD (HL), A
     Move(Reg8(A), Reg8(B), 1, 4)                            // 0x78 LD A, B
     Move(Reg8(A), Reg8(C), 1, 4)                            // 0x79 LD A, C
@@ -300,7 +297,7 @@ const CPU::Instruction CPU::instructions[256] =
     Call(NotZero, 3, 24, 12)                                // 0xC4 CALL NZ, a16
     Push(Reg16(BC), 1, 16)                                  // 0xC5 PUSH BC
     Add(WithoutCarry, Reg8(A), Imm8(), 2, 8)                // 0xC6 ADD A, d8
-    Restart(0, 1, 16)                                       // 0xC7 RST 00H
+    RST(0, 1, 16)                                           // 0xC7 RST 00H
     Return(Zero, 1, 20, 8)                                  // 0xC8 RET Z
     Return(Always, 1, 16, 16)                               // 0xC9 RET
     JumpAbsolute(Zero, Imm16(), 3, 16, 12)                  // 0xCA JP Z, a16
@@ -308,7 +305,7 @@ const CPU::Instruction CPU::instructions[256] =
     Call(Zero, 3, 24, 12)                                   // 0xCC CALL Z, a16
     Call(Always, 3, 24, 12)                                 // 0xCD CALL a16
     Add(WithCarry, Reg8(A), Imm8(), 2, 8)                   // 0xCE ADC A, d8
-    Restart(0x08, 1, 16)                                    // 0xCF RST 08H
+    RST(0x08, 1, 16)                                        // 0xCF RST 08H
     Return(NotCarry, 1, 20, 8)                              // 0xD0 RET NC
     Pop(Reg16(DE), 1, 12)                                   // 0xD1 POP DE
     JumpAbsolute(NotCarry, Imm16(), 3, 16, 12)              // 0xD2 JP NC, a16
@@ -316,7 +313,7 @@ const CPU::Instruction CPU::instructions[256] =
     Call(NotCarry, 3, 24, 12)                               // 0xD4 CALL NC, a16
     Push(Reg16(DE), 1, 16)                                  // 0xD5 PUSH DE
     Sub(WithoutCarry, Reg8(A), Imm8(), 2, 8)                // 0xD6 SUB d8
-    Restart(0x10, 1, 16)                                    // 0xD7 RST 10H
+    RST(0x10, 1, 16)                                        // 0xD7 RST 10H
     Return(Carry, 1, 20, 8)                                 // 0xD8 RET C
     Return(FromInterrupt, 1, 16, 16)                        // 0xD9 RETI
     JumpAbsolute(Carry, Imm16(), 3, 16, 12)                 // 0xDA JP C, a16
@@ -324,7 +321,7 @@ const CPU::Instruction CPU::instructions[256] =
     Call(Carry, 3, 24, 12)                                  // 0xDC CALL C, a16
     Stub(1, 0)                                              // 0xDD
     Sub(WithCarry, Reg8(A), Imm8(), 2, 8)                   // 0xDE SBC A, d8
-    Restart(0x18, 1, 16)                                    // 0xDF RST 18H
+    RST(0x18, 1, 16)                                        // 0xDF RST 18H
     WriteIOReg(Imm8(), Reg8(A), 2, 12)                      // 0xE0 LDH (a8), A
     Pop(Reg16(HL), 1, 12)                                   // 0xE1 POP HL
     WriteIOReg(Reg8(C), Reg8(A), 1, 8)                      // 0xE2 LD (C), A
@@ -332,7 +329,7 @@ const CPU::Instruction CPU::instructions[256] =
     Stub(1, 0)                                              // 0xE4
     Push(Reg16(HL), 1, 16)                                  // 0xE5 PUSH HL
     And(Reg8(A), Imm8(), 2, 8)                              // 0xE6 AND d8
-    Restart(0x20, 1, 16)                                    // 0xE7 RST 20H
+    RST(0x20, 1, 16)                                        // 0xE7 RST 20H
     Add(WithoutCarry, Reg16(SP), Imm8(), 2, 16)             // 0xE8 ADD SP, r8
     JumpAbsolute(Always, Reg16(HL), 1, 4, 4)                // 0xE9 JP (HL)
     Store(Addr16(), Reg8(A), 3, 16)                         // 0xEA LD (a16), A
@@ -340,23 +337,23 @@ const CPU::Instruction CPU::instructions[256] =
     Stub(1, 0)                                              // 0xEC
     Stub(1, 0)                                              // 0xED
     Xor(Reg8(A), Imm8(), 2, 8)                              // 0xEE XOR d8
-    Restart(0x28, 1, 16)                                    // 0xEF RST 28H
+    RST(0x28, 1, 16)                                        // 0xEF RST 28H
     ReadIOReg(Reg8(A), Imm8(), 2, 12)                       // 0xF0 LDH A, (a8)
     Pop(Reg16(AF), 1, 12)                                   // 0xF1 POP AF
     ReadIOReg(Reg8(A), Reg8(C), 1, 8)                       // 0xF2 LD A, (C)
-    Untyped(DI, 1, 4)                                       // 0xF3 DI
+    DI(1, 4)                                                // 0xF3 DI
     Stub(1, 0)                                              // 0xF4
     Push(Reg16(AF), 1, 16)                                  // 0xF5 PUSH AF
     Or(Reg8(A), Imm8(), 2, 8)                               // 0xF6 OR d8
-    Restart(0x30, 1, 16)                                    // 0xF7 RST 30H
-    Untyped(LDHL, 2, 12)                                    // 0xF8 LD HL, SP+r8
+    RST(0x30, 1, 16)                                        // 0xF7 RST 30H
+    LDHL_SPR8(2, 12)                                        // 0xF8 LD HL, SP+r8
     Move(Reg16(SP), Reg16(HL), 1, 8)                        // 0xF9 LD SP, HL
     Load(Reg8(A), Addr16(), 3, 16)                          // 0xFA LD A, (a16)
-    Untyped(EI, 1, 4)                                       // 0xFB EI
+    EI(1, 4)                                                // 0xFB EI
     Stub(1, 0)                                              // 0xFC
     Stub(1, 0)                                              // 0xFD
     Cmp(Reg8(A), Imm8(), 2, 8)                              // 0xFE CP d8
-    Restart(0x38, 1, 16)                                    // 0xFF RST 38H
+    RST(0x38, 1, 16)                                        // 0xFF RST 38H
 };
 
 const CPU::Instruction CPU::cb_instructions[256] =
@@ -393,22 +390,22 @@ const CPU::Instruction CPU::cb_instructions[256] =
     Rotate(Right, WithoutCarry, Reg8(L), 2, 8)              // 0x1D RR L
     Rotate(Right, WithoutCarry, Mem16(HL), 2, 16)           // 0x1E RR (HL)
     Rotate(Right, WithoutCarry, Reg8(B), 2, 8)              // 0x1F RR A
-    UntypedSD(SLA, Reg8(B), Reg8(B), 2, 8)                  // 0x20 SLA B
-    UntypedSD(SLA, Reg8(C), Reg8(C), 2, 8)                  // 0x21 SLA C
-    UntypedSD(SLA, Reg8(D), Reg8(D), 2, 8)                  // 0x22 SLA D
-    UntypedSD(SLA, Reg8(E), Reg8(E), 2, 8)                  // 0x23 SLA E
-    UntypedSD(SLA, Reg8(H), Reg8(H), 2, 8)                  // 0x24 SLA H
-    UntypedSD(SLA, Reg8(L), Reg8(L), 2, 8)                  // 0x25 SLA L
-    UntypedSD(SLA, Mem16(HL), Mem16(HL), 2, 16)             // 0x26 SLA (HL)
-    UntypedSD(SRA, Reg8(A), Reg8(A), 2, 8)                  // 0x27 SLA A
-    UntypedSD(SRA, Reg8(B), Reg8(B), 2, 8)                  // 0x28 SRA B
-    UntypedSD(SRA, Reg8(C), Reg8(C), 2, 8)                  // 0x29 SRA C
-    UntypedSD(SRA, Reg8(D), Reg8(D), 2, 8)                  // 0x2A SRA D
-    UntypedSD(SRA, Reg8(E), Reg8(E), 2, 8)                  // 0x2B SRA E
-    UntypedSD(SRA, Reg8(H), Reg8(H), 2, 8)                  // 0x2C SRA H
-    UntypedSD(SRA, Reg8(L), Reg8(L), 2, 8)                  // 0x2D SRA L
-    UntypedSD(SRA, Mem16(HL), Mem16(HL), 2, 16)             // 0x2E SRA (HL)
-    UntypedSD(SRA, Reg8(B), Reg8(B), 2, 8)                  // 0x2F SRA A
+    SLA(Reg8(B), 2, 8)                                      // 0x20 SLA B
+    SLA(Reg8(C), 2, 8)                  // 0x21 SLA C
+    SLA(Reg8(D), 2, 8)                                      // 0x22 SLA D
+    SLA(Reg8(E), 2, 8)                                      // 0x23 SLA E
+    SLA(Reg8(H), 2, 8)                                      // 0x24 SLA H
+    SLA(Reg8(L), 2, 8)                                      // 0x25 SLA L
+    SLA(Mem16(HL), 2, 16)                                   // 0x26 SLA (HL)
+    SRA(Reg8(A), 2, 8)                                      // 0x27 SLA A
+    SRA(Reg8(B), 2, 8)                                      // 0x28 SRA B
+    SRA(Reg8(C), 2, 8)                                      // 0x29 SRA C
+    SRA(Reg8(D), 2, 8)                                      // 0x2A SRA D
+    SRA(Reg8(E), 2, 8)                                      // 0x2B SRA E
+    SRA(Reg8(H), 2, 8)                                      // 0x2C SRA H
+    SRA(Reg8(L), 2, 8)                                      // 0x2D SRA L
+    SRA(Mem16(HL), 2, 16)                                   // 0x2E SRA (HL)
+    SRA(Reg8(B), 2, 8)                                      // 0x2F SRA A
     Swap(Reg8(A), Reg8(B), 2, 8)                            // 0x30 SWAP B
     Swap(Reg8(A), Reg8(C), 2, 8)                            // 0x31 SWAP C
     Swap(Reg8(A), Reg8(D), 2, 8)                            // 0x32 SWAP D
@@ -417,14 +414,14 @@ const CPU::Instruction CPU::cb_instructions[256] =
     Swap(Reg8(A), Reg8(L), 2, 8)                            // 0x35 SWAP L
     Swap(Mem16(HL), Mem16(HL), 2, 16)                       // 0x36 SWAP (HL)
     Swap(Reg8(A), Reg8(A), 2, 8)                            // 0x37 SWAP A
-    UntypedSD(SRL, Reg8(B), Reg8(B), 2, 8)                  // 0x38 SRL B
-    UntypedSD(SRL, Reg8(C), Reg8(C), 2, 8)                  // 0x39 SRL C
-    UntypedSD(SRL, Reg8(D), Reg8(D), 2, 8)                  // 0x3A SRL D
-    UntypedSD(SRL, Reg8(E), Reg8(E), 2, 8)                  // 0x3B SRL E
-    UntypedSD(SRL, Reg8(H), Reg8(H), 2, 8)                  // 0x3C SRL H
-    UntypedSD(SRL, Reg8(L), Reg8(L), 2, 8)                  // 0x3D SRL L
-    UntypedSD(SRL, Mem16(HL), Mem16(HL), 2, 16)             // 0x3E SRL (HL)
-    UntypedSD(SRL, Reg8(A), Reg8(A), 2, 8)                  // 0x3F SRL A
+    SRL(Reg8(B), 2, 8)                                      // 0x38 SRL B
+    SRL(Reg8(C), 2, 8)                                      // 0x39 SRL C
+    SRL(Reg8(D), 2, 8)                                      // 0x3A SRL D
+    SRL(Reg8(E), 2, 8)                                      // 0x3B SRL E
+    SRL(Reg8(H), 2, 8)                                      // 0x3C SRL H
+    SRL(Reg8(L), 2, 8)                                      // 0x3D SRL L
+    SRL(Mem16(HL), 2, 16)                                   // 0x3E SRL (HL)
+    SRL(Reg8(A), 2, 8)                                      // 0x3F SRL A
     TestBit(0, Reg8(B), 2, 8)                               // 0x40 BIT 0,B
     TestBit(0, Reg8(C), 2, 8)                               // 0x41 BIT 0,C
     TestBit(0, Reg8(D), 2, 8)                               // 0x42 BIT 0,D

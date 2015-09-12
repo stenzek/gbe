@@ -1110,7 +1110,7 @@ uint32 CPU::Step()
         //////////////////////////////////////////////////////////////////////////
         // Restart
         //////////////////////////////////////////////////////////////////////////
-    case Instruction::Type_Restart:
+    case Instruction::Type_RST:
         {
             PushWord(m_registers.PC);
             m_registers.PC = 0x0000 + destination->restart_vector;
@@ -1120,199 +1120,200 @@ uint32 CPU::Step()
         //////////////////////////////////////////////////////////////////////////
         // Untyped instructions
         //////////////////////////////////////////////////////////////////////////
-    case Instruction::Type_Untyped:
+    case Instruction::Type_SCF:
         {
-            switch (instruction->untyped_opcode)
+            m_registers.SetFlagN(false);
+            m_registers.SetFlagH(false);
+            m_registers.SetFlagC(true);
+            break;
+        }
+
+    case Instruction::Type_CCF:
+        {
+            m_registers.SetFlagN(false);
+            m_registers.SetFlagH(false);
+            m_registers.SetFlagC(!m_registers.GetFlagC());
+            break;
+        }
+
+    case Instruction::Type_HALT:
+        {
+            m_halted = true;
+            Log_DevPrintf("CPU Halt at %04X", original_pc);
+            break;
+        }
+
+    case Instruction::Type_STOP:
+        {
+            m_halted = true;
+            Log_DevPrintf("CPU Stop");
+            break;
+        }
+
+    case Instruction::Type_EI:
+        {
+            m_registers.IME = true;
+            Log_DevPrintf("Interrupts enabled from EI");
+            break;
+        }
+
+    case Instruction::Type_DI:
+        {
+            m_registers.IME = false;
+            Log_DevPrintf("Interrupts disabled from DI");
+            break;
+        }
+
+    case Instruction::Type_LDHL_SPR8:
+        {
+            uint16 load_address = m_registers.SP;
+            int8 offset = (int8)get_imm8();
+            if (offset < 0)
+                load_address -= -offset;
+            else
+                load_address += offset;
+
+            // load to HL
+            m_registers.HL = MemReadWord(load_address);
+
+            // affects flags, only load that does. how??
+            m_registers.SetFlagZ(false);
+            m_registers.SetFlagN(false);
+            m_registers.SetFlagH(false);
+            m_registers.SetFlagC(false);
+            break;
+        }
+
+        // shift left arithmetic
+    case Instruction::Type_SLA:
+        {
+            uint8 value;
+            switch (source->mode)
             {
-            case Instruction::Untyped_SCF:
-                m_registers.SetFlagN(false);
-                m_registers.SetFlagH(false);
-                m_registers.SetFlagC(true);
+            case Instruction::AddressMode_Reg8:
+                value = m_registers.reg8[source->reg8];
                 break;
 
-            case Instruction::Untyped_CCF:
-                m_registers.SetFlagN(false);
-                m_registers.SetFlagH(!m_registers.GetFlagH());
-                m_registers.SetFlagC(!m_registers.GetFlagC());
+            case Instruction::AddressMode_Mem16:
+                value = MemReadByte(m_registers.reg16[source->reg16]);
                 break;
 
-            case Instruction::Untyped_HALT:
-                m_halted = true;
-                Log_DevPrintf("CPU Halt at %04X", original_pc);
+            default:
+                UnreachableCode();
+                value = 0;
+            }
+
+            // shift to left, bit 7 -> carry, bit 0 <- 0
+            m_registers.SetFlagC((value & 0x80) != 0);
+            value <<= 1;
+
+            // update flags
+            m_registers.SetFlagZ((value == 0));
+            m_registers.SetFlagH(false);
+            m_registers.SetFlagN(false);
+
+            // write back
+            switch (destination->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                m_registers.reg8[destination->reg8] = value;
                 break;
 
-            case Instruction::Untyped_STOP:
-                m_halted = true;
-                Log_DevPrintf("CPU Stop");
+            case Instruction::AddressMode_Mem16:
+                MemWriteByte(m_registers.reg16[source->reg16], value);
                 break;
 
-            case Instruction::Untyped_EI:
-                m_registers.IME = true;
-                Log_DevPrintf("Interrupts enabled from EI");
+            default:
+                UnreachableCode();
+            }
+
+            break;
+        }
+
+        // shift right arithmetic
+    case Instruction::Type_SRA:
+        {
+            uint8 value;
+            switch (source->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                value = m_registers.reg8[source->reg8];
                 break;
 
-            case Instruction::Untyped_DI:
-                m_registers.IME = false;
-                Log_DevPrintf("Interrupts disabled from DI");
+            case Instruction::AddressMode_Mem16:
+                value = MemReadByte(m_registers.reg16[source->reg16]);
                 break;
 
-            case Instruction::Untyped_LDHL:
-                {
-                    uint16 load_address = m_registers.SP;
-                    int8 offset = (int8)get_imm8();
-                    if (offset < 0)
-                        load_address -= -offset;
-                    else
-                        load_address += offset;
+            default:
+                UnreachableCode();
+                value = 0;
+            }
 
-                    // load to HL
-                    m_registers.HL = MemReadWord(load_address);
+            // shift to right, keep bit 7, bit 1 -> carry
+            m_registers.SetFlagC((value & 0x01) != 0);
+            value = (value & 0x80) | (value >> 1);
 
-                    // affects flags, only load that does. how??
-                    m_registers.SetFlagZ(false);
-                    m_registers.SetFlagN(false);
-                    m_registers.SetFlagH(false);
-                    m_registers.SetFlagC(false);
-                    break;
-                }
+            // update flags
+            m_registers.SetFlagZ((value == 0));
+            m_registers.SetFlagH(false);
+            m_registers.SetFlagN(false);
 
-                // shift left arithmetic
-            case Instruction::Untyped_SLA:
-                {
-                    uint8 value;
-                    switch (source->mode)
-                    {
-                    case Instruction::AddressMode_Reg8:
-                        value = m_registers.reg8[source->reg8];
-                        break;
+            // write back
+            switch (destination->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                m_registers.reg8[destination->reg8] = value;
+                break;
 
-                    case Instruction::AddressMode_Mem16:
-                        value = MemReadByte(m_registers.reg16[source->reg16]);
-                        break;
+            case Instruction::AddressMode_Mem16:
+                MemWriteByte(m_registers.reg16[source->reg16], value);
+                break;
 
-                    default:
-                        UnreachableCode();
-                        value = 0;
-                    }
+            default:
+                UnreachableCode();
+            }
 
-                    // shift to left, bit 7 -> carry, bit 0 <- 0
-                    m_registers.SetFlagC((value & 0x80) != 0);
-                    value <<= 1;
+            break;
+        }
 
-                    // update flags
-                    m_registers.SetFlagZ((value == 0));
-                    m_registers.SetFlagH(false);
-                    m_registers.SetFlagN(false);
+        // shift right logical
+    case Instruction::Type_SRL:
+        {
+            uint8 value;
+            switch (source->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                value = m_registers.reg8[source->reg8];
+                break;
 
-                    // write back
-                    switch (destination->mode)
-                    {
-                    case Instruction::AddressMode_Reg8:
-                        m_registers.reg8[destination->reg8] = value;
-                        break;
+            case Instruction::AddressMode_Mem16:
+                value = MemReadByte(m_registers.reg16[source->reg16]);
+                break;
 
-                    case Instruction::AddressMode_Mem16:
-                        MemWriteByte(m_registers.reg16[source->reg16], value);
-                        break;
+            default:
+                UnreachableCode();
+                value = 0;
+            }
 
-                    default:
-                        UnreachableCode();
-                    }
+            // shift to right, bit 7 <- 0, bit 0 -> carry
+            m_registers.SetFlagC((value & 0x01));
+            value >>= 1;
 
-                    break;
-                }
+            // update flags
+            m_registers.SetFlagZ((value == 0));
+            m_registers.SetFlagH(false);
+            m_registers.SetFlagN(false);
 
-                // shift right arithmetic
-            case Instruction::Untyped_SRA:
-                {
-                    uint8 value;
-                    switch (source->mode)
-                    {
-                    case Instruction::AddressMode_Reg8:
-                        value = m_registers.reg8[source->reg8];
-                        break;
+            // write back
+            switch (destination->mode)
+            {
+            case Instruction::AddressMode_Reg8:
+                m_registers.reg8[destination->reg8] = value;
+                break;
 
-                    case Instruction::AddressMode_Mem16:
-                        value = MemReadByte(m_registers.reg16[source->reg16]);
-                        break;
-
-                    default:
-                        UnreachableCode();
-                        value = 0;
-                    }
-
-                    // shift to right, keep bit 7, bit 1 -> carry
-                    m_registers.SetFlagC((value & 0x01) != 0);
-                    value = (value & 0x80) | (value >> 1);
-
-                    // update flags
-                    m_registers.SetFlagZ((value == 0));
-                    m_registers.SetFlagH(false);
-                    m_registers.SetFlagN(false);
-
-                    // write back
-                    switch (destination->mode)
-                    {
-                    case Instruction::AddressMode_Reg8:
-                        m_registers.reg8[destination->reg8] = value;
-                        break;
-
-                    case Instruction::AddressMode_Mem16:
-                        MemWriteByte(m_registers.reg16[source->reg16], value);
-                        break;
-
-                    default:
-                        UnreachableCode();
-                    }
-
-                    break;
-                }
-
-                // shift right logical
-            case Instruction::Untyped_SRL:
-                {
-                    uint8 value;
-                    switch (source->mode)
-                    {
-                    case Instruction::AddressMode_Reg8:
-                        value = m_registers.reg8[source->reg8];
-                        break;
-
-                    case Instruction::AddressMode_Mem16:
-                        value = MemReadByte(m_registers.reg16[source->reg16]);
-                        break;
-
-                    default:
-                        UnreachableCode();
-                        value = 0;
-                    }
-
-                    // shift to right, bit 7 <- 0, bit 0 -> carry
-                    m_registers.SetFlagC((value & 0x01));
-                    value >>= 1;
-
-                    // update flags
-                    m_registers.SetFlagZ((value == 0));
-                    m_registers.SetFlagH(false);
-                    m_registers.SetFlagN(false);
-
-                    // write back
-                    switch (destination->mode)
-                    {
-                    case Instruction::AddressMode_Reg8:
-                        m_registers.reg8[destination->reg8] = value;
-                        break;
-
-                    case Instruction::AddressMode_Mem16:
-                        MemWriteByte(m_registers.reg16[source->reg16], value);
-                        break;
-
-                    default:
-                        UnreachableCode();
-                    }
-
-                    break;
-                }
+            case Instruction::AddressMode_Mem16:
+                MemWriteByte(m_registers.reg16[source->reg16], value);
+                break;
 
             default:
                 UnreachableCode();
