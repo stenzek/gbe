@@ -366,7 +366,7 @@ uint8 System::CPURead(uint16 address) const
     }
 
     // unhandled read
-    Log_DevPrintf("Unhandled CPU read address 0x%04X", address);
+    Log_WarningPrintf("Unhandled CPU read address 0x%04X", address);
     return 0x00;
 }
 
@@ -465,7 +465,7 @@ void System::CPUWrite(uint16 address, uint8 value)
     }
 
     // unhandled write
-    Log_DevPrintf("Unhandled CPU write address 0x%04X (value 0x%02X)", address, value);
+    Log_WarningPrintf("Unhandled CPU write address 0x%04X (value 0x%02X)", address, value);
 }
 
 uint8 System::CPUReadIORegister(uint8 index) const
@@ -536,7 +536,7 @@ uint8 System::CPUReadIORegister(uint8 index) const
         return m_memory_zram[index - 0x80];
     }
 
-    Log_DevPrintf("Unhandled CPU IO register read: 0x%02X", index);
+    Log_WarningPrintf("Unhandled CPU IO register read: 0x%02X", index);
     return 0x00;
 }
 
@@ -749,10 +749,11 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
         return;
     }
 
-    Log_DevPrintf("Unhandled CPU IO register write: 0x%02X (value 0x%02X)", index, value);
+    Log_WarningPrintf("Unhandled CPU IO register write: 0x%02X (value 0x%02X)", index, value);
 }
 
 void System::CPUInterruptRequest(uint8 index)
 {
+    Log_TracePrintf("CPU raise interrupt %u", index);
     m_cpu->RaiseInterrupt(index);
 }

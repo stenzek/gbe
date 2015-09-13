@@ -97,9 +97,6 @@ bool CPU::TestPredicate(Instruction::Predicate condition)
     }
 }
 
-uint64 counts[256] = { 0 };
-uint64 cb_counts[256] = { 0 };
-
 uint32 CPU::Step()
 {
     // interrupts enabled?
@@ -131,7 +128,7 @@ uint32 CPU::Step()
                         0x0060,     // joypad
                     };
 
-                    //Log_DevPrintf("Entering interrupt handler $%04X, PC was $%04X", jump_locations[i], m_registers.PC);
+                    Log_TracePrintf("Entering interrupt handler $%04X, PC was $%04X", jump_locations[i], m_registers.PC);
                     //DisassembleFrom(m_system, m_registers.PC, 10);
 
                     PushWord(m_registers.PC);
@@ -169,7 +166,6 @@ uint32 CPU::Step()
 
     // decode opcode - if we wanted we could count cycles here to read
     const Instruction *instruction = &instructions[instruction_buffer[0]];
-    counts[instruction_buffer[0]]++;
 
     // handle prefixed instructions
     if (instruction->type == Instruction::Type_Prefix)
@@ -180,7 +176,6 @@ uint32 CPU::Step()
         {
         case 0xCB:
             instruction = &cb_instructions[instruction_buffer[0]];
-            cb_counts[instruction_buffer[0]]++;
             break;
 
         default:

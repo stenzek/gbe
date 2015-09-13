@@ -323,7 +323,7 @@ uint8 Cartridge::MBC_NONE_Read(uint16 address)
         }
     }
 
-    Log_DevPrintf("MBC_NONE unhandled read from 0x%04X", address);
+    Log_WarningPrintf("MBC_NONE unhandled read from 0x%04X", address);
     return 0x00;
 }
 
@@ -343,7 +343,7 @@ void Cartridge::MBC_NONE_Write(uint16 address, uint8 value)
     }
 
     // ignore all writes
-    Log_DevPrintf("MBC_NONE unhandled write to 0x%04X (value %02X)", address, value);
+    Log_WarningPrintf("MBC_NONE unhandled write to 0x%04X (value %02X)", address, value);
     return;
 }
 
@@ -403,7 +403,7 @@ uint8 Cartridge::MBC_MBC1_Read(uint16 address)
         }
     }
 
-    Log_DevPrintf("MBC_MBC1 unhandled read from 0x%04X", address);
+    Log_WarningPrintf("MBC_MBC1 unhandled read from 0x%04X", address);
     return 0x00;
 }
 
@@ -414,14 +414,14 @@ void Cartridge::MBC_MBC1_Write(uint16 address, uint8 value)
     case 0x0000:
     case 0x1000:
         m_mbc_data.mbc1.ram_enable = (value == 0x0A);
-        Log_DevPrintf("MBC1 ram %s", m_mbc_data.mbc1.ram_enable ? "enable" : "disable");
+        Log_TracePrintf("MBC1 ram %s", m_mbc_data.mbc1.ram_enable ? "enable" : "disable");
         return;
 
     case 0x2000:
     case 0x3000:
         m_mbc_data.mbc1.rom_bank_number = value;
         MBC_MBC1_UpdateActiveBanks();
-        break;
+        return;
 
     case 0x4000:
     case 0x5000:
@@ -449,7 +449,7 @@ void Cartridge::MBC_MBC1_Write(uint16 address, uint8 value)
     }
 
     // ignore all writes
-    Log_DevPrintf("MBC_MBC1 unhandled write to 0x%04X (value %02X)", address, value);
+    Log_WarningPrintf("MBC_MBC1 unhandled write to 0x%04X (value %02X)", address, value);
     return;
 }
 
@@ -477,8 +477,8 @@ void Cartridge::MBC_MBC1_UpdateActiveBanks()
         m_mbc_data.mbc1.active_rom_bank = (uint8)m_num_rom_banks - 1;
     }
 
-    Log_DevPrintf("MBC1 ROM bank: %u", m_mbc_data.mbc1.active_rom_bank);
-    Log_DevPrintf("MBC1 RAM bank: %u", m_mbc_data.mbc1.active_ram_bank);
+    Log_TracePrintf("MBC1 ROM bank: %u", m_mbc_data.mbc1.active_rom_bank);
+    Log_TracePrintf("MBC1 RAM bank: %u", m_mbc_data.mbc1.active_ram_bank);
 }
 
 
@@ -545,7 +545,7 @@ uint8 Cartridge::MBC_MBC3_Read(uint16 address)
         }
     }
 
-    Log_DevPrintf("MBC_MBC3 unhandled read from 0x%04X", address);
+    Log_WarningPrintf("MBC_MBC3 unhandled read from 0x%04X", address);
     return 0x00;
 }
 
@@ -556,7 +556,7 @@ void Cartridge::MBC_MBC3_Write(uint16 address, uint8 value)
     case 0x0000:
     case 0x1000:
         m_mbc_data.mbc3.ram_rtc_enable = (value == 0x0A);
-        Log_DevPrintf("MBC3 ram %s", m_mbc_data.mbc3.ram_rtc_enable ? "enable" : "disable");
+        Log_TracePrintf("MBC3 ram %s", m_mbc_data.mbc3.ram_rtc_enable ? "enable" : "disable");
         return;
 
     case 0x2000:
@@ -598,7 +598,7 @@ void Cartridge::MBC_MBC3_Write(uint16 address, uint8 value)
     }
 
     // ignore all writes
-    Log_DevPrintf("MBC_MBC3 unhandled write to 0x%04X (value %02X)", address, value);
+    Log_WarningPrintf("MBC_MBC3 unhandled write to 0x%04X (value %02X)", address, value);
     return;
 }
 
@@ -615,6 +615,6 @@ void Cartridge::MBC_MBC3_UpdateActiveBanks()
         m_mbc_data.mbc3.rom_bank_number = (uint8)m_num_rom_banks - 1;
     }
 
-    Log_DevPrintf("MBC3 ROM bank: %u", m_mbc_data.mbc3.rom_bank_number);
-    Log_DevPrintf("MBC3 RAM bank: %u", m_mbc_data.mbc3.ram_bank_number);
+    Log_TracePrintf("MBC3 ROM bank: %u", m_mbc_data.mbc3.rom_bank_number);
+    Log_TracePrintf("MBC3 RAM bank: %u", m_mbc_data.mbc3.ram_bank_number);
 }

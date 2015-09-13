@@ -247,7 +247,8 @@ static int Run(State *state)
             }
         }
 
-        state->system->Step();
+        for (uint32 i = 0; i < 100; i++)
+            state->system->Step();
     }
 
     return 0;
@@ -257,7 +258,7 @@ static int Run(State *state)
 extern "C" int main(int argc, char *argv[])
 {
     // set log flags
-    g_pLog->SetConsoleOutputParams(true);
+    g_pLog->SetConsoleOutputParams(true, nullptr, LOGLEVEL_PROFILE);
     //g_pLog->SetConsoleOutputParams(true, "CPU System");
     //g_pLog->SetDebugOutputParams(true);
 
