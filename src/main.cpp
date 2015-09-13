@@ -20,7 +20,7 @@ struct ProgramArgs
 
 struct State
 {
-    const Cartridge *cart;
+    Cartridge *cart;
     const byte *bios;
 
     System *system;
@@ -70,7 +70,7 @@ static bool LoadCart(const char *filename, State *state)
 
     state->cart = new Cartridge();
     Error error;
-    if (!const_cast<Cartridge *>(state->cart)->Load(pStream, &error))
+    if (!state->cart->Load(pStream, &error))
     {
         Log_ErrorPrintf("Failed to load cartridge file '%s': %s", filename, error.GetErrorDescription().GetCharArray());
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Cart load error", error.GetErrorCodeAndDescription(), nullptr);
@@ -158,7 +158,13 @@ static bool InitializeState(const ProgramArgs *args, State *state)
         return false;
 
     // init system
-    state->system = new System(state->bios, state->cart);
+    state->system = new System();
+    if (!state->system->Init(state->bios, state->cart))
+    {
+        Log_ErrorPrintf("Failed to initialize system");
+        return false;
+    }
+
     state->system->SetDisplaySurface(state->window, state->surface);
 
     state->system->Reset();

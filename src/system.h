@@ -15,14 +15,15 @@ class System
     friend Cartridge;
 
 public:
-    System(const byte *bios, const Cartridge *cartridge);
+    System();
     ~System();
     
-    const Cartridge *GetCartridge() const { return m_cartridge; }
+    Cartridge *GetCartridge() const { return m_cartridge; }
 
     SDL_Surface *GetDisplaySurface() const { return m_surface; }
     void SetDisplaySurface(SDL_Window *window, SDL_Surface *surface) { m_window = window; m_surface = surface; }
 
+    bool Init(const byte *bios, Cartridge *cartridge);
     void Reset();
 
     // TODO: Rename to RunFrame
@@ -71,7 +72,7 @@ private:
     CPU *m_cpu;
     Display *m_display;
 
-    const Cartridge *m_cartridge;
+    Cartridge *m_cartridge;
     const byte *m_bios;
 
     // bios, rom banks 0-1
@@ -79,10 +80,6 @@ private:
     byte m_memory_wram[0x2000];
     byte m_memory_oam[0xFF];
     byte m_memory_zram[127];
-
-    // external ram
-    byte *m_memory_eram;
-    uint32 m_memory_eram_size;
 
     // timer
     uint32 m_timer_clocks;

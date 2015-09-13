@@ -35,10 +35,6 @@ struct CartridgeTypeInfo
 class Cartridge
 {
 public:
-    static const uint32 ROM0_SIZE = 0x4000;
-    static const uint32 ROM1_SIZE = 0x4000;
-
-public:
     Cartridge();
     ~Cartridge();
 
@@ -52,16 +48,28 @@ public:
 
     bool Load(ByteStream *pStream, Error *pError);
 
+    // CPU Reads/Writes
+    void Reset();
+    uint8 CPURead(uint16 address);
+    void CPUWrite(uint16 address, uint8 value);
+
 private:
     bool ParseHeader(ByteStream *pStream, Error *pError);
 
     String m_name;
     MBC m_mbc;
-    uint32 m_external_ram_size;
 
     const CartridgeTypeInfo *m_typeinfo;
 
     byte *m_rom_banks[MAX_NUM_ROM_BANKS];
     uint32 m_num_rom_banks;
 
+    byte *m_external_ram;
+    uint32 m_external_ram_size;
+
+    // MBC read/write routines
+    bool MBC_NONE_Init();
+    void MBC_NONE_Reset();
+    uint8 MBC_NONE_Read(uint16 address);
+    void MBC_NONE_Write(uint16 address, uint8 value);
 };

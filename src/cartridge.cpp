@@ -63,9 +63,11 @@ static const uint32 CART_ROM_BANK_COUNT[][2] =
 };
 
 Cartridge::Cartridge()
-    : m_external_ram_size(0)
+    : m_mbc(NUM_MBC_TYPES)
     , m_typeinfo(nullptr)
     , m_num_rom_banks(0)
+    , m_external_ram(nullptr)
+    , m_external_ram_size(0)
 {
     Y_memzero(m_rom_banks, sizeof(m_rom_banks));
 }
@@ -168,13 +170,14 @@ bool Cartridge::ParseHeader(ByteStream *pStream, Error *pError)
     m_external_ram_size = CART_EXTERNAL_RAM_SIZES[header.ram_size];
     Log_InfoPrintf("  External ram size: %s", StringConverter::SizeToHumanReadableString(m_external_ram_size).GetCharArray());
 
-    // MBC2 mapper provides 512 bytes of 4-bit memory
-    if (m_mbc == MBC_MBC2)
-        m_external_ram_size = 512;
+//     // MBC2 mapper provides 512 bytes of 4-bit memory
+//     if (m_mbc == MBC_MBC2)
+//         m_external_ram_size = 512;
 
     return true;
 
 }
+
 
 bool Cartridge::Load(ByteStream *pStream, Error *pError)
 {
@@ -200,6 +203,129 @@ bool Cartridge::Load(ByteStream *pStream, Error *pError)
         }
     }
 
+    // handle mappers
+    bool mbc_init_result;
+    switch (m_mbc)
+    {
+    case MBC_NONE:  
+        mbc_init_result = MBC_NONE_Init();
+        break;
+
+    default:
+        pError->SetErrorUserFormatted(1, "MBC %s not implemented", MBC_NAME_STRINGS[m_mbc]);
+        return false;
+    }
+
+    // errors
+    if (!mbc_init_result)
+    {
+        pError->SetErrorUserFormatted(1, "MBC %s failed initialization", MBC_NAME_STRINGS[m_mbc]);
+        return false;
+    }
+
     return true;
 }
 
+void Cartridge::Reset()
+{
+    switch (m_mbc)
+    {
+    case MBC_NONE:  MBC_NONE_Reset();   break;
+    }
+}
+
+uint8 Cartridge::CPURead(uint16 address)
+{
+    switch (m_mbc)
+    {
+    case MBC_NONE:  return MBC_NONE_Read(address);
+    }
+
+    return 0x00;
+}
+
+void Cartridge::CPUWrite(uint16 address, uint8 value)
+{
+    switch (m_mbc)
+    {
+    case MBC_NONE:  return MBC_NONE_Write(address, value);
+    }
+}
+
+bool Cartridge::MBC_NONE_Init()
+{
+    if (m_num_rom_banks != 2)
+    {
+        Log_ErrorPrint("MBC_NONE expects 2 rom banks");
+        return false;
+    }
+
+    // create external ram
+    if (m_external_ram_size > 0)
+    {
+        m_external_ram = new byte[m_external_ram_size];
+        Y_memzero(m_external_ram, sizeof(m_external_ram));
+    }
+
+    return true;
+}
+
+void Cartridge::MBC_NONE_Reset()
+{
+    if (m_external_ram != nullptr)
+        Y_memzero(m_external_ram, sizeof(m_external_ram));
+}
+
+uint8 Cartridge::MBC_NONE_Read(uint16 address)
+{
+    // Should have two banks
+    switch (address & 0xF000)
+    {
+        // rom bank 0
+    case 0x0000:
+    case 0x1000:
+    case 0x2000:
+    case 0x3000:
+        return m_rom_banks[0][address];
+
+        // rom bank 1
+    case 0x4000:
+    case 0x5000:
+    case 0x6000:
+    case 0x7000:
+        return m_rom_banks[1][address & 0x1FFF];
+
+        // eram
+    case 0xA000:
+    case 0xB000:
+        {
+            if (m_external_ram != nullptr)
+            {
+                uint16 eram_offset = address - 0xA000;
+                if (eram_offset < m_external_ram_size)
+                    return m_external_ram[eram_offset];
+            }
+        }
+    }
+
+    return 0x00;
+}
+
+void Cartridge::MBC_NONE_Write(uint16 address, uint8 value)
+{
+    if (address >= 0xA000 && address < 0xC000)
+    {
+        if (m_external_ram != nullptr)
+        {
+            uint16 eram_offset = address - 0xA000;
+            if (eram_offset < m_external_ram_size)
+            {
+                m_external_ram[eram_offset] = value;
+                return;
+            }
+        }
+    }
+
+    // ignore all writes
+    return;
+}

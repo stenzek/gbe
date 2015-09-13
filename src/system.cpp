@@ -9,30 +9,30 @@
 #include <SDL/SDL.h>
 Log_SetChannel(System);
 
-System::System(const byte *bios, const Cartridge *cartridge)
+System::System()
 {
     m_cpu = new CPU(this);
     m_display = new Display(this);
     m_window = nullptr;
     m_surface = nullptr;
-    m_cartridge = cartridge;
-    m_bios = bios;
+    m_cartridge = nullptr;
+    m_bios = nullptr;
     m_biosLatch = false;
     m_vramLocked = false;
     m_oamLocked = false;
-
-    // allocate eram
-    m_memory_eram = nullptr;
-    m_memory_eram_size = (cartridge != nullptr) ? cartridge->GetExternalRAMSize() : 0;
-    if (m_memory_eram_size > 0)
-        m_memory_eram = new byte[m_memory_eram_size];
 }
 
 System::~System()
 {
-    delete[] m_memory_eram;
     delete m_display;
     delete m_cpu;
+}
+
+bool System::Init(const byte *bios, Cartridge *cartridge)
+{
+    m_bios = bios;
+    m_cartridge = cartridge;
+    return true;
 }
 
 void System::Reset()
@@ -42,6 +42,8 @@ void System::Reset()
     ResetMemory();
     ResetTimer();
     ResetPad();
+    if (m_cartridge != nullptr)
+        m_cartridge->Reset();
 
     // if bios not provided, emulate post-bootstrap state
     if (m_bios == nullptr)
@@ -130,9 +132,6 @@ void System::ResetMemory()
     Y_memzero(m_memory_wram, sizeof(m_memory_wram));
     Y_memzero(m_memory_oam, sizeof(m_memory_oam));
     Y_memzero(m_memory_zram, sizeof(m_memory_zram));
-
-    if (m_memory_eram != nullptr)
-        Y_memzero(m_memory_eram, m_memory_eram_size);
 
     // pad
     m_pad_row_select = 0;
@@ -288,50 +287,29 @@ uint8 System::CPURead(uint16 address) const
 
     switch (address & 0xF000)
     {
-        // bios/rom0
+        // cart memory
     case 0x0000:
-        {
-            if (m_biosLatch && address < GB_BIOS_LENGTH && m_bios != nullptr)
-            {
-                if (m_bios == nullptr)
-                    Log_WarningPrintf("Reading from BIOS area (0x%04X) with bios unmapped.", address);
-                else
-                    return m_bios[address];
-            }
-
-            return (m_cartridge != nullptr) ? m_cartridge->GetROMBank(0)[address] : 0x00;
-        }
-
-        // rom0
     case 0x1000:
     case 0x2000:
     case 0x3000:
-        return (m_cartridge != nullptr) ? m_cartridge->GetROMBank(0)[address] : 0x00;
-
-        // rom1
     case 0x4000:
     case 0x5000:
     case 0x6000:
     case 0x7000:
-        return (m_cartridge != nullptr && m_cartridge->GetROMBankCount() > 1) ? m_cartridge->GetROMBank(1)[address & 0x3FFF] : 0x00;
-
-        // vram
-    case 0x8000:
-    case 0x9000:
-        return m_memory_vram[address & 0x1FFF];
-
-        // eram
     case 0xA000:
     case 0xB000:
         {
-            if (m_memory_eram != nullptr)
-            {
-                uint16 eram_offset = address - 0xA000;
-                return (eram_offset < m_memory_eram_size) ? m_memory_eram[eram_offset] : 0x00;
-            }
+            if (m_biosLatch)
+                return (m_bios != nullptr && address < GB_BIOS_LENGTH) ? m_bios[address] : 0x00;
 
-            return 0x00;
+            // Cart read
+            return (m_cartridge != nullptr) ? m_cartridge->CPURead(address) : 0x00;
         }
+
+        // video memory
+    case 0x8000:
+    case 0x9000:
+        return m_memory_vram[address & 0x1FFF];
 
         // working ram
     case 0xC000:
@@ -399,7 +377,7 @@ void System::CPUWrite(uint16 address, uint8 value)
 
     switch (address & 0xF000)
     {
-        // ROM0/ROM1 not writable
+        // cart memory
     case 0x0000:
     case 0x1000:
     case 0x2000:
@@ -408,28 +386,20 @@ void System::CPUWrite(uint16 address, uint8 value)
     case 0x5000:
     case 0x6000:
     case 0x7000:
-        return;
+    case 0xA000:
+    case 0xB000:
+        {
+            if (m_cartridge != nullptr)
+                m_cartridge->CPUWrite(address, value);
+
+            return;
+        }
 
         // vram
     case 0x8000:
     case 0x9000:
         m_memory_vram[address & 0x1FFF] = value;
         return;
-
-        // eram
-    case 0xA000:
-    case 0xB000:
-        {
-            if (m_memory_eram != nullptr)
-            {
-                uint16 eram_offset = address - 0xA000;
-                if (eram_offset < m_memory_eram_size)
-                    m_memory_eram[eram_offset] = value;
-            }
-
-            // drop write
-            return;
-        }
 
         // working ram
     case 0xC000:
