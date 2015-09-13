@@ -290,21 +290,21 @@ uint8 System::CPURead(uint16 address) const
                     return m_bios[address];
             }
 
-            return (m_cartridge != nullptr) ? m_cartridge->GetROM0()[address] : 0x00;
+            return (m_cartridge != nullptr) ? m_cartridge->GetROMBank(0)[address] : 0x00;
         }
 
         // rom0
     case 0x1000:
     case 0x2000:
     case 0x3000:
-        return (m_cartridge != nullptr) ? m_cartridge->GetROM0()[address] : 0x00;
+        return (m_cartridge != nullptr) ? m_cartridge->GetROMBank(0)[address] : 0x00;
 
         // rom1
     case 0x4000:
     case 0x5000:
     case 0x6000:
     case 0x7000:
-        return (m_cartridge != nullptr && m_cartridge->HasROM1()) ? m_cartridge->GetROM1()[address & 0x3FFF] : 0x00;
+        return (m_cartridge != nullptr && m_cartridge->GetROMBankCount() > 1) ? m_cartridge->GetROMBank(1)[address & 0x3FFF] : 0x00;
 
         // vram
     case 0x8000:

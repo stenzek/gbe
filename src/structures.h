@@ -71,3 +71,33 @@ enum PAD_BUTTON
     PAD_BUTTON_START            = 0x08,
     PAD_BUTTON_MASK             = 0x0F
 };
+
+#pragma pack(push, 1)
+struct CART_HEADER
+{
+    uint8 entrypoint[4];
+    uint8 logo[48];
+    union
+    {
+        char title[16];
+        struct
+        {
+            char cgb_title[11];
+            char cgb_manufacturer[4];
+            uint8 cgb_flag;
+        };
+    };
+    uint8 cgb_licensee_code[2];
+    uint8 sgb_flag;
+    uint8 type;
+    uint8 rom_size;
+    uint8 ram_size;
+    uint8 region_code;
+    uint8 licensee_code;
+    uint8 rom_version;
+    uint8 header_checksum;
+    uint16 cartridge_checksum;
+};
+#pragma pack(pop)
+
+#define CART_HEADER_OFFSET (0x0100)

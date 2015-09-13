@@ -29,14 +29,14 @@ void CPU::Reset()
 
 void CPU::Push(uint8 value)
 {
-    DebugAssert(m_registers.SP > 0);
+    //DebugAssert(m_registers.SP > 0);
     m_registers.SP--;
     m_system->CPUWrite(m_registers.SP, value);
 }
 
 void CPU::PushWord(uint16 value)
 {
-    DebugAssert(m_registers.SP >= 0xC002);
+    //DebugAssert(m_registers.SP >= 0xC002);
     //m_registers.SP--;
     //m_mmu->Write8(m_registers.SP, (value >> 8) & 0xFF);
     //m_registers.SP--;
@@ -47,7 +47,7 @@ void CPU::PushWord(uint16 value)
 
 uint8 CPU::PopByte()
 {
-    DebugAssert(m_registers.SP < 0xFFFF);
+    //DebugAssert(m_registers.SP < 0xFFFF);
     uint8 value = MemReadByte(m_registers.SP);
     m_registers.SP++;
     return value;
@@ -55,7 +55,7 @@ uint8 CPU::PopByte()
 
 uint16 CPU::PopWord()
 {
-    DebugAssert(m_registers.SP < 0xFFFE);
+    //DebugAssert(m_registers.SP < 0xFFFE);
 
     //uint16 value = (uint16)(m_mmu->Read8(m_registers.SP + 1) << 8) | (uint16)(m_mmu->Read8(m_registers.SP));
     uint16 value = MemReadWord(m_registers.SP);
@@ -131,7 +131,7 @@ uint32 CPU::Step()
                         0x0060,     // joypad
                     };
 
-                    Log_DevPrintf("Entering interrupt handler $%04X, PC was $%04X", jump_locations[i], m_registers.PC);
+                    //Log_DevPrintf("Entering interrupt handler $%04X, PC was $%04X", jump_locations[i], m_registers.PC);
                     //DisassembleFrom(m_system, m_registers.PC, 10);
 
                     PushWord(m_registers.PC);
