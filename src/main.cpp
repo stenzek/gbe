@@ -163,8 +163,6 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     state->system->SetDisplaySurface(state->window, state->surface);
 
     state->system->Reset();
-    state->system->SetPadDirection(PAD_DIRECTION_DOWN);
-
     return true;
 }
 

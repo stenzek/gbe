@@ -1253,8 +1253,8 @@ uint32 CPU::Step()
     case Instruction::Type_RETI:
         {
             //DebugAssert(!m_registers.IME);
+            //Log_DevPrintf("Interrupts enabled from RETI");
             m_registers.IME = true;
-            Log_DevPrintf("Interrupts enabled from RETI");
             m_registers.PC = PopWord();
             break;
         }
@@ -1322,14 +1322,14 @@ uint32 CPU::Step()
     case Instruction::Type_EI:
         {
             m_registers.IME = true;
-            Log_DevPrintf("Interrupts enabled from EI");
+            //Log_DevPrintf("Interrupts enabled from EI");
             break;
         }
 
     case Instruction::Type_DI:
         {
             m_registers.IME = false;
-            Log_DevPrintf("Interrupts disabled from DI");
+            //Log_DevPrintf("Interrupts disabled from DI");
             break;
         }
 

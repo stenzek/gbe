@@ -319,6 +319,7 @@ uint8 System::CPURead(uint16 address) const
                 // working ram shadow
             case 0x000:
             case 0x100:
+            case 0x200:
             case 0x300:
             case 0x400:
             case 0x500:
@@ -409,6 +410,7 @@ void System::CPUWrite(uint16 address, uint8 value)
                 // working ram shadow
             case 0x000:
             case 0x100:
+            case 0x200:
             case 0x300:
             case 0x400:
             case 0x500:
@@ -662,7 +664,7 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                     // It takes 160 microseconds until the transfer has completed (80 microseconds in CGB Double Speed Mode), during this time the CPU can access only HRAM (memory at FF80-FFFE).
                     uint16 source_address = (uint16)value * 256;
                     uint16 destination_address = 0xFE00;
-                    Log_DevPrintf("OAM DMA Transfer 0x%04X -> 0x%04X", source_address, destination_address);
+                    //Log_DevPrintf("OAM DMA Transfer 0x%04X -> 0x%04X", source_address, destination_address);
                     DMATransfer(source_address, destination_address, 160);
                     return;
                 }

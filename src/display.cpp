@@ -234,11 +234,16 @@ void Display::RenderScanline()
     uint8 LINE = m_registers.LY;
     uint8 SCX = m_registers.SCX;
     uint8 SCY = m_registers.SCY;
+    uint8 WX = m_registers.WX;
+    uint8 WY = m_registers.WY;
 
     // parse control register
     const byte *VRAM = m_system->GetVRAM();
     uint8 BG_ENABLE = !!(LCDC & 0x01);
-    uint16 BGMAPBASE = (LCDC & 0x08) ? 0x1C00 : 0x1800;
+    //uint16 BGMAPBASE = (LCDC & 0x08) ? 0x1C00 : 0x1800;
+    uint8 BG_TILEMAP = (LCDC >> 3) & 0x1;
+    uint8 WINDOW_ENABLE = (LCDC >> 5) & 0x1;
+    uint8 WINDOW_TILEMAP = (LCDC >> 6) & 0x1;
     uint8 BGTILESET_SELECT = !!(LCDC & 0x10); // bit 4
     uint8 SPRITE_SIZE_BIT = ((LCDC >> 2) & 0x1);
     uint8 SPRITE_HEIGHT = 8 + SPRITE_SIZE_BIT * 8; // bit 2
@@ -303,15 +308,30 @@ void Display::RenderScanline()
         uint8 bgcolor_index = 0;
         
         // background on?
-        if (BG_ENABLE)
+        if (BG_ENABLE || WINDOW_ENABLE)
         {
-            // convert x,y to 256x256 tile system (tile is 8x8 each, 32 tiles each way)
-            int32 ix = (int32)pixel_x + (int32)SCX;
-            int32 iy = (int32)LINE + (int32)SCY;
+            // scrolled coordinates
+            int32 ix, iy;
 
-            // wrap around at edges
-            ix %= 256;
-            iy %= 256;
+            // inside window?
+            uint8 tilemap;
+            if (WINDOW_ENABLE && (int32)pixel_x >= ((int32)WX - 7) && LINE >= WY)
+            {
+                ix = (int32)pixel_x - ((int32)WX - 7);
+                iy = (int32)LINE - (int32)WY;
+                tilemap = WINDOW_TILEMAP;
+            }
+            else
+            {
+                // convert x,y to 256x256 tile system (tile is 8x8 each, 32 tiles each way)
+                ix = (int32)pixel_x + (int32)SCX;
+                iy = (int32)LINE + (int32)SCY;
+                tilemap = BG_TILEMAP;
+
+                // wrap around at edges
+                ix %= 256;
+                iy %= 256;
+            }
 
             // find out which 8x8 tile this lies in
             int32 tilemapx = ix / 8;
@@ -319,12 +339,13 @@ void Display::RenderScanline()
             int32 tilemapindex = tilemapy * 32 + tilemapx;
 
             // read the tile byte
-            int8 tile = (int8)VRAM[BGMAPBASE + tilemapindex];
-            //tile = 4;
+            int8 tile;
+            if (tilemap == 0)
+                tile = (int8)VRAM[0x1800 + tilemapindex];
+            else
+                tile = (int8)VRAM[0x1C00 + tilemapindex];
 
             // read the tile pattern, access palette
-            //bgcolor_index = ReadTile((BGTILESET_SELECT == 0), tile, ix % 8, iy % 8);
-            //bgcolor_index = ReadTile(false, tile, ix % 8, iy % 8);
             bgcolor_index = ReadTile((BGTILESET_SELECT == 0), tile, ix % 8, iy % 8);
             color = background_palette[bgcolor_index];
         }
@@ -348,12 +369,31 @@ void Display::RenderScanline()
 
                 // found a sprite! check the priority, priority1 = behind bg color 1-3
                 if (sprite->priority == 1 && bgcolor_index != 0)
-                    break; // or continue??
+                    continue;
 
                 // turn the x position and scanline into tile-space coordinates
                 int32 tile_x = (int32)pixel_x - sprite_start_x;
                 int32 tile_y = (int32)LINE - sprite_start_y;
                 DebugAssert(tile_x >= 0 && tile_x < 16 && tile_y >= 0 && tile_y < (int32)SPRITE_HEIGHT);
+
+                // "In 8x16 mode, the lower bit of the tile number is ignored. Ie. the upper 8x8 tile is "NN AND FEh", and the lower 8x8 tile is "NN OR 01h"."
+                uint16 tile_index;
+                if (SPRITE_SIZE_BIT)
+                {
+                    if (tile_y >= 8)
+                    {
+                        tile_index = sprite->tile | 0x01;
+                        tile_y -= 8;
+                    }
+                    else
+                    {
+                        tile_index = (sprite->tile & 0xFE);
+                    }
+                }
+                else
+                {
+                    tile_index = sprite->tile;
+                }
 
                 // handle flipped sprites
                 if (sprite->hflip)
@@ -361,22 +401,20 @@ void Display::RenderScanline()
                 if (sprite->vflip)
                     tile_y = SPRITE_HEIGHT - tile_y;
 
-                // "In 8x16 mode, the lower bit of the tile number is ignored. Ie. the upper 8x8 tile is "NN AND FEh", and the lower 8x8 tile is "NN OR 01h"."
-                uint16 tile_index;
-                if (SPRITE_SIZE_BIT)
-                    tile_index = (tile_y < 8) ? (sprite->tile & 0xFE) : (sprite->tile | 0x01);
-                else
-                    tile_index = sprite->tile;
-
                 // get palette index
                 uint8 palette_index = ReadTile(0, tile_index, (uint8)tile_x, (uint8)tile_y);
-                if (palette_index != 0)
+                if (palette_index == 0)
                 {
-                    if (sprite->palette)
-                        color = obj_palette1[palette_index];
-                    else
-                        color = obj_palette0[palette_index];
+                    // sprite colour 0 is transparent, try to draw other sprites instead.
+                    continue;
+
                 }
+
+                // select sprite colour
+                if (sprite->palette)
+                    color = obj_palette1[palette_index];
+                else
+                    color = obj_palette0[palette_index];
 
                 // don't render any other sprites on top of it
                 break;
