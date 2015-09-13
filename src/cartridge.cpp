@@ -70,6 +70,7 @@ Cartridge::Cartridge()
     , m_external_ram_size(0)
 {
     Y_memzero(m_rom_banks, sizeof(m_rom_banks));
+    Y_memzero(&m_mbc_data, sizeof(m_mbc_data));
 }
 
 Cartridge::~Cartridge()
@@ -211,6 +212,10 @@ bool Cartridge::Load(ByteStream *pStream, Error *pError)
         mbc_init_result = MBC_NONE_Init();
         break;
 
+    case MBC_MBC1:
+        mbc_init_result = MBC_MBC1_Init();
+        break;
+
     default:
         pError->SetErrorUserFormatted(1, "MBC %s not implemented", MBC_NAME_STRINGS[m_mbc]);
         return false;
@@ -231,6 +236,7 @@ void Cartridge::Reset()
     switch (m_mbc)
     {
     case MBC_NONE:  MBC_NONE_Reset();   break;
+    case MBC_MBC1:  MBC_MBC1_Reset();   break;
     }
 }
 
@@ -239,6 +245,7 @@ uint8 Cartridge::CPURead(uint16 address)
     switch (m_mbc)
     {
     case MBC_NONE:  return MBC_NONE_Read(address);
+    case MBC_MBC1:  return MBC_MBC1_Read(address);
     }
 
     return 0x00;
@@ -249,6 +256,7 @@ void Cartridge::CPUWrite(uint16 address, uint8 value)
     switch (m_mbc)
     {
     case MBC_NONE:  return MBC_NONE_Write(address, value);
+    case MBC_MBC1:  return MBC_MBC1_Write(address, value);
     }
 }
 
@@ -262,11 +270,9 @@ bool Cartridge::MBC_NONE_Init()
 
     // create external ram
     if (m_external_ram_size > 0)
-    {
         m_external_ram = new byte[m_external_ram_size];
-        Y_memzero(m_external_ram, sizeof(m_external_ram));
-    }
 
+    MBC_NONE_Reset();
     return true;
 }
 
@@ -328,4 +334,135 @@ void Cartridge::MBC_NONE_Write(uint16 address, uint8 value)
 
     // ignore all writes
     return;
+}
+
+bool Cartridge::MBC_MBC1_Init()
+{
+    // create external ram
+    if (m_external_ram_size > 0)
+        m_external_ram = new byte[m_external_ram_size];
+
+    MBC_MBC1_Reset();
+    return true;
+}
+
+void Cartridge::MBC_MBC1_Reset()
+{
+    if (m_external_ram != nullptr)
+        Y_memzero(m_external_ram, sizeof(m_external_ram));
+
+    m_mbc_data.mbc1.ram_enable = false;
+    m_mbc_data.mbc1.bank_mode = 0;
+    m_mbc_data.mbc1.rom_bank_number = 1;
+    m_mbc_data.mbc1.ram_bank_number = 0;
+    MBC_MBC1_UpdateActiveBanks();
+}
+
+uint8 Cartridge::MBC_MBC1_Read(uint16 address)
+{
+    // Should have two banks
+    switch (address & 0xF000)
+    {
+        // rom bank 0
+    case 0x0000:
+    case 0x1000:
+    case 0x2000:
+    case 0x3000:
+        return m_rom_banks[0][address];
+
+        // rom bank 1
+    case 0x4000:
+    case 0x5000:
+    case 0x6000:
+    case 0x7000:
+        return m_rom_banks[m_mbc_data.mbc1.active_rom_bank][address & 0x1FFF];
+
+        // eram
+    case 0xA000:
+    case 0xB000:
+        {
+            if (m_external_ram != nullptr && m_mbc_data.mbc1.ram_enable)
+            {
+                uint16 eram_offset = (uint16)m_mbc_data.mbc1.active_ram_bank * (uint16)8192 + (address - 0xA000);
+                if (eram_offset < m_external_ram_size)
+                    return m_external_ram[eram_offset];
+            }
+        }
+    }
+
+    return 0x00;
+}
+
+void Cartridge::MBC_MBC1_Write(uint16 address, uint8 value)
+{
+    switch (address & 0xF000)
+    {
+    case 0x0000:
+    case 0x1000:
+        m_mbc_data.mbc1.ram_enable = (value == 0x0A);
+        Log_DevPrintf("MBC1 ram %s", m_mbc_data.mbc1.ram_enable ? "enable" : "disable");
+        return;
+
+    case 0x2000:
+    case 0x3000:
+        m_mbc_data.mbc1.rom_bank_number = value;
+        MBC_MBC1_UpdateActiveBanks();
+        break;
+
+    case 0x4000:
+    case 0x5000:
+        m_mbc_data.mbc1.ram_bank_number = value;
+        MBC_MBC1_UpdateActiveBanks();
+        return;
+
+    case 0x6000:
+    case 0x7000:
+        m_mbc_data.mbc1.bank_mode = value;
+        MBC_MBC1_UpdateActiveBanks();
+        return;
+    }
+
+    if (address >= 0xA000 && address < 0xC000)
+    {
+        if (m_external_ram != nullptr && m_mbc_data.mbc1.ram_enable)
+        {
+            uint16 eram_offset = (uint16)m_mbc_data.mbc1.active_ram_bank * (uint16)8192 + (address - 0xA000);
+            if (eram_offset < m_external_ram_size)
+            {
+                m_external_ram[eram_offset] = value;
+                return;
+            }
+        }
+    }
+
+    // ignore all writes
+    return;
+}
+
+void Cartridge::MBC_MBC1_UpdateActiveBanks()
+{
+    if (m_mbc_data.mbc1.bank_mode == 0)
+    {
+        m_mbc_data.mbc1.active_ram_bank = 0;
+        m_mbc_data.mbc1.active_rom_bank = (m_mbc_data.mbc1.ram_bank_number << 5) | (m_mbc_data.mbc1.rom_bank_number & 0x1F);
+    }
+    else
+    {
+        m_mbc_data.mbc1.active_ram_bank = m_mbc_data.mbc1.ram_bank_number & 0x03;
+        m_mbc_data.mbc1.active_rom_bank = m_mbc_data.mbc1.rom_bank_number;
+    }
+
+    // "But (when using the register below to specify the upper ROM Bank bits), the same happens for Bank 20h, 40h, and 60h. Any attempt to address these ROM Banks will select Bank 21h, 41h, and 61h instead."
+    if (m_mbc_data.mbc1.active_rom_bank == 0x00 || m_mbc_data.mbc1.active_rom_bank == 0x20 || m_mbc_data.mbc1.active_rom_bank == 0x40 || m_mbc_data.mbc1.active_rom_bank == 0x60)
+        m_mbc_data.mbc1.active_ram_bank++;
+
+    // check ranges
+    if (m_mbc_data.mbc1.active_rom_bank >= m_num_rom_banks)
+    {
+        Log_WarningPrintf("ROM bank out of range (%u / %u)", m_mbc_data.mbc1.active_rom_bank, m_num_rom_banks);
+        m_mbc_data.mbc1.active_rom_bank = (uint8)m_num_rom_banks - 1;
+    }
+
+    Log_DevPrintf("MBC1 ROM bank: %u", m_mbc_data.mbc1.active_rom_bank);
+    Log_DevPrintf("MBC1 RAM bank: %u", m_mbc_data.mbc1.active_ram_bank);
 }

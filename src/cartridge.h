@@ -67,9 +67,31 @@ private:
     byte *m_external_ram;
     uint32 m_external_ram_size;
 
-    // MBC read/write routines
+    // MBC data
+    union
+    {
+        struct
+        {
+            uint8 active_rom_bank;
+            uint8 active_ram_bank;
+
+            bool ram_enable;
+            uint8 bank_mode;
+            uint8 rom_bank_number;
+            uint8 ram_bank_number;
+        } mbc1;
+    } m_mbc_data;
+
+    // MBC_NONE
     bool MBC_NONE_Init();
     void MBC_NONE_Reset();
     uint8 MBC_NONE_Read(uint16 address);
     void MBC_NONE_Write(uint16 address, uint8 value);
+
+    // MBC_MBC1
+    bool MBC_MBC1_Init();
+    void MBC_MBC1_Reset();
+    uint8 MBC_MBC1_Read(uint16 address);
+    void MBC_MBC1_Write(uint16 address, uint8 value);
+    void MBC_MBC1_UpdateActiveBanks();
 };
