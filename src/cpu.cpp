@@ -147,8 +147,8 @@ uint32 CPU::Step()
     if (m_halted)
         return 4;
 
-    if (m_registers.PC == 0xc31a)
-        __debugbreak();
+//     if (m_registers.PC == 0xc31a)
+//         __debugbreak();
 
     // debug
     static bool disasm_enabled = false;
@@ -549,7 +549,7 @@ uint32 CPU::Step()
             m_registers.A = (uint8)(new_value & 0xFF);
             m_registers.SetFlagZ(((new_value & 0xFF) == 0));
             m_registers.SetFlagN(false);
-            m_registers.SetFlagH(((new_value & 0xF) + (old_value & 0xF)) > 0xF);
+            m_registers.SetFlagH(((old_value & 0xF) + (addend & 0xF)) > 0xF);
             m_registers.SetFlagC(new_value > 0xFF);
             break;
         }
@@ -593,7 +593,7 @@ uint32 CPU::Step()
     case Instruction::Type_ADC:
         {
             // get value to add
-            uint32 addend;
+            uint8 addend;
             switch (operand->mode)
             {
             case Instruction::AddressMode_Imm8:
@@ -614,18 +614,18 @@ uint32 CPU::Step()
             }
 
             // handle carry
-            addend += (uint32)m_registers.GetFlagC();
+            uint8 carry_in = (uint8)m_registers.GetFlagC();
 
             // do operation
             uint8 old_value = m_registers.A;
-            uint32 new_value = old_value + addend;
-            m_registers.A = old_value & 0xFF;
+            uint8 new_value = old_value + addend + carry_in;
+            m_registers.A = new_value;
 
             // update flags
-            m_registers.SetFlagZ(((new_value & 0xFF) == 0));
+            m_registers.SetFlagZ((new_value == 0));
             m_registers.SetFlagN(false);
-            m_registers.SetFlagH(((new_value & 0xF) + (old_value & 0xF)) > 0x10);
-            m_registers.SetFlagC(new_value > 0xFF);
+            m_registers.SetFlagH(((old_value & 0xF) + (addend & 0xF) + carry_in) > 0xF);
+            m_registers.SetFlagC(((uint32)old_value + addend + carry_in) > 0xFF);
             break;
         }
 
@@ -1316,7 +1316,7 @@ uint32 CPU::Step()
     case Instruction::Type_HALT:
         {
             m_halted = true;
-            Log_DevPrintf("CPU Halt at %04X", original_pc);
+            //Log_DevPrintf("CPU Halt at %04X", original_pc);
             break;
         }
 
