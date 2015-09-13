@@ -537,14 +537,11 @@ uint8 Cartridge::MBC_MBC3_Read(uint16 address)
                 else
                 {
                     // RTC: TODO
-                    return 0x00;
                 }
             }
-            else
-            {
-                // ram not enabled
-                return 0x00;
-            }
+
+            // ram not enabled
+            return 0x00;
         }
     }
 
@@ -566,7 +563,7 @@ void Cartridge::MBC_MBC3_Write(uint16 address, uint8 value)
     case 0x3000:
         m_mbc_data.mbc3.rom_bank_number = value & 0x7F;
         MBC_MBC3_UpdateActiveBanks();
-        break;
+        return;
 
     case 0x4000:
     case 0x5000:
@@ -593,14 +590,11 @@ void Cartridge::MBC_MBC3_Write(uint16 address, uint8 value)
             else
             {
                 // RTC: TODO
-                return;
             }
         }
-        else
-        {
-            // ram not enabled
-            return;
-        }
+
+        // ram not enabled
+        return;
     }
 
     // ignore all writes
