@@ -144,7 +144,7 @@ uint32 CPU::Step()
         return 4;
     }
 
-//     if (m_registers.PC == 0xd801 || m_registers.PC == 0xc000)
+//     if (m_registers.PC == 0xc31a)
 //         __debugbreak();
 
     // debug
@@ -1276,6 +1276,11 @@ uint32 CPU::Step()
         {
             DebugAssert(destination->mode == Instruction::AddressMode_Reg16);
             m_registers.reg16[destination->reg16] = PopWord();
+
+            // POP AF drops lower 4 bits
+            if (destination->reg16 == Reg16_AF)
+                m_registers.AF &= 0xFFF0;
+
             break;
         }
 
