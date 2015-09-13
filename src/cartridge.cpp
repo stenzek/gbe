@@ -306,7 +306,7 @@ uint8 Cartridge::MBC_NONE_Read(uint16 address)
     case 0x5000:
     case 0x6000:
     case 0x7000:
-        return m_rom_banks[1][address & 0x1FFF];
+        return m_rom_banks[1][address & 0x3FFF];
 
         // eram
     case 0xA000:
@@ -386,7 +386,7 @@ uint8 Cartridge::MBC_MBC1_Read(uint16 address)
     case 0x5000:
     case 0x6000:
     case 0x7000:
-        return m_rom_banks[m_mbc_data.mbc1.active_rom_bank][address & 0x1FFF];
+        return m_rom_banks[m_mbc_data.mbc1.active_rom_bank][address & 0x3FFF];
 
         // eram
     case 0xA000:
@@ -520,7 +520,7 @@ uint8 Cartridge::MBC_MBC3_Read(uint16 address)
     case 0x5000:
     case 0x6000:
     case 0x7000:
-        return m_rom_banks[m_mbc_data.mbc3.rom_bank_number][address & 0x1FFF];
+        return m_rom_banks[m_mbc_data.mbc3.rom_bank_number][address & 0x3FFF];
 
         // eram
     case 0xA000:
