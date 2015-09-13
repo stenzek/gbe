@@ -572,21 +572,18 @@ uint32 CPU::Step()
         {
             // Add 8-bit signed value to R16
             uint16 old_value = m_registers.reg16[destination->reg16];
-            uint32 new_value;
+            uint16 new_value;
 
             // can be signed
             int8 r8 = (int8)get_imm8();
-            if (r8 < 0)
-                new_value = old_value - (uint16)(-r8);
-            else
-                new_value = old_value + (uint16)r8;
+            new_value = old_value + r8;
 
             // clears zero flag for some reason (but reg+reg doesn't)
-            m_registers.reg16[destination->reg16] = new_value & 0xFFFF;
+            m_registers.reg16[destination->reg16] = new_value;
             m_registers.SetFlagZ(false);
             m_registers.SetFlagN(false);
-            m_registers.SetFlagH((new_value & 0xFFF) < ((uint32)old_value & 0xFFF));
-            m_registers.SetFlagC(new_value > 0xFFFF); // correct?
+            m_registers.SetFlagH((new_value & 0xF) < (old_value & 0xF));
+            m_registers.SetFlagC((new_value & 0xFF) < (old_value & 0xFF));
             break;
         }
 
@@ -1035,6 +1032,10 @@ uint32 CPU::Step()
 
             // swap nibbles
             value = (value << 4) | (value >> 4);
+            m_registers.SetFlagZ((value == 0));
+            m_registers.SetFlagN(false);
+            m_registers.SetFlagH(false);
+            m_registers.SetFlagC(false);
 
             // write value
             switch (operand->mode)
