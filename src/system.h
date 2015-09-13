@@ -65,6 +65,7 @@ private:
     void SetPostBootstrapState();
     void CopyFrameBufferToSurface();
     void UpdateTimer(uint32 clocks);
+    void DisassembleCart(const char *outfile);
 
     SDL_Window *m_window;
     SDL_Surface *m_surface;

@@ -4,6 +4,7 @@
 
 class String;
 class Cartridge;
+class ByteStream;
 
 class CPU
 {
@@ -161,7 +162,7 @@ public:
 
     // disassemble an instruction
     static bool Disassemble(String *pDestination, System *memory, uint16 address);
-    static void DisassembleFrom(System *system, uint16 address, uint16 count);
+    static void DisassembleFrom(System *system, uint16 address, uint16 count, ByteStream *pStream);
 
 private:
     // memory read/writes

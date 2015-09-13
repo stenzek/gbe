@@ -144,7 +144,7 @@ uint32 CPU::Step()
         return 4;
     }
 
-//     if (m_registers.PC == 0x0203)
+//     if (m_registers.PC == 0xd801 || m_registers.PC == 0xc000)
 //         __debugbreak();
 
     // debug
@@ -353,7 +353,7 @@ uint32 CPU::Step()
                         }
 
                     case Instruction::AddressMode_Addr16:
-                        MemWriteWord(get_imm16(), value);
+                        MemWriteByte(get_imm16(), value);
                         break;
 
                     default:
@@ -1128,7 +1128,7 @@ uint32 CPU::Step()
                 break;
 
             case Instruction::AddressMode_Mem16:
-                MemWriteWord(m_registers.reg16[destination->reg16], MemReadByte(m_registers.reg16[destination->reg16]) | mask);
+                MemWriteByte(m_registers.reg16[destination->reg16], MemReadByte(m_registers.reg16[destination->reg16]) | mask);
                 break;
             default:
                 UnreachableCode();
@@ -1152,7 +1152,7 @@ uint32 CPU::Step()
                 break;
 
             case Instruction::AddressMode_Mem16:
-                MemWriteWord(m_registers.reg16[destination->reg16], MemReadByte(m_registers.reg16[destination->reg16]) & ~mask);
+                MemWriteByte(m_registers.reg16[destination->reg16], MemReadByte(m_registers.reg16[destination->reg16]) & ~mask);
                 break;
 
             default:

@@ -2,9 +2,10 @@
 #include "YBaseLib/String.h"
 #include "YBaseLib/NumericLimits.h"
 #include "YBaseLib/Log.h"
+#include "YBaseLib/ByteStream.h"
 Log_SetChannel(CPU);
 
-void CPU::DisassembleFrom(System *system, uint16 address, uint16 count)
+void CPU::DisassembleFrom(System *system, uint16 address, uint16 count, ByteStream *pStream)
 {
     uint16 start_address = address;
     uint16 end_address;
@@ -27,7 +28,15 @@ void CPU::DisassembleFrom(System *system, uint16 address, uint16 count)
             instruction = &cb_instructions[system->CPURead(current_address + 1)];
 
         current_address += (uint16)instruction->length;
-        Log_DevPrint(str);
+        if (pStream == nullptr)
+        {
+            Log_DevPrint(str);
+        }
+        else
+        {
+            str.AppendCharacter('\n');
+            pStream->Write2(str.GetCharArray(), str.GetLength());
+        }
     }
 }
 
@@ -2008,7 +2017,7 @@ bool CPU::Disassemble(String *pDestination, System *memory, uint16 address)
         return true;
 
     case 0xEA:
-        pDestination->Format("%04X EA       LD $%04X,A", imm16, address);
+        pDestination->Format("%04X EA       LD $%04X,A", address, imm16);
         return true;
 
     case 0xEB:

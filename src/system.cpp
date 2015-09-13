@@ -5,6 +5,7 @@
 #include "YBaseLib/Memory.h"
 #include "YBaseLib/Thread.h"
 #include "YBaseLib/Log.h"
+#include "YBaseLib/FileSystem.h"
 #include <SDL/SDL.h>
 Log_SetChannel(System);
 
@@ -261,6 +262,16 @@ void System::UpdateTimer(uint32 clocks)
     }
 }
 
+void System::DisassembleCart(const char *outfile)
+{
+    ByteStream *pStream = FileSystem::OpenFile(outfile, BYTESTREAM_OPEN_CREATE | BYTESTREAM_OPEN_WRITE | BYTESTREAM_OPEN_TRUNCATE);
+    if (pStream == nullptr)
+        return;
+
+    CPU::DisassembleFrom(this, 0x0000, 0x8000, pStream);
+    pStream->Release();
+}
+
 uint8 System::CPURead(uint16 address) const
 {
 //     if (address == 0xc009)
@@ -491,6 +502,10 @@ uint8 System::CPUReadIORegister(uint8 index) const
                 return m_timer_overflow_value;
             case 0x07:
                 return m_timer_control;
+
+                // Interrupt flag
+            case 0x0F:
+                return m_cpu->GetRegisters()->IF;
             }
 
             break;
@@ -544,6 +559,7 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
 
                 // FF01 - SB serial data
             case 0x01:
+                Log_DevPrintf("Serial data written: 0x%02X (%c)", value, value);
                 return;
 
                 // FF02 - SC serial control
