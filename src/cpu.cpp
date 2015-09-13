@@ -63,6 +63,14 @@ uint16 CPU::PopWord()
     return value;
 }
 
+void CPU::RaiseInterrupt(uint8 index)
+{
+    DebugAssert(index < NUM_CPU_INT);
+
+    //Log_DevPrintf("Raise interrupt %u", index);
+    m_registers.IF |= (1 << index);
+    m_halted = false;
+}
 
 bool CPU::TestPredicate(Instruction::Predicate condition)
 {
@@ -137,15 +145,10 @@ uint32 CPU::Step()
 
     // if halted, simulate a single cycle to keep the display/audio going
     if (m_halted)
-    {
-        if (!m_registers.IME)
-            Log_ErrorPrintf("CPU halted with interrupts disabled, real cpu would be frozen until reset");
-
         return 4;
-    }
 
-//     if (m_registers.PC == 0xc31a)
-//         __debugbreak();
+    if (m_registers.PC == 0xc31a)
+        __debugbreak();
 
     // debug
     static bool disasm_enabled = false;
@@ -1492,6 +1495,33 @@ uint32 CPU::Step()
             default:
                 UnreachableCode();
             }
+
+            break;
+        }
+
+    case Instruction::Type_DAA:
+        {
+            uint16 value = m_registers.A;
+            if (m_registers.GetFlagN())
+            {
+                if (m_registers.GetFlagH())
+                    value = (value - 0x06) & 0xFF;
+                if (m_registers.GetFlagC())
+                    value -= 0x60;
+            }
+            else
+            {
+                if (m_registers.GetFlagH() || (value & 0xF) > 9)
+                    value += 0x06;
+                if (m_registers.GetFlagC() || value > 0x9F)
+                    value += 0x60;
+            }
+
+            m_registers.A = value & 0xFF;
+            m_registers.SetFlagH(false);
+            m_registers.SetFlagZ((m_registers.A == 0));
+            if (value > 0xFF)
+                m_registers.SetFlagC(true);
 
             break;
         }

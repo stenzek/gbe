@@ -8,6 +8,8 @@ class ByteStream;
 
 class CPU
 {
+    friend System;
+
 public:
     enum Reg8
     {
@@ -176,6 +178,9 @@ private:
     uint8 PopByte();
     void PushWord(uint16 value);
     uint16 PopWord();
+
+    // raise interrupt
+    void RaiseInterrupt(uint8 index);
     
     // registers
     Registers m_registers;
@@ -256,6 +261,7 @@ public:
             Type_SLA,
             Type_SRA,
             Type_SRL,
+            Type_DAA
         };
 
         enum LoadStoreAction

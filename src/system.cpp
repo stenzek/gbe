@@ -758,6 +758,5 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
 
 void System::CPUInterruptRequest(uint8 index)
 {
-    DebugAssert(index <= 4);
-    m_cpu->GetRegisters()->IF |= (1 << index);
+    m_cpu->RaiseInterrupt(index);
 }

@@ -90,6 +90,7 @@ Log_SetChannel(CPU);
 #define SLA(dst, length, cycles) { Instruction::Type_SLA, dst, NoOperand(), length, cycles },
 #define SRA(dst, length, cycles) { Instruction::Type_SRA, dst, NoOperand(), length, cycles },
 #define SRL(dst, length, cycles) { Instruction::Type_SRL, dst, NoOperand(), length, cycles },
+#define DAA(length, cycles) { Instruction::Type_DAA, NoOperand(), NoOperand(), length, cycles },
 #define PREFIX() { Instruction::Type_Prefix },
 
 const CPU::Instruction CPU::instructions[256] =
@@ -138,7 +139,7 @@ const CPU::Instruction CPU::instructions[256] =
     INC(Reg8(H), 1, 4)                                // 0x24 INC H
     DEC(Reg8(H), 1, 4)                                // 0x25 DEC H
     Load(Reg8(H), Imm8(), 2, 8)                             // 0x26 LD H, d8
-    Stub(1, 4)                                              // 0x27 DAA
+    DAA(1, 4)                                              // 0x27 DAA
     JR(Zero, 2, 12, 8)                            // 0x28 JR Z, r8
     ADD16(Reg16(HL), Reg16(HL), 1, 8)           // 0x29 ADD HL, HL
     LoadAnd(IncrementAddress, Reg8(A), Mem16(HL), 1, 8)     // 0x2A LDI A, (HL)
