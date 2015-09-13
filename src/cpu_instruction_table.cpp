@@ -234,7 +234,7 @@ const CPU::Instruction CPU::instructions[256] =
     ADD(Reg8(C), 1, 4)               // 0x81 ADD A, C
     ADD(Reg8(D), 1, 4)               // 0x82 ADD A, D
     ADD(Reg8(E), 1, 4)               // 0x83 ADD A, E
-    ADD(Reg8(F), 1, 4)               // 0x84 ADD A, H
+    ADD(Reg8(H), 1, 4)               // 0x84 ADD A, H
     ADD(Reg8(L), 1, 4)               // 0x85 ADD A, L
     ADD(Mem16(HL), 1, 8)             // 0x86 ADD A, (HL)
     ADD(Reg8(A), 1, 4)               // 0x87 ADD A, A

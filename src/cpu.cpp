@@ -489,7 +489,7 @@ uint32 CPU::Step()
                     // 8-bit register decrement
                     uint8 value = --m_registers.reg8[operand->reg8];
                     m_registers.SetFlagZ(value == 0);
-                    m_registers.SetFlagN(false);
+                    m_registers.SetFlagN(true);
                     m_registers.SetFlagH((value & 0xF) == 0xF);
                     break;
                 }
@@ -500,7 +500,7 @@ uint32 CPU::Step()
                     uint16 address = m_registers.reg16[operand->reg16];
                     uint8 value = MemReadByte(address) - 1;
                     m_registers.SetFlagZ(value == 0);
-                    m_registers.SetFlagN(false);
+                    m_registers.SetFlagN(true);
                     m_registers.SetFlagH((value & 0xF) == 0xF);
                     MemWriteByte(address, value);
                     break;
