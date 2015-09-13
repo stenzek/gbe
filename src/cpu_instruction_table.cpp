@@ -401,7 +401,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     SLA(Reg8(H), 2, 8)                                      // 0x24 SLA H
     SLA(Reg8(L), 2, 8)                                      // 0x25 SLA L
     SLA(Mem16(HL), 2, 16)                                   // 0x26 SLA (HL)
-    SRA(Reg8(A), 2, 8)                                      // 0x27 SLA A
+    SLA(Reg8(A), 2, 8)                                      // 0x27 SLA A
     SRA(Reg8(B), 2, 8)                                      // 0x28 SRA B
     SRA(Reg8(C), 2, 8)                                      // 0x29 SRA C
     SRA(Reg8(D), 2, 8)                                      // 0x2A SRA D
