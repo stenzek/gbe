@@ -15,12 +15,10 @@ class System
     friend Cartridge;
 
 public:
-    System();
+    System(const byte *bios, const Cartridge *cartridge);
     ~System();
     
     const Cartridge *GetCartridge() const { return m_cartridge; }
-    void SetCartridge(const Cartridge *cartridge) { m_cartridge = cartridge; }
-    void SetBios(const byte *bios) { m_bios = bios; }
 
     SDL_Surface *GetDisplaySurface() const { return m_surface; }
     void SetDisplaySurface(SDL_Window *window, SDL_Surface *surface) { m_window = window; m_surface = surface; }
@@ -77,15 +75,14 @@ private:
     const byte *m_bios;
 
     // bios, rom banks 0-1
-    //byte m_memory_ROM0[0x4000];
-    //byte m_memory_ROM1[0x4000];
-    //const byte *m_memory_ROM0;
-    //const byte *m_memory_ROM1;
     byte m_memory_vram[0x2000];
-    byte m_memory_eram[0x2000];
     byte m_memory_wram[0x2000];
     byte m_memory_oam[0xFF];
     byte m_memory_zram[127];
+
+    // external ram
+    byte *m_memory_eram;
+    uint32 m_memory_eram_size;
 
     // timer
     uint32 m_timer_clocks;

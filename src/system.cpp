@@ -9,21 +9,28 @@
 #include <SDL/SDL.h>
 Log_SetChannel(System);
 
-System::System()
+System::System(const byte *bios, const Cartridge *cartridge)
 {
     m_cpu = new CPU(this);
     m_display = new Display(this);
     m_window = nullptr;
     m_surface = nullptr;
-    m_cartridge = nullptr;
-    m_bios = nullptr;
+    m_cartridge = cartridge;
+    m_bios = bios;
     m_biosLatch = false;
     m_vramLocked = false;
     m_oamLocked = false;
+
+    // allocate eram
+    m_memory_eram = nullptr;
+    m_memory_eram_size = (cartridge != nullptr) ? cartridge->GetExternalRAMSize() : 0;
+    if (m_memory_eram_size > 0)
+        m_memory_eram = new byte[m_memory_eram_size];
 }
 
 System::~System()
 {
+    delete[] m_memory_eram;
     delete m_display;
     delete m_cpu;
 }
@@ -120,10 +127,12 @@ void System::ResetMemory()
 
     // zero all memory
     Y_memzero(m_memory_vram, sizeof(m_memory_vram));
-    Y_memzero(m_memory_eram, sizeof(m_memory_eram));
     Y_memzero(m_memory_wram, sizeof(m_memory_wram));
     Y_memzero(m_memory_oam, sizeof(m_memory_oam));
     Y_memzero(m_memory_zram, sizeof(m_memory_zram));
+
+    if (m_memory_eram != nullptr)
+        Y_memzero(m_memory_eram, m_memory_eram_size);
 
     // pad
     m_pad_row_select = 0;
@@ -314,7 +323,15 @@ uint8 System::CPURead(uint16 address) const
         // eram
     case 0xA000:
     case 0xB000:
-        return m_memory_eram[address & 0x1FFF];
+        {
+            if (m_memory_eram != nullptr)
+            {
+                uint16 eram_offset = address - 0xA000;
+                return (eram_offset < m_memory_eram_size) ? m_memory_eram[eram_offset] : 0x00;
+            }
+
+            return 0x00;
+        }
 
         // working ram
     case 0xC000:
@@ -402,8 +419,17 @@ void System::CPUWrite(uint16 address, uint8 value)
         // eram
     case 0xA000:
     case 0xB000:
-        m_memory_eram[address & 0x1FFF] = value;
-        return;
+        {
+            if (m_memory_eram != nullptr)
+            {
+                uint16 eram_offset = address - 0xA000;
+                if (eram_offset < m_memory_eram_size)
+                    m_memory_eram[eram_offset] = value;
+            }
+
+            // drop write
+            return;
+        }
 
         // working ram
     case 0xC000:

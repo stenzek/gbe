@@ -167,6 +167,11 @@ bool Cartridge::ParseHeader(ByteStream *pStream, Error *pError)
     }
     m_external_ram_size = CART_EXTERNAL_RAM_SIZES[header.ram_size];
     Log_InfoPrintf("  External ram size: %s", StringConverter::SizeToHumanReadableString(m_external_ram_size).GetCharArray());
+
+    // MBC2 mapper provides 512 bytes of 4-bit memory
+    if (m_mbc == MBC_MBC2)
+        m_external_ram_size = 512;
+
     return true;
 
 }

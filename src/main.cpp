@@ -158,11 +158,7 @@ static bool InitializeState(const ProgramArgs *args, State *state)
         return false;
 
     // init system
-    state->system = new System();
-    if (state->bios != nullptr)
-        state->system->SetBios(state->bios);
-    if (state->cart != nullptr)
-        state->system->SetCartridge(state->cart);
+    state->system = new System(state->bios, state->cart);
     state->system->SetDisplaySurface(state->window, state->surface);
 
     state->system->Reset();
