@@ -824,7 +824,7 @@ bool CPU::Disassemble(String *pDestination, System *memory, uint16 address)
         return true;
 
     case 0xC3:
-        pDestination->Format("%04X C3       JP nn", address);
+        pDestination->Format("%04X C3       JP $%04X", address, imm16);
         return true;
 
     case 0xC4:

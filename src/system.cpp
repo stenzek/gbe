@@ -49,7 +49,10 @@ void System::Step()
     {
         // TODO: Pass cycles as argument
         if (m_display->Step())
+        {
             CopyFrameBufferToSurface();
+            //Sleep(16);
+        }
     }
 
     UpdateTimer(cycles);

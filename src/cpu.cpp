@@ -36,7 +36,7 @@ void CPU::Push(uint8 value)
 
 void CPU::PushWord(uint16 value)
 {
-    DebugAssert(m_registers.SP > 1);
+    DebugAssert(m_registers.SP >= 0xC002);
     //m_registers.SP--;
     //m_mmu->Write8(m_registers.SP, (value >> 8) & 0xFF);
     //m_registers.SP--;
@@ -123,12 +123,12 @@ uint32 CPU::Step()
                         0x0060,     // joypad
                     };
 
+                    Log_DevPrintf("Entering interrupt handler $%04X, PC was $%04X", jump_locations[i], m_registers.PC);
+                    //DisassembleFrom(m_system, m_registers.PC, 10);
+
                     PushWord(m_registers.PC);
                     m_registers.PC = jump_locations[i];
                     m_halted = false;
-
-                    Log_DevPrintf("Entering interrupt handler for %u", i);
-                    //DisassembleFrom(m_system, m_registers.PC, 10);
                     break;
                 }
             }
@@ -1496,6 +1496,9 @@ uint32 CPU::Step()
         break;
 
     }
+
+//     if ((m_registers.PC == 0x0000 || m_registers.PC >= 0x4000) && (m_registers.PC < 0xFF80 || m_registers.PC > 0xFF90))
+//         __debugbreak();
 
     #undef get_imm8
     #undef get_imm16
