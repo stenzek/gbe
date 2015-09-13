@@ -676,7 +676,7 @@ uint32 CPU::Step()
                 break;
 
             case Instruction::AddressMode_Mem16:
-                addend = MemReadByte(m_registers.reg16[source->reg16]);
+                addend = MemReadByte(m_registers.reg16[operand->reg16]);
                 break;
 
             default:
@@ -694,7 +694,7 @@ uint32 CPU::Step()
             m_registers.SetFlagZ((new_value == 0));
             m_registers.SetFlagN(true);
             m_registers.SetFlagH(((addend & 0xF) + carry_in) > (old_value & 0xF));
-            m_registers.SetFlagC((addend + carry_in) > old_value);
+            m_registers.SetFlagC(((uint32)addend + carry_in) > old_value);
             break;
         }
 
