@@ -149,7 +149,7 @@ bool CPU::Disassemble(String *pDestination, System *memory, uint16 address)
         return true;
 
     case 0x18:
-        pDestination->Format("%04X 18       JR n", address);
+        pDestination->Format("%04X 18       JR %d", address, (int8)imm8);
         return true;
 
     case 0x19:

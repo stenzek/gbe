@@ -205,7 +205,7 @@ uint32 CPU::Step()
     {
         SmallString disasm;
         if (Disassemble(&disasm, m_system, original_pc))
-            Log_ErrorPrintf("instruction not implemented: %s", disasm.GetCharArray());
+            Log_ErrorPrintf("instruction not implemented: %s (PC: 0x%04X)", disasm.GetCharArray(), original_pc);
         else
             Log_ErrorPrintf("disasm fail at %04X", original_pc);
 
@@ -1533,8 +1533,9 @@ uint32 CPU::Step()
 
     }
 
-//     if ((m_registers.PC == 0x0000 || m_registers.PC >= 0x4000) && (m_registers.PC < 0xFF80 || m_registers.PC > 0xFF90))
-//         __debugbreak();
+    //if ((m_registers.PC == 0x0000 || m_registers.PC >= 0x4000) && (m_registers.PC < 0xFF80 || m_registers.PC > 0xFF90))
+    if (m_registers.PC == 0x0000)
+        __debugbreak();
 
     #undef get_imm8
     #undef get_imm16

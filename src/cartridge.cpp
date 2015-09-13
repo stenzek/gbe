@@ -216,6 +216,10 @@ bool Cartridge::Load(ByteStream *pStream, Error *pError)
         mbc_init_result = MBC_MBC1_Init();
         break;
 
+    case MBC_MBC3:
+        mbc_init_result = MBC_MBC3_Init();
+        break;
+
     default:
         pError->SetErrorUserFormatted(1, "MBC %s not implemented", MBC_NAME_STRINGS[m_mbc]);
         return false;
@@ -237,6 +241,7 @@ void Cartridge::Reset()
     {
     case MBC_NONE:  MBC_NONE_Reset();   break;
     case MBC_MBC1:  MBC_MBC1_Reset();   break;
+    case MBC_MBC3:  MBC_MBC3_Reset();   break;
     }
 }
 
@@ -246,6 +251,7 @@ uint8 Cartridge::CPURead(uint16 address)
     {
     case MBC_NONE:  return MBC_NONE_Read(address);
     case MBC_MBC1:  return MBC_MBC1_Read(address);
+    case MBC_MBC3:  return MBC_MBC3_Read(address);
     }
 
     return 0x00;
@@ -257,6 +263,7 @@ void Cartridge::CPUWrite(uint16 address, uint8 value)
     {
     case MBC_NONE:  return MBC_NONE_Write(address, value);
     case MBC_MBC1:  return MBC_MBC1_Write(address, value);
+    case MBC_MBC3:  return MBC_MBC3_Write(address, value);
     }
 }
 
@@ -311,9 +318,12 @@ uint8 Cartridge::MBC_NONE_Read(uint16 address)
                 if (eram_offset < m_external_ram_size)
                     return m_external_ram[eram_offset];
             }
+
+            break;
         }
     }
 
+    Log_DevPrintf("MBC_NONE unhandled read from 0x%04X", address);
     return 0x00;
 }
 
@@ -333,6 +343,7 @@ void Cartridge::MBC_NONE_Write(uint16 address, uint8 value)
     }
 
     // ignore all writes
+    Log_DevPrintf("MBC_NONE unhandled write to 0x%04X (value %02X)", address, value);
     return;
 }
 
@@ -387,9 +398,12 @@ uint8 Cartridge::MBC_MBC1_Read(uint16 address)
                 if (eram_offset < m_external_ram_size)
                     return m_external_ram[eram_offset];
             }
+
+            return 0x00;
         }
     }
 
+    Log_DevPrintf("MBC_MBC1 unhandled read from 0x%04X", address);
     return 0x00;
 }
 
@@ -428,14 +442,14 @@ void Cartridge::MBC_MBC1_Write(uint16 address, uint8 value)
         {
             uint16 eram_offset = (uint16)m_mbc_data.mbc1.active_ram_bank * (uint16)8192 + (address - 0xA000);
             if (eram_offset < m_external_ram_size)
-            {
                 m_external_ram[eram_offset] = value;
-                return;
-            }
         }
+
+        return;
     }
 
     // ignore all writes
+    Log_DevPrintf("MBC_MBC1 unhandled write to 0x%04X (value %02X)", address, value);
     return;
 }
 
@@ -465,4 +479,148 @@ void Cartridge::MBC_MBC1_UpdateActiveBanks()
 
     Log_DevPrintf("MBC1 ROM bank: %u", m_mbc_data.mbc1.active_rom_bank);
     Log_DevPrintf("MBC1 RAM bank: %u", m_mbc_data.mbc1.active_ram_bank);
+}
+
+
+bool Cartridge::MBC_MBC3_Init()
+{
+    // create external ram
+    if (m_external_ram_size > 0)
+        m_external_ram = new byte[m_external_ram_size];
+
+    MBC_MBC3_Reset();
+    return true;
+}
+
+void Cartridge::MBC_MBC3_Reset()
+{
+    if (m_external_ram != nullptr)
+        Y_memzero(m_external_ram, sizeof(m_external_ram));
+
+    m_mbc_data.mbc3.rom_bank_number = 1;
+    m_mbc_data.mbc3.ram_bank_number = 0;
+    m_mbc_data.mbc3.ram_rtc_enable = false;
+    MBC_MBC3_UpdateActiveBanks();
+}
+
+uint8 Cartridge::MBC_MBC3_Read(uint16 address)
+{
+    // Should have two banks
+    switch (address & 0xF000)
+    {
+        // rom bank 0
+    case 0x0000:
+    case 0x1000:
+    case 0x2000:
+    case 0x3000:
+        return m_rom_banks[0][address];
+
+        // rom bank 1
+    case 0x4000:
+    case 0x5000:
+    case 0x6000:
+    case 0x7000:
+        return m_rom_banks[m_mbc_data.mbc3.rom_bank_number][address & 0x1FFF];
+
+        // eram
+    case 0xA000:
+    case 0xB000:
+        {
+            if (m_mbc_data.mbc3.ram_rtc_enable)
+            {
+                if (m_mbc_data.mbc3.ram_bank_number <= 3)
+                {
+                    uint16 eram_offset = (uint16)m_mbc_data.mbc3.ram_bank_number * (uint16)8192 + (address - 0xA000);
+                    if (eram_offset < m_external_ram_size)
+                        return m_external_ram[eram_offset];
+                }
+                else
+                {
+                    // RTC: TODO
+                    return 0x00;
+                }
+            }
+            else
+            {
+                // ram not enabled
+                return 0x00;
+            }
+        }
+    }
+
+    Log_DevPrintf("MBC_MBC3 unhandled read from 0x%04X", address);
+    return 0x00;
+}
+
+void Cartridge::MBC_MBC3_Write(uint16 address, uint8 value)
+{
+    switch (address & 0xF000)
+    {
+    case 0x0000:
+    case 0x1000:
+        m_mbc_data.mbc3.ram_rtc_enable = (value == 0x0A);
+        Log_DevPrintf("MBC3 ram %s", m_mbc_data.mbc3.ram_rtc_enable ? "enable" : "disable");
+        return;
+
+    case 0x2000:
+    case 0x3000:
+        m_mbc_data.mbc3.rom_bank_number = value & 0x7F;
+        MBC_MBC3_UpdateActiveBanks();
+        break;
+
+    case 0x4000:
+    case 0x5000:
+        m_mbc_data.mbc3.ram_bank_number = value;
+        MBC_MBC3_UpdateActiveBanks();
+        return;
+
+    case 0x6000:
+    case 0x7000:
+        // Latch clock data
+        return;
+    }
+
+    if (address >= 0xA000 && address < 0xC000)
+    {
+        if (m_mbc_data.mbc3.ram_rtc_enable)
+        {
+            if (m_mbc_data.mbc3.ram_bank_number <= 3)
+            {
+                uint16 eram_offset = (uint16)m_mbc_data.mbc3.ram_bank_number * (uint16)8192 + (address - 0xA000);
+                if (eram_offset < m_external_ram_size)
+                    m_external_ram[eram_offset] = value;
+            }
+            else
+            {
+                // RTC: TODO
+                return;
+            }
+        }
+        else
+        {
+            // ram not enabled
+            return;
+        }
+    }
+
+    // ignore all writes
+    Log_DevPrintf("MBC_MBC3 unhandled write to 0x%04X (value %02X)", address, value);
+    return;
+}
+
+void Cartridge::MBC_MBC3_UpdateActiveBanks()
+{
+    // Same as for MBC1, except that the whole 7 bits of the RAM Bank Number are written directly to this address. As for the MBC1, writing a value of 00h, will select Bank 01h instead. All other values 01-7Fh select the corresponding ROM Banks.
+    if (m_mbc_data.mbc3.rom_bank_number == 0x00)
+        m_mbc_data.mbc3.rom_bank_number++;
+
+    // check ranges
+    if (m_mbc_data.mbc3.rom_bank_number >= m_num_rom_banks)
+    {
+        Log_WarningPrintf("ROM bank out of range (%u / %u)", m_mbc_data.mbc3.rom_bank_number, m_num_rom_banks);
+        m_mbc_data.mbc3.rom_bank_number = (uint8)m_num_rom_banks - 1;
+    }
+
+    Log_DevPrintf("MBC3 ROM bank: %u", m_mbc_data.mbc3.rom_bank_number);
+    Log_DevPrintf("MBC3 RAM bank: %u", m_mbc_data.mbc3.ram_bank_number);
 }
