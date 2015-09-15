@@ -44,6 +44,7 @@ bool System::Init(CallbackInterface *callbacks, const byte *bios, Cartridge *car
     m_accurate_timing = true;
 
     m_memory_locked_cycles = 0;
+    m_memory_permissive = false;
     return true;
 }
 
@@ -241,7 +242,8 @@ void System::DMATransfer(uint16 source_address, uint16 destination_address, uint
     for (uint32 i = 0; i < bytes; i++, current_source_address++, current_destination_address++)
         CPUWrite(current_destination_address, CPURead(current_source_address));
 
-    // TODO: Stall memory access for 160 cycles
+    // Stall memory access for 160 cycles
+    m_memory_locked_cycles = 160;
 }
 
 void System::ResetMemory()
@@ -385,7 +387,7 @@ uint8 System::CPURead(uint16 address) const
 //         __debugbreak();
 
     // when DMA transfer is in progress, all memory except FF80-FFFE is inaccessible
-    if (m_memory_locked_cycles > 0 && (address < 0xFF80 || address > 0xFFFE))
+    if (m_memory_locked_cycles > 0 && !m_memory_permissive && (address < 0xFF80 || address > 0xFFFE))
     {
         Log_WarningPrintf("CPU read of address 0x%04X denied during DMA transfer", address);
         return 0x00;
@@ -417,7 +419,7 @@ uint8 System::CPURead(uint16 address) const
     case 0x8000:
     case 0x9000:
         {
-            if (m_vramLocked)
+            if (m_vramLocked && !m_memory_permissive)
             {
                 // Apparently returns 0xFF?
                 Log_WarningPrintf("CPU read of VRAM address 0x%04X while locked.", address);
@@ -461,7 +463,7 @@ uint8 System::CPURead(uint16 address) const
                 // oam
             case 0xE00:
                 {
-                    if (m_oamLocked)
+                    if (m_oamLocked && !m_memory_permissive)
                     {
                         // Apparently returns 0xFF?
                         Log_WarningPrintf("CPU read of OAM address 0x%04X while locked.", address);
@@ -505,7 +507,7 @@ void System::CPUWrite(uint16 address, uint8 value)
 //         __debugbreak();
 
     // when DMA transfer is in progress, all memory except FF80-FFFE is inaccessible
-    if (m_memory_locked_cycles > 0 && (address < 0xFF80 || address > 0xFFFE))
+    if (m_memory_locked_cycles > 0 && !m_memory_permissive && (address < 0xFF80 || address > 0xFFFE))
     {
         Log_WarningPrintf("CPU write of address 0x%04X (value 0x%02X) denied during DMA transfer", address, value);
         return;
@@ -536,7 +538,7 @@ void System::CPUWrite(uint16 address, uint8 value)
     case 0x8000:
     case 0x9000:
         {
-            if (m_vramLocked)
+            if (m_vramLocked && !m_memory_permissive)
             {
                 Log_WarningPrintf("CPU write of VRAM address 0x%04X (value 0x%02X) while locked.", address, value);
                 return;
@@ -584,7 +586,7 @@ void System::CPUWrite(uint16 address, uint8 value)
                 // oam
             case 0xE00:
                 {
-                    if (m_oamLocked)
+                    if (m_oamLocked && !m_memory_permissive)
                     {
                         // Apparently returns 0xFF?
                         Log_WarningPrintf("CPU write of OAM address 0x%04X (value 0x%02X) while locked.", address, value);

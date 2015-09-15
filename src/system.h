@@ -56,6 +56,10 @@ public:
     bool GetAccurateTiming() const { return m_accurate_timing; }
     void SetAccurateTiming(bool on);
 
+    // permissive memory access
+    bool GetPermissiveMemoryAccess() const { return m_memory_permissive; }
+    void SetPermissiveMemoryAccess(bool on) { m_memory_permissive = on; }
+
 private:
     // cpu view of memory
     uint8 CPURead(uint16 address) const;
@@ -111,6 +115,7 @@ private:
 
     // when doing DMA transfer, locked memory # cycles
     uint32 m_memory_locked_cycles;
+    bool m_memory_permissive;
 
     // timer
     uint32 m_timer_clocks;
