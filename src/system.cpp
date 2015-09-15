@@ -37,6 +37,8 @@ bool System::Init(CallbackInterface *callbacks, const byte *bios, Cartridge *car
     m_cpu = new CPU(this);
     m_display = new Display(this);
 
+    m_clocks_since_reset = 0;
+    m_speed_multiplier = 1.0f;
     return true;
 }
 
@@ -54,6 +56,7 @@ void System::Reset()
     if (m_bios == nullptr)
         SetPostBootstrapState();
 
+    m_clocks_since_reset = 0;
     m_reset_timer.Reset();
 }
 
@@ -67,13 +70,16 @@ void System::Step()
 
     // Simulate timers
     UpdateTimer(cycles);
+
+    // update our counter
+    m_clocks_since_reset += cycles;
 }
 
-uint32 System::TimeToClocks(double time)
+uint64 System::TimeToClocks(double time)
 {
     // cpu runs at 4,194,304hz (with each instruction taking 4 cycles, ugh, this is confusing)
     //return Math::Truncate(Math::Floor(time * 4194304.0f));
-    return (uint32)(time * 4194304.0 * 4.0);
+    return (uint64)(time * 4194304.0 * 4.0 * (double)m_speed_multiplier);
 }
 
 double System::ExecuteFrame()
@@ -82,16 +88,16 @@ double System::ExecuteFrame()
 
     // determine the number of cycles we should be at
     double frame_start_time = m_reset_timer.GetTimeSeconds();
-    uint32 target_clocks = TimeToClocks(frame_start_time);
-    uint32 current_clocks = m_cpu->m_clock;
-    Log_TracePrintf("target_clocks = %u, current_clocks = %u", target_clocks, current_clocks);
+    uint64 target_clocks = TimeToClocks(frame_start_time);
+    uint64 current_clocks = m_clocks_since_reset;
+    Log_TracePrintf("target_clocks = %u, current_clocks = %u", (uint32)target_clocks, (uint32)current_clocks);
 
     // check that we're not ahead (is perfectly possible since each instruction takes a minimum of 4 clocks)
     if (target_clocks > current_clocks)
     {
         // determine how many cycles to execute
-        uint32 cycles_to_execute = target_clocks - current_clocks;
-        Log_TracePrintf("cycles_to_execute = %u", cycles_to_execute);
+        uint32 cycles_to_execute = (uint32)(target_clocks - current_clocks);
+        Log_TracePrintf("cycles_to_execute = %u", (uint32)cycles_to_execute);
         for (uint32 i = 0; i < cycles_to_execute; i++)
             Step();
     }
@@ -148,6 +154,13 @@ void System::SetPadButton(PAD_BUTTON button, bool state)
         Log_TracePrintf("Pad button 0x%02X set %s", button, state ? "on" : "off");
         CPUInterruptRequest(CPU_INT_JOYPAD);
     }
+}
+
+void System::SetTargetSpeed(float multiplier)
+{
+    m_speed_multiplier = multiplier;
+    m_reset_timer.Reset();
+    m_clocks_since_reset = 0;
 }
 
 void System::DMATransfer(uint16 source_address, uint16 destination_address, uint32 bytes)

@@ -41,6 +41,10 @@ public:
     void SetPadDirection(PAD_DIRECTION direction, bool state);
     void SetPadButton(PAD_BUTTON button, bool state);
 
+    // emulation speed multiplier
+    float GetTargetSpeed() const { return m_speed_multiplier; }
+    void SetTargetSpeed(float multiplier);
+
 private:
     // cpu view of memory
     uint8 CPURead(uint16 address) const;
@@ -71,7 +75,7 @@ private:
     void SetPostBootstrapState();
     void UpdateTimer(uint32 clocks);
     void DisassembleCart(const char *outfile);
-    uint32 TimeToClocks(double time);
+    uint64 TimeToClocks(double time);
 
     CPU *m_cpu;
     Display *m_display;
@@ -81,6 +85,9 @@ private:
     Cartridge *m_cartridge;
 
     Timer m_reset_timer;
+
+    uint64 m_clocks_since_reset;
+    float m_speed_multiplier;
 
     // bios, rom banks 0-1
     byte m_memory_vram[0x2000];

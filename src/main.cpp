@@ -283,6 +283,28 @@ static int Run(State *state)
                         case SDLK_v:
                             state->system->SetPadButton(PAD_BUTTON_START, down);
                             break;
+
+                        case SDLK_KP_PLUS:
+                            {
+                                if (down)
+                                {
+                                    state->system->SetTargetSpeed(state->system->GetTargetSpeed() + 0.25f);
+                                    Log_DevPrintf("Target speed set to %.2f%%", state->system->GetTargetSpeed() * 100.0f);
+                                }
+
+                                break;
+                            }
+
+                        case SDLK_KP_MINUS:
+                            {
+                                if (down)
+                                {
+                                    state->system->SetTargetSpeed(state->system->GetTargetSpeed() - 0.25f);
+                                    Log_DevPrintf("Target speed set to %.2f%%", state->system->GetTargetSpeed() * 100.0f);
+                                }
+
+                                break;
+                            }
                         }
 
                         break;
