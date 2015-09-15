@@ -53,8 +53,10 @@ private:
     void PushFrame();
 
     void SetState(DISPLAY_STATE state);
+    void SetLCDCRegister(uint8 value);
     void SetLYRegister(uint8 value);
 
+    void ClearFrameBuffer();
     void PutPixel(uint32 x, uint32 y, uint32 color);
 
     // returns index into palette

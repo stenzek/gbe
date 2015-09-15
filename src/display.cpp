@@ -55,7 +55,7 @@ void Display::CPUWriteRegister(uint8 index, uint8 value)
     switch (index)
     {
     case DISPLAY_REG_LCDC:
-        m_registers.LCDC = value;
+        SetLCDCRegister(value);
         return;
     case DISPLAY_REG_STAT:
         m_registers.STAT = (m_registers.STAT & ~0x78) | (value & 0x78);
@@ -95,7 +95,7 @@ void Display::CPUWriteRegister(uint8 index, uint8 value)
 
 void Display::Reset()
 {
-    Y_memset(m_frameBuffer, 0xFF, sizeof(m_frameBuffer));
+    ClearFrameBuffer();
     m_frameReady = false;
 
     Y_memzero(&m_registers, sizeof(m_registers));
@@ -185,6 +185,42 @@ void Display::SetState(DISPLAY_STATE state)
     }
 }
 
+void Display::SetLCDCRegister(uint8 value)
+{
+    // handle switching LCD on/off
+    bool lcd_current_state = !!(m_registers.LCDC >> 7);
+    bool lcd_new_state = !!(m_registers.LCDC >> 7);
+    if (lcd_current_state != lcd_new_state)
+    {
+        // Turning off LCD?
+        if (!lcd_new_state)
+        {
+            // We should be in vblank.
+            if (m_state != DISPLAY_STATE_VBLANK)
+                Log_WarningPrintf("LCD display turned off whilst out of vblank state. This may damage a real DMG.");
+
+            // Unlock memory.
+            m_system->SetVRAMLock(false);
+            m_system->SetOAMLock(false);
+
+            // Clear the framebuffer, and update display.
+            m_frameReady = true;
+            ClearFrameBuffer();
+            PushFrame();
+        }
+        else
+        {
+            // Reset back to original state (is this correct behavior?)
+            m_currentScanLine = 0;
+            SetState(DISPLAY_STATE_OAM_READ);
+            SetLYRegister(0);
+        }
+    }
+
+    // update register
+    m_registers.LCDC = value;
+}
+
 void Display::SetLYRegister(uint8 value)
 {
     m_registers.LY = value;
@@ -200,6 +236,11 @@ void Display::SetLYRegister(uint8 value)
 
 void Display::ExecuteFor(uint32 cpuCycles)
 {
+    // Don't do anything if we're disabled.
+    if (!(m_registers.LCDC & (1 << 7)))
+        return;
+
+    // Execute as much time as we can.
     while (cpuCycles > 0)
     {
         // Execute these many GPU cycles
@@ -517,6 +558,20 @@ void Display::RenderScanline(uint8 LINE)
     }
 }
 
+void Display::ClearFrameBuffer()
+{
+    Y_memset(m_frameBuffer, 0xFF, sizeof(m_frameBuffer));
+}
+
+void Display::PutPixel(uint32 x, uint32 y, uint32 color)
+{
+    byte *base = m_frameBuffer + (y * SCREEN_WIDTH + x) * 4;
+    base[0] = color & 0xFF;
+    base[1] = (color >> 8) & 0xFF;
+    base[2] = (color >> 16) & 0xFF;
+    base[3] = (color >> 24) & 0xFF;
+}
+
 void Display::PushFrame()
 {
     if (m_system->m_callbacks != nullptr)
@@ -590,13 +645,4 @@ void Display::DumpTiles()
             Log_DevPrint(msg);
         }
     }
-}
-
-void Display::PutPixel(uint32 x, uint32 y, uint32 color)
-{
-    byte *base = m_frameBuffer + (y * SCREEN_WIDTH + x) * 4;
-    base[0] = color & 0xFF;
-    base[1] = (color >> 8) & 0xFF;
-    base[2] = (color >> 16) & 0xFF;
-    base[3] = (color >> 24) & 0xFF;
 }
