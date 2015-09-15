@@ -489,19 +489,23 @@ uint8 System::CPUReadIORegister(uint8 index) const
                     return m_pad_row_select | 0x0F;
                 }
 
-                // Divider timer
+                // FF04 - DIV - Divider Register (R/W)
             case 0x04:
                 return m_timer_divider;
 
-                // Counter timer
+                // FF05 - TIMA - Timer counter (R/W)
             case 0x05:
                 return m_timer_counter;
+
+                // FF06 - TMA - Timer Modulo (R/W)
             case 0x06:
                 return m_timer_overflow_value;
+
+                // FF07 - TAC - Timer Control (R/W)
             case 0x07:
                 return m_timer_control;
 
-                // Interrupt flag
+                // FF0F - IF - Interrupt Flag (R/W)
             case 0x0F:
                 return m_cpu->GetRegisters()->IF;
             }
@@ -577,20 +581,22 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             case 0x02:
                 return;                
 
-                // Divider timer
+                // FF04 - DIV - Divider Register (R/W)
             case 0x04:
                 m_timer_divider = 0;
-                m_timer_divider_clocks = 0; // <-- correct?
                 return;
 
-                // Counter timer
+                // FF05 - TIMA - Timer counter (R/W)
             case 0x05:
-                m_timer_counter = 0;
-                m_timer_clocks = 0;
+                m_timer_counter = value;
                 return;
+
+                // FF06 - TMA - Timer Modulo (R/W)
             case 0x06:
                 m_timer_overflow_value = value;
                 return;
+
+                // FF07 - TAC - Timer Control (R/W)
             case 0x07:
                 m_timer_control = value;
                 return;
