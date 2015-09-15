@@ -81,8 +81,8 @@ double System::ExecuteFrame()
     static const float VBLANK_INTERVAL = 0.0166f;   //16.6ms
 
     // determine the number of cycles we should be at
-    double time_since_reset = m_reset_timer.GetTimeSeconds();
-    uint32 target_clocks = TimeToClocks(time_since_reset);
+    double frame_start_time = m_reset_timer.GetTimeSeconds();
+    uint32 target_clocks = TimeToClocks(frame_start_time);
     uint32 current_clocks = m_cpu->m_clock;
     Log_TracePrintf("target_clocks = %u, current_clocks = %u", target_clocks, current_clocks);
 
@@ -97,12 +97,14 @@ double System::ExecuteFrame()
     }
 
     // calculate the ideal time we want to hit the next frame
-    time_since_reset = m_reset_timer.GetTimeSeconds();
+    double frame_end_time = m_reset_timer.GetTimeSeconds();
+    double execution_time = frame_end_time - frame_start_time;
 
     // vblank is every 16.6ms, so the time we want is the next multiple of this
-    double next_vblank_time = time_since_reset + (VBLANK_INTERVAL - std::fmod(time_since_reset, VBLANK_INTERVAL));
-    Log_TracePrintf("time_since_reset = %f, next_vblank_time = %f, sleep time: %f", time_since_reset, next_vblank_time, next_vblank_time - time_since_reset);
-    return next_vblank_time - time_since_reset;
+    double next_vblank_time = frame_start_time + (VBLANK_INTERVAL - std::fmod(frame_start_time, VBLANK_INTERVAL));
+    double sleep_time = Max(next_vblank_time - frame_end_time - execution_time, 0.0);
+    Log_TracePrintf("frame_start_time = %f, execution_time = %f, next_vblank_time = %f, sleep time: %f", frame_start_time, execution_time, next_vblank_time, sleep_time);
+    return sleep_time;
 }
 
 void System::SetPadDirection(PAD_DIRECTION direction)
