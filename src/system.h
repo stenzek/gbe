@@ -41,6 +41,9 @@ public:
     void SetPadDirection(PAD_DIRECTION direction, bool state);
     void SetPadButton(PAD_BUTTON button, bool state);
 
+    // frame number
+    uint32 GetFrameCounter() const { return m_frame_counter; }
+
     // current speed
     float GetCurrentSpeed() const { return m_current_speed; }
 
@@ -104,6 +107,7 @@ private:
     uint64 m_clocks_since_reset;
     float m_speed_multiplier;
     float m_current_speed;
+    uint32 m_frame_counter;
     bool m_frame_limiter;
     bool m_accurate_timing;
 

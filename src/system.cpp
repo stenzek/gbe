@@ -41,6 +41,7 @@ bool System::Init(CallbackInterface *callbacks, const byte *bios, Cartridge *car
     m_speed_multiplier = 1.0f;
 
     m_frame_limiter = true;
+    m_frame_counter = 0;
     m_accurate_timing = true;
 
     m_memory_locked_cycles = 0;
@@ -64,6 +65,7 @@ void System::Reset()
 
     m_clocks_since_reset = 0;
     m_reset_timer.Reset();
+    m_frame_counter = 0;
 
     m_memory_locked_cycles = 0;
 }
@@ -119,9 +121,6 @@ double System::ExecuteFrame()
                 // keep executing until we meet our target
                 while (m_clocks_since_reset < target_clocks)
                     Step();
-
-                // calculate current speed
-                m_current_speed = float(double(m_clocks_since_reset - current_clocks) / double(target_clocks - current_clocks)) * m_speed_multiplier;
             }
 
             // calculate the ideal time we want to hit the next frame

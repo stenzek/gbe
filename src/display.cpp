@@ -577,6 +577,8 @@ void Display::PushFrame()
 {
     if (m_system->m_callbacks != nullptr)
         m_system->m_callbacks->PresentDisplayBuffer(m_frameBuffer, SCREEN_WIDTH * 4);
+
+    m_system->m_frame_counter++;
 }
 
 void Display::DisplayTiles()
