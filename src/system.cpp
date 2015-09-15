@@ -301,8 +301,8 @@ uint8 System::CPURead(uint16 address) const
     case 0xA000:
     case 0xB000:
         {
-            if (m_biosLatch)
-                return (m_bios != nullptr && address < GB_BIOS_LENGTH) ? m_bios[address] : 0x00;
+            if (m_biosLatch && address < GB_BIOS_LENGTH)
+                return (m_bios != nullptr) ? m_bios[address] : 0x00;
 
             // Cart read
             return (m_cartridge != nullptr) ? m_cartridge->CPURead(address) : 0x00;
