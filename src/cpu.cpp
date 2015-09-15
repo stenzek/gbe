@@ -128,7 +128,7 @@ uint32 CPU::Step()
                         0x0060,     // joypad
                     };
 
-                    Log_TracePrintf("Entering interrupt handler $%04X, PC was $%04X", jump_locations[i], m_registers.PC);
+                    TRACE("Entering interrupt handler $%04X, PC was $%04X", jump_locations[i], m_registers.PC);
                     //DisassembleFrom(m_system, m_registers.PC, 10);
 
                     PushWord(m_registers.PC);

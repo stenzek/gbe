@@ -109,7 +109,7 @@ double System::ExecuteFrame()
             double frame_start_time = m_reset_timer.GetTimeSeconds();
             uint64 target_clocks = TimeToClocks(frame_start_time);
             uint64 current_clocks = m_clocks_since_reset;
-            Log_TracePrintf("target_clocks = %u, current_clocks = %u", (uint32)target_clocks, (uint32)current_clocks);
+            TRACE("target_clocks = %u, current_clocks = %u", (uint32)target_clocks, (uint32)current_clocks);
             m_current_speed = 1.0f;
 
             // check that we're not ahead (is perfectly possible since each instruction takes a minimum of 4 clocks)
@@ -130,7 +130,7 @@ double System::ExecuteFrame()
             // vblank is every 16.6ms, so the time we want is the next multiple of this
             double next_vblank_time = frame_start_time + (VBLANK_INTERVAL - std::fmod(frame_start_time, VBLANK_INTERVAL));
             double sleep_time = Max(next_vblank_time - frame_end_time - execution_time, 0.0);
-            Log_TracePrintf("frame_start_time = %f, execution_time = %f, next_vblank_time = %f, sleep time: %f", frame_start_time, execution_time, next_vblank_time, sleep_time);
+            TRACE("frame_start_time = %f, execution_time = %f, next_vblank_time = %f, sleep time: %f", frame_start_time, execution_time, next_vblank_time, sleep_time);
             return sleep_time;
         }
         else
@@ -182,7 +182,7 @@ void System::SetPadDirection(PAD_DIRECTION direction)
     m_pad_direction_state = ~(PAD_DIRECTION_MASK & direction) & PAD_DIRECTION_MASK;
     if (old_direction_state != m_pad_direction_state)
     {
-        Log_TracePrintf("Pad direction set to 0x%02X", direction);
+        TRACE("Pad direction set to 0x%02X", direction);
         CPUInterruptRequest(CPU_INT_JOYPAD);
     }
 }
@@ -198,7 +198,7 @@ void System::SetPadDirection(PAD_DIRECTION direction, bool state)
 
     if (old_direction_state != m_pad_direction_state)
     {
-        Log_TracePrintf("Pad direction 0x%02X set %s", direction, state ? "on" : "off");
+        TRACE("Pad direction 0x%02X set %s", direction, state ? "on" : "off");
         CPUInterruptRequest(CPU_INT_JOYPAD);
     }
 }
@@ -214,7 +214,7 @@ void System::SetPadButton(PAD_BUTTON button, bool state)
 
     if (old_button_state != m_pad_button_state)
     {
-        Log_TracePrintf("Pad button 0x%02X set %s", button, state ? "on" : "off");
+        TRACE("Pad button 0x%02X set %s", button, state ? "on" : "off");
         CPUInterruptRequest(CPU_INT_JOYPAD);
     }
 }
@@ -1082,6 +1082,6 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
 
 void System::CPUInterruptRequest(uint8 index)
 {
-    Log_TracePrintf("CPU raise interrupt %u", index);
+    TRACE("CPU raise interrupt %u", index);
     m_cpu->RaiseInterrupt(index);
 }

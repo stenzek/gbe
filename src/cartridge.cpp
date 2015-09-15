@@ -414,7 +414,7 @@ void Cartridge::MBC_MBC1_Write(uint16 address, uint8 value)
     case 0x0000:
     case 0x1000:
         m_mbc_data.mbc1.ram_enable = (value == 0x0A);
-        Log_TracePrintf("MBC1 ram %s", m_mbc_data.mbc1.ram_enable ? "enable" : "disable");
+        TRACE("MBC1 ram %s", m_mbc_data.mbc1.ram_enable ? "enable" : "disable");
         return;
 
     case 0x2000:
@@ -477,8 +477,8 @@ void Cartridge::MBC_MBC1_UpdateActiveBanks()
         m_mbc_data.mbc1.active_rom_bank = (uint8)m_num_rom_banks - 1;
     }
 
-    Log_TracePrintf("MBC1 ROM bank: %u", m_mbc_data.mbc1.active_rom_bank);
-    Log_TracePrintf("MBC1 RAM bank: %u", m_mbc_data.mbc1.active_ram_bank);
+    TRACE("MBC1 ROM bank: %u", m_mbc_data.mbc1.active_rom_bank);
+    TRACE("MBC1 RAM bank: %u", m_mbc_data.mbc1.active_ram_bank);
 }
 
 
@@ -556,7 +556,7 @@ void Cartridge::MBC_MBC3_Write(uint16 address, uint8 value)
     case 0x0000:
     case 0x1000:
         m_mbc_data.mbc3.ram_rtc_enable = (value == 0x0A);
-        Log_TracePrintf("MBC3 ram %s", m_mbc_data.mbc3.ram_rtc_enable ? "enable" : "disable");
+        TRACE("MBC3 ram %s", m_mbc_data.mbc3.ram_rtc_enable ? "enable" : "disable");
         return;
 
     case 0x2000:
@@ -615,6 +615,6 @@ void Cartridge::MBC_MBC3_UpdateActiveBanks()
         m_mbc_data.mbc3.rom_bank_number = (uint8)m_num_rom_banks - 1;
     }
 
-    Log_TracePrintf("MBC3 ROM bank: %u", m_mbc_data.mbc3.rom_bank_number);
-    Log_TracePrintf("MBC3 RAM bank: %u", m_mbc_data.mbc3.ram_bank_number);
+    TRACE("MBC3 ROM bank: %u", m_mbc_data.mbc3.rom_bank_number);
+    TRACE("MBC3 RAM bank: %u", m_mbc_data.mbc3.ram_bank_number);
 }
