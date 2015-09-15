@@ -407,8 +407,15 @@ static int Run(State *state)
         // report statistics
         if (time_since_last_report.GetTimeSeconds() > 1.0)
         {
-            Log_DevPrintf("Current emulation speed: %.3f%%, target emulation speed: %.3f%%", state->system->GetCurrentSpeed() * 100.0f, state->system->GetTargetSpeed() * 100.0f);
+            Log_DevPrintf("Current frame: %u, emulation speed: %.3f%%, target emulation speed: %.3f%%", state->system->GetFrameCounter() + 1, state->system->GetCurrentSpeed() * 100.0f, state->system->GetTargetSpeed() * 100.0f);
             time_since_last_report.Reset();
+        }
+
+        // update window title
+        {
+            SmallString window_title;
+            window_title.Format("gbe - %s - Frame %u - %.0f%%", state->cart->GetName().GetCharArray(), state->system->GetFrameCounter() + 1, state->system->GetCurrentSpeed() * 100.0f);
+            SDL_SetWindowTitle(state->window, window_title);
         }
     }
 
