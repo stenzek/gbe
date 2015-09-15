@@ -11,11 +11,12 @@ Log_SetChannel(System);
 
 System::System()
 {
-    m_cpu = new CPU(this);
-    m_display = new Display(this);
+    m_cpu = nullptr;
+    m_display = nullptr;
     m_window = nullptr;
     m_surface = nullptr;
     m_cartridge = nullptr;
+    m_callbacks = nullptr;
     m_bios = nullptr;
     m_biosLatch = false;
     m_vramLocked = false;
@@ -28,10 +29,15 @@ System::~System()
     delete m_cpu;
 }
 
-bool System::Init(const byte *bios, Cartridge *cartridge)
+bool System::Init(CallbackInterface *callbacks, const byte *bios, Cartridge *cartridge)
 {
+    m_callbacks = callbacks;
     m_bios = bios;
     m_cartridge = cartridge;
+
+    m_cpu = new CPU(this);
+    m_display = new Display(this);
+
     return true;
 }
 
@@ -48,8 +54,6 @@ void System::Reset()
     // if bios not provided, emulate post-bootstrap state
     if (m_bios == nullptr)
         SetPostBootstrapState();
-
-    CopyFrameBufferToSurface();
 }
 
 void System::Step()
@@ -62,13 +66,6 @@ void System::Step()
 
     // Simulate timers
     UpdateTimer(cycles);
-
-    // New frame?
-    if (m_display->GetFrameReady())
-    {
-        CopyFrameBufferToSurface();
-        m_display->ClearFrameReady();
-    }
 }
 
 void System::SetPadDirection(PAD_DIRECTION direction)
@@ -77,7 +74,7 @@ void System::SetPadDirection(PAD_DIRECTION direction)
     m_pad_direction_state = ~(PAD_DIRECTION_MASK & direction) & PAD_DIRECTION_MASK;
     if (old_direction_state != m_pad_direction_state)
     {
-        Log_DevPrintf("Pad direction set to 0x%02X", direction);
+        Log_TracePrintf("Pad direction set to 0x%02X", direction);
         CPUInterruptRequest(CPU_INT_JOYPAD);
     }
 }
@@ -93,7 +90,7 @@ void System::SetPadDirection(PAD_DIRECTION direction, bool state)
 
     if (old_direction_state != m_pad_direction_state)
     {
-        Log_DevPrintf("Pad direction 0x%02X set %s", direction, state ? "on" : "off");
+        Log_TracePrintf("Pad direction 0x%02X set %s", direction, state ? "on" : "off");
         CPUInterruptRequest(CPU_INT_JOYPAD);
     }
 }
@@ -109,7 +106,7 @@ void System::SetPadButton(PAD_BUTTON button, bool state)
 
     if (old_button_state != m_pad_button_state)
     {
-        Log_DevPrintf("Pad button 0x%02X set %s", button, state ? "on" : "off");
+        Log_TracePrintf("Pad button 0x%02X set %s", button, state ? "on" : "off");
         CPUInterruptRequest(CPU_INT_JOYPAD);
     }
 }
@@ -201,29 +198,6 @@ void System::SetPostBootstrapState()
     CPUWriteIORegister(0xFF, 0x00);   // IE
 
     m_biosLatch = false;
-}
-
-void System::CopyFrameBufferToSurface()
-{
-    const byte *frameBuffer = m_display->GetFrameBuffer();
-
-    for (uint32 y = 0; y < Display::SCREEN_HEIGHT; y++)
-    {
-        const byte *inLine = frameBuffer + (y * (Display::SCREEN_WIDTH * 4));
-        byte *outLine = (byte *)m_surface->pixels + (y * (uint32)m_surface->pitch);
-
-        for (uint32 x = 0; x < Display::SCREEN_WIDTH; x++)
-        {
-            outLine[0] = inLine[2];
-            outLine[1] = inLine[1];
-            outLine[2] = inLine[0];
-
-            inLine += 4;
-            outLine += 4;
-        }
-    }
-
-    SDL_UpdateWindowSurface(m_window);
 }
 
 void System::UpdateTimer(uint32 clocks)

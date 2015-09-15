@@ -50,6 +50,7 @@ private:
     void RenderFull();
     void DumpTiles();
     void DisplayTiles();
+    void PushFrame();
 
     void SetState(DISPLAY_STATE state);
     void SetLYRegister(uint8 value);

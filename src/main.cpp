@@ -18,7 +18,7 @@ struct ProgramArgs
     bool disable_bios;
 };
 
-struct State
+struct State : public System::CallbackInterface
 {
     Cartridge *cart;
     const byte *bios;
@@ -29,6 +29,30 @@ struct State
     SDL_Surface *surface;
 
     bool running;
+
+    // Callback to present a frame
+    virtual void PresentDisplayBuffer(const void *pPixels, uint32 rowStride) override final
+    {
+        const byte *pBytePixels = reinterpret_cast<const byte *>(pPixels);
+
+        for (uint32 y = 0; y < Display::SCREEN_HEIGHT; y++)
+        {
+            const byte *inLine = pBytePixels + (y * rowStride);
+            byte *outLine = (byte *)surface->pixels + (y * (uint32)surface->pitch);
+
+            for (uint32 x = 0; x < Display::SCREEN_WIDTH; x++)
+            {
+                outLine[0] = inLine[2];
+                outLine[1] = inLine[1];
+                outLine[2] = inLine[0];
+
+                inLine += 4;
+                outLine += 4;
+            }
+        }
+
+        SDL_UpdateWindowSurface(window);
+    }
 };
 
 static bool LoadBIOS(const char *filename, bool specified, State *state)
@@ -159,14 +183,13 @@ static bool InitializeState(const ProgramArgs *args, State *state)
 
     // init system
     state->system = new System();
-    if (!state->system->Init(state->bios, state->cart))
+    if (!state->system->Init(state, state->bios, state->cart))
     {
         Log_ErrorPrintf("Failed to initialize system");
         return false;
     }
 
-    state->system->SetDisplaySurface(state->window, state->surface);
-
+    // reset system
     state->system->Reset();
     return true;
 }
@@ -247,8 +270,8 @@ static int Run(State *state)
             }
         }
 
-        for (uint32 i = 0; i < 100; i++)
-            state->system->Step();
+        // run a single cpu instruction
+        state->system->Step();
     }
 
     return 0;

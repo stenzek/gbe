@@ -106,6 +106,7 @@ void Display::Reset()
     m_currentScanLine = 0;
     SetState(DISPLAY_STATE_OAM_READ);
     SetLYRegister(0);
+    PushFrame();
 }
 
 void Display::SetState(DISPLAY_STATE state)
@@ -143,6 +144,7 @@ void Display::SetState(DISPLAY_STATE state)
             m_system->SetVRAMLock(false);
             m_modeClocksRemaining = 456;
             m_frameReady = true;
+            PushFrame();
 
             // Fire interrupts
             if (m_registers.STAT & (1 << 4))
@@ -515,6 +517,12 @@ void Display::RenderScanline(uint8 LINE)
     }
 }
 
+void Display::PushFrame()
+{
+    if (m_system->m_callbacks != nullptr)
+        m_system->m_callbacks->PresentDisplayBuffer(m_frameBuffer, SCREEN_WIDTH * 4);
+}
+
 void Display::DisplayTiles()
 {
     const uint32 grayscale_colors[4] = { 0xFFFFFFFF, 0xFFC0C0C0, 0xFF606060, 0xFF000000 };
@@ -548,7 +556,7 @@ void Display::DisplayTiles()
         }
     }
         
-    m_system->CopyFrameBufferToSurface();
+    PushFrame();
 }
 
 void Display::RenderFull()
@@ -556,7 +564,7 @@ void Display::RenderFull()
     for (uint32 y = 0; y < SCREEN_HEIGHT; y++)
         RenderScanline((uint8)y);
 
-    m_system->CopyFrameBufferToSurface();
+    PushFrame();
 }
 
 void Display::DumpTiles()

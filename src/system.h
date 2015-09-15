@@ -15,15 +15,21 @@ class System
     friend Cartridge;
 
 public:
+    struct CallbackInterface
+    {
+        virtual void PresentDisplayBuffer(const void *pPixels, uint32 rowStride) = 0;
+    };
+
+public:
     System();
     ~System();
     
+    CPU *GetCPU() const { return m_cpu; }
+    Display *GetDisplay() const { return m_display; }
+
     Cartridge *GetCartridge() const { return m_cartridge; }
 
-    SDL_Surface *GetDisplaySurface() const { return m_surface; }
-    void SetDisplaySurface(SDL_Window *window, SDL_Surface *surface) { m_window = window; m_surface = surface; }
-
-    bool Init(const byte *bios, Cartridge *cartridge);
+    bool Init(CallbackInterface *callbacks, const byte *bios, Cartridge *cartridge);
     void Reset();
 
     // TODO: Rename to RunFrame
@@ -62,7 +68,6 @@ private:
     void ResetTimer();
     void ResetPad();
     void SetPostBootstrapState();
-    void CopyFrameBufferToSurface();
     void UpdateTimer(uint32 clocks);
     void DisassembleCart(const char *outfile);
 
@@ -72,8 +77,9 @@ private:
     CPU *m_cpu;
     Display *m_display;
 
-    Cartridge *m_cartridge;
+    CallbackInterface *m_callbacks;
     const byte *m_bios;
+    Cartridge *m_cartridge;
 
     // bios, rom banks 0-1
     byte m_memory_vram[0x2000];
