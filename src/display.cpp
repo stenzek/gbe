@@ -430,7 +430,7 @@ void Display::RenderScanline(uint8 LINE)
             });
 
             // hardware can only draw 10 sprites, highest priority first
-            num_active_sprites = Max(num_active_sprites, (uint32)10);
+            num_active_sprites = Min(num_active_sprites, (uint32)10);
         }
     }
 
