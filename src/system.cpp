@@ -525,6 +525,112 @@ uint8 System::CPUReadIORegister(uint8 index) const
             break;
         }
 
+    case 0x10:
+        {
+            switch (index & 0x0F)
+            {
+                // FF10 - NR10 - Channel 1 Sweep register (R/W)
+            case 0x00:
+                return 0x00;
+
+                // FF11 - NR11 - Channel 1 Sound length/Wave pattern duty (R/W)
+            case 0x01:
+                return 0x00;
+
+                // FF12 - NR12 - Channel 1 Volume Envelope (R/W)
+            case 0x02:
+                return 0x00;
+
+                // FF13 - NR13 - Channel 1 Frequency lo (Write Only)
+            case 0x03:
+                return 0x00;
+
+                // FF14 - NR14 - Channel 1 Frequency hi (R/W)
+            case 0x04:
+                return 0x00;
+
+                // FF16 - NR21 - Channel 2 Sound Length/Wave Pattern Duty (R/W)
+            case 0x06:
+                return 0x00;
+
+                // FF17 - NR22 - Channel 2 Volume Envelope (R/W)
+            case 0x07:
+                return 0x00;
+
+                // FF18 - NR23 - Channel 2 Frequency lo data (W)
+            case 0x08:
+                return 0x00;
+
+                // FF19 - NR24 - Channel 2 Frequency hi data (R/W)
+            case 0x09:
+                return 0x00;
+
+                // FF1A - NR30 - Channel 3 Sound on/off (R/W)
+            case 0x0A:
+                return 0x00;
+
+                // FF1B - NR31 - Channel 3 Sound Length
+            case 0x0B:
+                return 0x00;
+
+                // FF1C - NR32 - Channel 3 Select output level (R/W)
+            case 0x0C:
+                return 0x00;
+
+                // FF1D - NR33 - Channel 3 Frequency's lower data (W)
+            case 0x0D:
+                return 0x00;
+
+                // FF1E - NR34 - Channel 3 Frequency's higher data (R/W)
+            case 0x0E:
+                return 0x00;
+            }
+
+            break;
+        }
+
+    case 0x20:
+        {
+            switch (index & 0x0F)
+            {
+                // FF20 - NR41 - Channel 4 Sound Length (R/W)
+            case 0x00:
+                return 0x00;
+
+                // FF21 - NR42 - Channel 4 Volume Envelope (R/W)
+            case 0x01:
+                return 0x00;
+
+                // FF22 - NR43 - Channel 4 Polynomial Counter (R/W)
+            case 0x02:
+                return 0x00;
+
+                // FF23 - NR44 - Channel 4 Counter/consecutive; Inital (R/W)
+            case 0x03:
+                return 0x00;
+
+                // FF24 - NR50 - Channel control / ON-OFF / Volume (R/W)
+            case 0x04:
+                return 0x00;
+
+                // FF25 - NR51 - Selection of Sound output terminal (R/W)
+            case 0x05:
+                return 0x00;
+
+                // FF26 - NR52 - sound on/off
+            case 0x06:
+                return 0x00;
+            }
+
+            break;
+        }
+
+    case 0x30:
+        {
+            // FF30-FF3F - Wave Pattern RAM
+            return 0x00;
+        }
+
     case 0x40:
         {
             // LCD registers
@@ -621,12 +727,17 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
 
             break;
         }
+
     case 0x10:
         {
             switch (index & 0x0F)
             {
                 // FF10 - NR10 - Channel 1 Sweep register (R/W)
             case 0x00:
+                return;
+
+                // FF11 - NR11 - Channel 1 Sound length/Wave pattern duty (R/W)
+            case 0x01:
                 return;
 
                 // FF12 - NR12 - Channel 1 Volume Envelope (R/W)
@@ -639,6 +750,18 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
 
                 // FF14 - NR14 - Channel 1 Frequency hi (R/W)
             case 0x04:
+                return;
+
+                // FF16 - NR21 - Channel 2 Sound Length/Wave Pattern Duty (R/W)
+            case 0x06:
+                return;
+
+                // FF17 - NR22 - Channel 2 Volume Envelope (R/W)
+            case 0x07:
+                return;
+
+                // FF18 - NR23 - Channel 2 Frequency lo data (W)
+            case 0x08:
                 return;
 
                 // FF19 - NR24 - Channel 2 Frequency hi data (R/W)
@@ -668,10 +791,27 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
 
             break;
         }
+
     case 0x20:
         {
             switch (index & 0x0F)
             {
+                // FF20 - NR41 - Channel 4 Sound Length (R/W)
+            case 0x00:
+                return;
+
+                // FF21 - NR42 - Channel 4 Volume Envelope (R/W)
+            case 0x01:
+                return;
+
+                // FF22 - NR43 - Channel 4 Polynomial Counter (R/W)
+            case 0x02:
+                return;
+
+                // FF23 - NR44 - Channel 4 Counter/consecutive; Inital (R/W)
+            case 0x03:
+                return;
+
                 // FF24 - NR50 - Channel control / ON-OFF / Volume (R/W)
             case 0x04:
                 return;
@@ -687,6 +827,13 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
 
             break;
         }
+
+    case 0x30:
+        {
+            // FF30-FF3F - Wave Pattern RAM
+            return;
+        }
+
     case 0x40:
         {
             switch (index & 0x0F)
@@ -732,6 +879,12 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             case 0x00:
                 m_biosLatch = (value == 0);
                 return;
+
+                // FF51 - HDMA1 - CGB Mode Only - New DMA Source, High
+                // FF52 - HDMA2 - CGB Mode Only - New DMA Source, Low
+                // FF53 - HDMA3 - CGB Mode Only - New DMA Destination, High
+                // FF54 - HDMA4 - CGB Mode Only - New DMA Destination, Low
+                // FF55 - HDMA5 - CGB Mode Only - New DMA Length/Mode/Start
             }
 
             break;
