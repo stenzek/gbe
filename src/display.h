@@ -37,6 +37,8 @@ public:
     ~Display();
 
     const byte *GetFrameBuffer() const { return m_frameBuffer; }
+    const bool GetFrameReady() const { return m_frameReady; }
+    void ClearFrameReady() { m_frameReady = false; }
 
     // register access
     const uint8 GetRegister(DISPLAY_REG reg) { DebugAssert(reg < NUM_DISPLAY_REGS); return m_registers.regs[reg]; }
@@ -58,7 +60,7 @@ public:
     void Reset();
 
     // step
-    bool Step();
+    void ExecuteFor(uint32 cpuCycles);
 
 private:
     void RenderScanline();
@@ -66,7 +68,7 @@ private:
     void DumpTiles();
     void DisplayTiles();
 
-    void SetMode(uint32 mode);
+    void SetState(DISPLAY_STATE state);
     void SetScanline(uint32 scanline);
 
     void PutPixel(uint32 x, uint32 y, uint32 color);
@@ -80,10 +82,10 @@ private:
     Registers m_registers;
 
     // state
-    uint32 m_mode;
+    DISPLAY_STATE m_state;
     uint32 m_modeClocksRemaining;
-    uint32 m_currentScanLine;
     
     byte m_frameBuffer[SCREEN_WIDTH * SCREEN_HEIGHT * 4];   // RGBA
+    bool m_frameReady;
 };
 

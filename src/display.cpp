@@ -8,6 +8,7 @@ Log_SetChannel(Display);
 
 Display::Display(System *memory)
     : m_system(memory)
+    , m_frameReady(false)
 {
     Reset();
 }
@@ -20,30 +21,38 @@ Display::~Display()
 void Display::Reset()
 {
     Y_memset(m_frameBuffer, 0xFF, sizeof(m_frameBuffer));
+    m_frameReady = false;
+
     Y_memzero(&m_registers, sizeof(m_registers));
 
     // start with lcd on?
     //m_registers[DISPLAY_REG_LCDC] = 0xFF;
 
     // start at the end of vblank which is equal to starting fresh
-    SetMode(2);
     SetScanline(0);
-    m_modeClocksRemaining = 80;
+    SetState(DISPLAY_STATE_OAM_READ);
 }
 
-void Display::SetMode(uint32 mode)
+void Display::SetState(DISPLAY_STATE state)
 {
-    m_mode = mode;
+    m_state = state;
 
     // update lower two bits of STAT
-    m_registers.STAT = (m_registers.STAT & ~0x3) | (m_mode & 0x3);
+    m_registers.STAT = (m_registers.STAT & ~0x3) | (m_state & 0x3);
 
     // trigger interrupts
-    switch (mode)
+    switch (state)
     {
         // HBlank
-    case 0:
+    case DISPLAY_STATE_HBLANK:
         {
+            // HBlank lasts 201-207 clocks
+            m_system->SetOAMLock(false);
+            m_system->SetVRAMLock(false);
+            m_modeClocksRemaining = 204;
+            m_frameReady = false;
+
+            // Fire interrupt
             if (m_registers.STAT & (1 << 3))
                 m_system->CPUInterruptRequest(CPU_INT_LCDSTAT);
 
@@ -51,21 +60,49 @@ void Display::SetMode(uint32 mode)
         }
 
         // VBlank
-    case 1:
+    case DISPLAY_STATE_VBLANK:
         {
+            // VBlank lasts for a total of 4560 clocks.
+            // This is broken up into 10 scanlines of 456 clocks.
+            m_system->SetOAMLock(false);
+            m_system->SetVRAMLock(false);
+            m_modeClocksRemaining = 456;
+            m_frameReady = true;
+
+            // Fire interrupts
             if (m_registers.STAT & (1 << 4))
                 m_system->CPUInterruptRequest(CPU_INT_LCDSTAT);
 
+            // VBlank interrupt always fires.
             m_system->CPUInterruptRequest(CPU_INT_VBLANK);
             break;
         }
 
         // OAM
-    case 2:
+    case DISPLAY_STATE_OAM_READ:
         {
+            // Lock the CPU from reading OAM.
+            // Mode 2 read takes 77-83 clocks.
+            m_system->SetOAMLock(true);
+            m_modeClocksRemaining = 80;
+            m_frameReady = false;
+
+            // Fire interrupts
             if (m_registers.STAT & (1 << 5))
                 m_system->CPUInterruptRequest(CPU_INT_LCDSTAT);
 
+            break;
+        }
+
+        // VRAM read
+    case DISPLAY_STATE_OAM_VRAM_READ:
+        {
+            // Lock the CPU from reading both OAM and VRAM.
+            // Mode 3 takes 169-175 clocks.
+            m_system->SetOAMLock(true);
+            m_system->SetVRAMLock(true);
+            m_modeClocksRemaining = 172;
+            m_frameReady = false;
             break;
         }
     }
@@ -74,7 +111,6 @@ void Display::SetMode(uint32 mode)
 
 void Display::SetScanline(uint32 scanline)
 {
-    m_currentScanLine = scanline;
     m_registers.LY = scanline & 0xFF;
 
     // update coincidence flag
@@ -90,106 +126,82 @@ void Display::SetScanline(uint32 scanline)
         m_system->CPUInterruptRequest(CPU_INT_LCDSTAT);    
 }
 
-bool Display::Step()
+void Display::ExecuteFor(uint32 cpuCycles)
 {
-    bool pushFrameBuffer = false;
-
-    switch (m_mode)
+    while (cpuCycles > 0)
     {
-        // oam read mode
-    case 2:
+        // Execute these many GPU cycles
+        if (cpuCycles < m_modeClocksRemaining)
         {
-            DebugAssert(m_modeClocksRemaining > 0);
-            m_modeClocksRemaining--;
-            if (m_modeClocksRemaining == 0)
-            {
-                // enter scanline mode 3 for 172 clocks
-                m_modeClocksRemaining = 172;
-                SetMode(3);
-            }
+            // Still has to wait.
+            m_modeClocksRemaining -= cpuCycles;
+            break;
         }
-        break;
 
-        // vram read mode
-    case 3:
+        // Completed this wait period.
+        cpuCycles -= m_modeClocksRemaining;
+        
+        // Switch to the next mode (if appropriate)
+        switch (m_state)
         {
-            DebugAssert(m_modeClocksRemaining > 0);
-            m_modeClocksRemaining--;
-            if (m_modeClocksRemaining == 0)
+        case DISPLAY_STATE_OAM_READ:
             {
-                // enter hblank
-                SetMode(0);
-                m_modeClocksRemaining = 204;
+                // Enter OAM+VRAM read mode for this scanline.
+                SetState(DISPLAY_STATE_OAM_VRAM_READ);
+                break;
+            }
 
-                // render the scanline
+        case DISPLAY_STATE_OAM_VRAM_READ:
+            {
+                // Render this scanline.
                 RenderScanline();
+
+                // Enter HBLANK for this scanline
+                SetState(DISPLAY_STATE_HBLANK);
+                break;
             }
-        }
-        break;
 
-        // hblank
-    case 0:
-        {
-            DebugAssert(m_modeClocksRemaining > 0);
-            m_modeClocksRemaining--;
-            if (m_modeClocksRemaining == 0)
+        case DISPLAY_STATE_HBLANK:
             {
-                // move to the next line
-                SetScanline(m_currentScanLine + 1);
-                if (m_currentScanLine == 144)
-                {
-                    // enter vblank
-                    SetMode(1);
-                    m_modeClocksRemaining = 456;
+                // Move to the next scanline
+                SetScanline(GetRegisterCurrentScanline() + 1);
 
-                    // write framebuffer
-                    pushFrameBuffer = true;
+                // Is this the last visible scanline?
+                if (GetRegisterCurrentScanline() != 144)
+                {
+                    // Switch back to OAM read for this scaline.
+                    SetState(DISPLAY_STATE_OAM_READ);
                 }
                 else
                 {
-                    // mode to oam for next line
-                    SetMode(2);
-                    m_modeClocksRemaining = 80;
+                    // Move to VBLANK.
+                    SetState(DISPLAY_STATE_VBLANK);
                 }
-            }
-        }
-        break;
 
-        // vblank
-    case 1:
-        {
-            DebugAssert(m_modeClocksRemaining > 0);
-            m_modeClocksRemaining--;
-            if (m_modeClocksRemaining == 0)
+                break;
+            }
+
+        case DISPLAY_STATE_VBLANK:
             {
-                // move to next line
-                SetScanline(m_currentScanLine + 1);
-                if (m_currentScanLine == 154)
+                // Is this the last out-of-range scanline?
+                if (GetRegisterCurrentScanline() == 153)
                 {
-                    // return back to oam for first line
-                    SetMode(2);
+                    // Next frame.
+                    m_frameReady = false;
+                    SetState(DISPLAY_STATE_OAM_READ);
                     SetScanline(0);
-                    m_modeClocksRemaining = 80;
                 }
                 else
                 {
-                    // still in vblank
+                    // Move to the next out-of-range scanline
+                    SetScanline(GetRegisterCurrentScanline() + 1);
                     m_modeClocksRemaining = 456;
                 }
+
+                break;
             }
         }
-        break;
     }
-
-    
-    /*static uint32 i = 0;
-    if (i != m_currentScanLine)
-    {
-        i = m_currentScanLine;
-        Log_DevPrintf("scan %u", i);
-    }*/
-
-    return pushFrameBuffer;
 }
 
 uint8 Display::ReadTile(bool high_tileset, int32 tile, uint8 x, uint8 y) const
@@ -221,8 +233,7 @@ void Display::RenderScanline()
     //const uint32 grayscale_colors[4] = { 0xFF000000, 0xFF606060, 0xFFC0C0C0, 0xFFFFFFFF};
 
     // blank the line
-    DebugAssert(m_currentScanLine < SCREEN_HEIGHT);
-    byte *pFrameBufferLine = m_frameBuffer + (m_currentScanLine * SCREEN_WIDTH * 4);
+    byte *pFrameBufferLine = m_frameBuffer + ((uint32)m_registers.LY * SCREEN_WIDTH * 4);
     Y_memset(pFrameBufferLine, 0xFF, SCREEN_WIDTH * 4);
 
     // if display disabled, skip entirely (TODO Move this to a member variable, it shouldn't be modified outside of vsync)
@@ -463,21 +474,17 @@ void Display::DisplayTiles()
 }
 void Display::RenderFull()
 {
-    uint32 line = m_currentScanLine;
+    uint8 line = GetRegisterCurrentScanline();
     
 
     for (uint32 y = 0; y < SCREEN_HEIGHT; y++)
     {
-        m_currentScanLine = y;
         m_registers.LY = y & 0xff;
         RenderScanline();
     }
 
-    m_currentScanLine = line;
-    m_registers.LY = m_currentScanLine & 0xff;
-
+    m_registers.LY = line;
     m_system->CopyFrameBufferToSurface();
-
 }
 
 

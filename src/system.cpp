@@ -55,14 +55,16 @@ void System::Reset()
 void System::Step()
 {
     uint32 cycles = m_cpu->Step();
-    for (uint32 i = 0; i < cycles / 4; i++)
+
+    // Simulate display
+    DebugAssert((cycles % 4) == 0);
+    m_display->ExecuteFor(cycles / 4);
+
+    // New frame?
+    if (m_display->GetFrameReady())
     {
-        // TODO: Pass cycles as argument
-        if (m_display->Step())
-        {
-            CopyFrameBufferToSurface();
-            //Sleep(16);
-        }
+        CopyFrameBufferToSurface();
+        m_display->ClearFrameReady();
     }
 
     UpdateTimer(cycles);
