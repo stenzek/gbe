@@ -100,10 +100,9 @@ void Display::Reset()
 
     Y_memzero(&m_registers, sizeof(m_registers));
 
-    // start with lcd on?
-    //m_registers[DISPLAY_REG_LCDC] = 0xFF;
-
     // start at the end of vblank which is equal to starting fresh
+    m_modeClocksRemaining = 0;
+    m_cyclesSinceVBlank = 0;
     m_currentScanLine = 0;
     SetState(DISPLAY_STATE_OAM_READ);
     SetLYRegister(0);
@@ -206,11 +205,13 @@ void Display::ExecuteFor(uint32 cpuCycles)
         {
             // Still has to wait.
             m_modeClocksRemaining -= cpuCycles;
+            m_cyclesSinceVBlank += cpuCycles;
             break;
         }
 
         // Completed this wait period.
         cpuCycles -= m_modeClocksRemaining;
+        m_cyclesSinceVBlank += m_modeClocksRemaining;
         
         // Switch to the next mode (if appropriate)
         switch (m_state)
@@ -258,9 +259,13 @@ void Display::ExecuteFor(uint32 cpuCycles)
                 // Is this the last out-of-range scanline?
                 if (m_currentScanLine == 153)
                 {
+                    // Check cycle counter
+                    DebugAssert(m_cyclesSinceVBlank == 70224);
+
                     // Next frame.
                     m_frameReady = false;
                     m_currentScanLine = 0;
+                    m_cyclesSinceVBlank = 0;
                     SetState(DISPLAY_STATE_OAM_READ);
                     SetLYRegister(0);
                 }
@@ -545,6 +550,7 @@ void Display::DisplayTiles()
         
     m_system->CopyFrameBufferToSurface();
 }
+
 void Display::RenderFull()
 {
     for (uint32 y = 0; y < SCREEN_HEIGHT; y++)
@@ -552,7 +558,6 @@ void Display::RenderFull()
 
     m_system->CopyFrameBufferToSurface();
 }
-
 
 void Display::DumpTiles()
 {

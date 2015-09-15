@@ -67,6 +67,7 @@ private:
     // state
     DISPLAY_STATE m_state;
     uint32 m_modeClocksRemaining;
+    uint32 m_cyclesSinceVBlank;
     uint8 m_currentScanLine;
     
     byte m_frameBuffer[SCREEN_WIDTH * SCREEN_HEIGHT * 4];   // RGBA

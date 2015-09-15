@@ -60,14 +60,15 @@ void System::Step()
     DebugAssert((cycles % 4) == 0);
     m_display->ExecuteFor(cycles / 4);
 
+    // Simulate timers
+    UpdateTimer(cycles);
+
     // New frame?
     if (m_display->GetFrameReady())
     {
         CopyFrameBufferToSurface();
         m_display->ClearFrameReady();
     }
-
-    UpdateTimer(cycles);
 }
 
 void System::SetPadDirection(PAD_DIRECTION direction)
