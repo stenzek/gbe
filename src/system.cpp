@@ -58,6 +58,9 @@ void System::Reset()
 
     m_clocks_since_reset = 0;
     m_reset_timer.Reset();
+
+    m_frame_limiter = true;
+    m_accurate_timing = true;
 }
 
 void System::Step()
@@ -79,39 +82,88 @@ uint64 System::TimeToClocks(double time)
 {
     // cpu runs at 4,194,304hz (with each instruction taking 4 cycles, ugh, this is confusing)
     //return Math::Truncate(Math::Floor(time * 4194304.0f));
-    return (uint64)(time * 4194304.0 * 4.0 * (double)m_speed_multiplier);
+    return (uint64)(time * 4194304.0 * 4.0);
 }
 
 double System::ExecuteFrame()
 {
     static const float VBLANK_INTERVAL = 0.0166f;   //16.6ms
 
-    // determine the number of cycles we should be at
-    double frame_start_time = m_reset_timer.GetTimeSeconds();
-    uint64 target_clocks = TimeToClocks(frame_start_time);
-    uint64 current_clocks = m_clocks_since_reset;
-    Log_TracePrintf("target_clocks = %u, current_clocks = %u", (uint32)target_clocks, (uint32)current_clocks);
-
-    // check that we're not ahead (is perfectly possible since each instruction takes a minimum of 4 clocks)
-    if (target_clocks > current_clocks)
+    // framelimiter on?
+    if (m_frame_limiter)
     {
-        // keep executing until we meet our target
+        // using "accurate" timing?
+        if (m_accurate_timing)
+        {
+            // determine the number of cycles we should be at
+            double frame_start_time = m_reset_timer.GetTimeSeconds();
+            uint64 target_clocks = TimeToClocks(frame_start_time);
+            uint64 current_clocks = m_clocks_since_reset;
+            Log_TracePrintf("target_clocks = %u, current_clocks = %u", (uint32)target_clocks, (uint32)current_clocks);
+            m_current_speed = 1.0f;
+
+            // check that we're not ahead (is perfectly possible since each instruction takes a minimum of 4 clocks)
+            if (target_clocks > current_clocks)
+            {
+                // keep executing until we meet our target
+                while (m_clocks_since_reset < target_clocks)
+                    Step();
+
+                // calculate current speed
+                m_current_speed = float(double(m_clocks_since_reset - current_clocks) / double(target_clocks - current_clocks)) * m_speed_multiplier;
+            }
+
+            // calculate the ideal time we want to hit the next frame
+            double frame_end_time = m_reset_timer.GetTimeSeconds();
+            double execution_time = frame_end_time - frame_start_time;
+
+            // vblank is every 16.6ms, so the time we want is the next multiple of this
+            double next_vblank_time = frame_start_time + (VBLANK_INTERVAL - std::fmod(frame_start_time, VBLANK_INTERVAL));
+            double sleep_time = Max(next_vblank_time - frame_end_time - execution_time, 0.0);
+            Log_TracePrintf("frame_start_time = %f, execution_time = %f, next_vblank_time = %f, sleep time: %f", frame_start_time, execution_time, next_vblank_time, sleep_time);
+            return sleep_time;
+        }
+        else
+        {
+            // get difference in time
+            double time_diff = m_reset_timer.GetTimeSeconds();
+            m_reset_timer.Reset();
+            m_clocks_since_reset = 0;
+
+            // get the number of cycles to execute
+            uint64 target_clocks = TimeToClocks(time_diff * m_speed_multiplier);
+
+            // attempt to execute this many cycles, bail out if we exceed vblank time
+            while (m_clocks_since_reset < target_clocks && m_reset_timer.GetTimeSeconds() < VBLANK_INTERVAL)
+                Step();
+
+            // calculate the speed we're at
+            m_current_speed = float((double)m_clocks_since_reset / (double)target_clocks) * m_speed_multiplier;
+
+            // calculate the sleep time
+            double sleep_time = Max((VBLANK_INTERVAL / m_speed_multiplier) - m_reset_timer.GetTimeSeconds(), 0.0);
+            return sleep_time;
+        }
+    }
+    else
+    {
+        // framelimiter off, just execute as many as quickly as possible, say, 16ms worth at a time
+        uint64 target_clocks = m_clocks_since_reset + TimeToClocks((double)VBLANK_INTERVAL);
         while (m_clocks_since_reset < target_clocks)
             Step();
 
-        // calculate current speed
-        m_current_speed = float(double(m_clocks_since_reset - current_clocks) / double(target_clocks - current_clocks)) * m_speed_multiplier;
+        // update speed every 100ms
+        if (m_reset_timer.GetTimeSeconds() > 0.1f)
+        {
+            uint64 fullspeed_clocks = TimeToClocks(m_reset_timer.GetTimeSeconds());
+            m_current_speed = float(double(m_clocks_since_reset) / double(fullspeed_clocks));
+            m_clocks_since_reset = 0;
+            m_reset_timer.Reset();
+        }
+
+        // don't sleep
+        return 0.0;
     }
-
-    // calculate the ideal time we want to hit the next frame
-    double frame_end_time = m_reset_timer.GetTimeSeconds();
-    double execution_time = frame_end_time - frame_start_time;
-
-    // vblank is every 16.6ms, so the time we want is the next multiple of this
-    double next_vblank_time = frame_start_time + (VBLANK_INTERVAL - std::fmod(frame_start_time, VBLANK_INTERVAL));
-    double sleep_time = Max(next_vblank_time - frame_end_time - execution_time, 0.0);
-    Log_TracePrintf("frame_start_time = %f, execution_time = %f, next_vblank_time = %f, sleep time: %f", frame_start_time, execution_time, next_vblank_time, sleep_time);
-    return sleep_time;
 }
 
 void System::SetPadDirection(PAD_DIRECTION direction)
@@ -160,6 +212,13 @@ void System::SetPadButton(PAD_BUTTON button, bool state)
 void System::SetTargetSpeed(float multiplier)
 {
     m_speed_multiplier = multiplier;
+    m_reset_timer.Reset();
+    m_clocks_since_reset = 0;
+}
+
+void System::SetAccurateTiming(bool on)
+{
+    m_accurate_timing = on;
     m_reset_timer.Reset();
     m_clocks_since_reset = 0;
 }

@@ -307,6 +307,28 @@ static int Run(State *state)
 
                                 break;
                             }
+
+                        case SDLK_KP_PERIOD:
+                            {
+                                if (!down)
+                                {
+                                    state->system->SetAccurateTiming(!state->system->GetAccurateTiming());
+                                    Log_DevPrintf("Set accurate timing %s", state->system->GetAccurateTiming() ? "on" : "off");
+                                }
+
+                                break;
+                            }
+
+                        case SDLK_KP_ENTER:
+                            {
+                                if (!down)
+                                {
+                                    state->system->SetFrameLimiter(!state->system->GetFrameLimiter());
+                                    Log_DevPrintf("Set framelimiter %s", state->system->GetFrameLimiter() ? "on" : "off");
+                                }
+
+                                break;
+                            }
                         }
 
                         break;

@@ -48,6 +48,14 @@ public:
     float GetTargetSpeed() const { return m_speed_multiplier; }
     void SetTargetSpeed(float multiplier);
 
+    // framelimiter on/off
+    bool GetFrameLimiter() const { return m_frame_limiter; }
+    void SetFrameLimiter(bool on) { m_frame_limiter = on; }
+
+    // accurate timing
+    bool GetAccurateTiming() const { return m_accurate_timing; }
+    void SetAccurateTiming(bool on);
+
 private:
     // cpu view of memory
     uint8 CPURead(uint16 address) const;
@@ -92,6 +100,8 @@ private:
     uint64 m_clocks_since_reset;
     float m_speed_multiplier;
     float m_current_speed;
+    bool m_frame_limiter;
+    bool m_accurate_timing;
 
     // bios, rom banks 0-1
     byte m_memory_vram[0x2000];
