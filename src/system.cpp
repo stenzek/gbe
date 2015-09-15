@@ -6,15 +6,12 @@
 #include "YBaseLib/Thread.h"
 #include "YBaseLib/Log.h"
 #include "YBaseLib/FileSystem.h"
-#include <SDL/SDL.h>
 Log_SetChannel(System);
 
 System::System()
 {
     m_cpu = nullptr;
     m_display = nullptr;
-    m_window = nullptr;
-    m_surface = nullptr;
     m_cartridge = nullptr;
     m_callbacks = nullptr;
     m_bios = nullptr;

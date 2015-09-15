@@ -5,8 +5,6 @@
 class CPU;
 class Display;
 class Cartridge;
-struct SDL_Window;
-struct SDL_Surface;
 
 class System
 {
@@ -70,9 +68,6 @@ private:
     void SetPostBootstrapState();
     void UpdateTimer(uint32 clocks);
     void DisassembleCart(const char *outfile);
-
-    SDL_Window *m_window;
-    SDL_Surface *m_surface;
 
     CPU *m_cpu;
     Display *m_display;

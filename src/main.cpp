@@ -1,4 +1,3 @@
-#include <SDL/SDL.h>
 #include "system.h"
 #include "cartridge.h"
 #include "display.h"
@@ -8,6 +7,7 @@
 #include "YBaseLib/Log.h"
 #include "YBaseLib/FileSystem.h"
 #include "YBaseLib/CString.h"
+#include <SDL/SDL.h>
 #include <cstdio>
 Log_SetChannel(Main);
 
