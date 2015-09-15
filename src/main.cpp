@@ -29,6 +29,7 @@ struct State : public System::CallbackInterface
 
     SDL_Window *window;
     SDL_Surface *surface;
+    SDL_Surface *offscreen_surface;
 
     bool running;
 
@@ -47,15 +48,38 @@ struct State : public System::CallbackInterface
 // 
 //     }
 
+    void SetScale(uint32 scale)
+    {
+        scale = Max(scale, (uint32)1);
+
+        if (offscreen_surface != nullptr)
+        {
+            SDL_FreeSurface(offscreen_surface);
+            offscreen_surface = nullptr;
+        }
+
+        if (scale > 1)
+        {
+            offscreen_surface = SDL_CreateRGBSurface(0, 160, 144, 32, 0xff, 0xff00, 0xff0000, 0);
+            DebugAssert(offscreen_surface != nullptr);
+        }
+
+        SDL_SetWindowSize(window, 160 * scale, 144 * scale);
+        surface = SDL_GetWindowSurface(window);
+    }
+
     // Callback to present a frame
     virtual void PresentDisplayBuffer(const void *pixels, uint32 row_stride) override final
     {
         const byte *pBytePixels = reinterpret_cast<const byte *>(pixels);
+        SDL_Surface *write_surface = (offscreen_surface != nullptr) ? offscreen_surface : surface;
+        if (SDL_MUSTLOCK(write_surface))
+            SDL_LockSurface(write_surface);
 
         for (uint32 y = 0; y < Display::SCREEN_HEIGHT; y++)
         {
             const byte *inLine = pBytePixels + (y * row_stride);
-            byte *outLine = (byte *)surface->pixels + (y * (uint32)surface->pitch);
+            byte *outLine = (byte *)write_surface->pixels + (y * (uint32)write_surface->pitch);
 
             for (uint32 x = 0; x < Display::SCREEN_WIDTH; x++)
             {
@@ -67,6 +91,20 @@ struct State : public System::CallbackInterface
                 outLine += 4;
             }
         }
+
+        if (offscreen_surface != nullptr)
+        {
+            if (SDL_MUSTLOCK(surface))
+                SDL_LockSurface(surface);
+
+            SDL_BlitScaled(offscreen_surface, nullptr, surface, nullptr);
+
+            if (SDL_MUSTLOCK(surface))
+                SDL_UnlockSurface(surface);
+        }
+
+        if (SDL_MUSTLOCK(write_surface))
+            SDL_UnlockSurface(write_surface);
 
         SDL_UpdateWindowSurface(window);
     }
@@ -171,6 +209,7 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     state->system = nullptr;
     state->window = nullptr;
     state->surface = nullptr;
+    state->offscreen_surface = nullptr;
     state->running = true;
 
     // load bios
@@ -285,6 +324,22 @@ static int Run(State *state)
                         case SDLK_v:
                             state->system->SetPadButton(PAD_BUTTON_START, down);
                             break;
+
+                        case SDLK_1:
+                        case SDLK_2:
+                        case SDLK_3:
+                        case SDLK_4:
+                        case SDLK_5:
+                        case SDLK_6:
+                        case SDLK_7:
+                        case SDLK_8:
+                        case SDLK_9:
+                            {
+                                if (!down)
+                                    state->SetScale((event->key.keysym.sym - SDLK_1) + 1);
+
+                                break;
+                            }
 
                         case SDLK_KP_PLUS:
                             {
