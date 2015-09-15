@@ -114,11 +114,7 @@ void Display::SetScanline(uint32 scanline)
     m_registers.LY = scanline & 0xFF;
 
     // update coincidence flag
-    uint8 coincidence_flag;
-    if (m_registers.STAT & (1 << 2))
-        coincidence_flag = (m_registers.LYC == m_registers.LY) ? 1 : 0;
-    else
-        coincidence_flag = (m_registers.LYC != m_registers.LY) ? 1 : 0;
+    uint8 coincidence_flag = (uint8)(m_registers.LYC == m_registers.LY);
     m_registers.STAT = (m_registers.STAT & ~(1 << 2)) | (coincidence_flag << 2);
 
     // coindcince interrupts
