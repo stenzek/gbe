@@ -1,5 +1,6 @@
 #pragma once
 #include "YBaseLib/Common.h"
+#include "YBaseLib/Timer.h"
 #include "structures.h"
 
 class CPU;
@@ -15,7 +16,8 @@ class System
 public:
     struct CallbackInterface
     {
-        virtual void PresentDisplayBuffer(const void *pPixels, uint32 rowStride) = 0;
+        // Display updated callback.
+        virtual void PresentDisplayBuffer(const void *pPixels, uint32 row_stride) = 0;
     };
 
 public:
@@ -28,10 +30,11 @@ public:
     Cartridge *GetCartridge() const { return m_cartridge; }
 
     bool Init(CallbackInterface *callbacks, const byte *bios, Cartridge *cartridge);
-    void Reset();
-
-    // TODO: Rename to RunFrame
+    void Reset();   
     void Step();
+
+    // Returns the number of seconds to sleep for.
+    double ExecuteFrame();
 
     // Pad direction
     void SetPadDirection(PAD_DIRECTION direction);
@@ -68,6 +71,7 @@ private:
     void SetPostBootstrapState();
     void UpdateTimer(uint32 clocks);
     void DisassembleCart(const char *outfile);
+    uint32 TimeToClocks(double time);
 
     CPU *m_cpu;
     Display *m_display;
@@ -75,6 +79,8 @@ private:
     CallbackInterface *m_callbacks;
     const byte *m_bios;
     Cartridge *m_cartridge;
+
+    Timer m_reset_timer;
 
     // bios, rom banks 0-1
     byte m_memory_vram[0x2000];

@@ -142,7 +142,10 @@ uint32 CPU::Step()
 
     // if halted, simulate a single cycle to keep the display/audio going
     if (m_halted)
+    {
+        m_clock += 4;
         return 4;
+    }
 
 //     if (m_registers.PC == 0xc31a)
 //         __debugbreak();
@@ -1534,6 +1537,7 @@ uint32 CPU::Step()
 
     #undef get_imm8
     #undef get_imm16
+    m_clock += cycles_consumed;
     return cycles_consumed;
 }
 

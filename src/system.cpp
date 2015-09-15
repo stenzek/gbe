@@ -6,6 +6,8 @@
 #include "YBaseLib/Thread.h"
 #include "YBaseLib/Log.h"
 #include "YBaseLib/FileSystem.h"
+#include "YBaseLib/Math.h"
+#include <cmath>
 Log_SetChannel(System);
 
 System::System()
@@ -51,6 +53,8 @@ void System::Reset()
     // if bios not provided, emulate post-bootstrap state
     if (m_bios == nullptr)
         SetPostBootstrapState();
+
+    m_reset_timer.Reset();
 }
 
 void System::Step()
@@ -63,6 +67,42 @@ void System::Step()
 
     // Simulate timers
     UpdateTimer(cycles);
+}
+
+uint32 System::TimeToClocks(double time)
+{
+    // cpu runs at 4,194,304hz (with each instruction taking 4 cycles, ugh, this is confusing)
+    //return Math::Truncate(Math::Floor(time * 4194304.0f));
+    return (uint32)(time * 4194304.0 * 4.0);
+}
+
+double System::ExecuteFrame()
+{
+    static const float VBLANK_INTERVAL = 0.0166f;   //16.6ms
+
+    // determine the number of cycles we should be at
+    double time_since_reset = m_reset_timer.GetTimeSeconds();
+    uint32 target_clocks = TimeToClocks(time_since_reset);
+    uint32 current_clocks = m_cpu->m_clock;
+    Log_TracePrintf("target_clocks = %u, current_clocks = %u", target_clocks, current_clocks);
+
+    // check that we're not ahead (is perfectly possible since each instruction takes a minimum of 4 clocks)
+    if (target_clocks > current_clocks)
+    {
+        // determine how many cycles to execute
+        uint32 cycles_to_execute = target_clocks - current_clocks;
+        Log_TracePrintf("cycles_to_execute = %u", cycles_to_execute);
+        for (uint32 i = 0; i < cycles_to_execute; i++)
+            Step();
+    }
+
+    // calculate the ideal time we want to hit the next frame
+    time_since_reset = m_reset_timer.GetTimeSeconds();
+
+    // vblank is every 16.6ms, so the time we want is the next multiple of this
+    double next_vblank_time = time_since_reset + (VBLANK_INTERVAL - std::fmod(time_since_reset, VBLANK_INTERVAL));
+    Log_TracePrintf("time_since_reset = %f, next_vblank_time = %f, sleep time: %f", time_since_reset, next_vblank_time, next_vblank_time - time_since_reset);
+    return next_vblank_time - time_since_reset;
 }
 
 void System::SetPadDirection(PAD_DIRECTION direction)

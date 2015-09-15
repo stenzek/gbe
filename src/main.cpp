@@ -7,6 +7,8 @@
 #include "YBaseLib/Log.h"
 #include "YBaseLib/FileSystem.h"
 #include "YBaseLib/CString.h"
+#include "YBaseLib/Thread.h"
+#include "YBaseLib/Math.h"
 #include <SDL/SDL.h>
 #include <cstdio>
 Log_SetChannel(Main);
@@ -30,14 +32,29 @@ struct State : public System::CallbackInterface
 
     bool running;
 
+//     virtual void Sleep(uint32 duration_ms) override
+//     {
+//         throw std::logic_error("The method or operation is not implemented.");
+//     }
+// 
+//     virtual void PreExecuteIteration() override
+//     {
+// 
+//     }
+// 
+//     virtual void PostExecuteIteration() override
+//     {
+// 
+//     }
+
     // Callback to present a frame
-    virtual void PresentDisplayBuffer(const void *pPixels, uint32 rowStride) override final
+    virtual void PresentDisplayBuffer(const void *pixels, uint32 row_stride) override final
     {
-        const byte *pBytePixels = reinterpret_cast<const byte *>(pPixels);
+        const byte *pBytePixels = reinterpret_cast<const byte *>(pixels);
 
         for (uint32 y = 0; y < Display::SCREEN_HEIGHT; y++)
         {
-            const byte *inLine = pBytePixels + (y * rowStride);
+            const byte *inLine = pBytePixels + (y * row_stride);
             byte *outLine = (byte *)surface->pixels + (y * (uint32)surface->pitch);
 
             for (uint32 x = 0; x < Display::SCREEN_WIDTH; x++)
@@ -221,6 +238,10 @@ static int Run(State *state)
                 const SDL_Event *event = events + i;
                 switch (event->type)
                 {
+                case SDL_QUIT:
+                    state->running = false;
+                    break;
+
                 case SDL_KEYDOWN:
                 case SDL_KEYUP:
                     {
@@ -270,8 +291,15 @@ static int Run(State *state)
             }
         }
 
-        // run a single cpu instruction
-        state->system->Step();
+        // run a frame
+        double sleep_time_seconds = state->system->ExecuteFrame();
+        if (sleep_time_seconds >= 0.01)
+        {
+            // round down to the next millisecond (fix when usleep is implemented)
+            //uint32 sleep_time_ms = (uint32)(Math::Truncate(Math::Floor(sleep_time_seconds * 1000.0f)));
+            uint32 sleep_time_ms = (uint32)std::floor(sleep_time_seconds * 1000.0);
+            Thread::Sleep(sleep_time_ms);
+        }
     }
 
     return 0;
