@@ -109,6 +109,9 @@ private:
     byte m_memory_oam[0xFF];
     byte m_memory_zram[127];
 
+    // when doing DMA transfer, locked memory # cycles
+    uint32 m_memory_locked_cycles;
+
     // timer
     uint32 m_timer_clocks;
     uint32 m_timer_divider_clocks;

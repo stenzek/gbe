@@ -161,6 +161,7 @@ void Display::SetState(DISPLAY_STATE state)
             // Lock the CPU from reading OAM.
             // Mode 2 read takes 77-83 clocks.
             m_system->SetOAMLock(true);
+            m_system->SetVRAMLock(false);
             m_modeClocksRemaining = 80;
             m_frameReady = false;
 

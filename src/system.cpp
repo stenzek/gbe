@@ -39,6 +39,11 @@ bool System::Init(CallbackInterface *callbacks, const byte *bios, Cartridge *car
 
     m_clocks_since_reset = 0;
     m_speed_multiplier = 1.0f;
+
+    m_frame_limiter = true;
+    m_accurate_timing = true;
+
+    m_memory_locked_cycles = 0;
     return true;
 }
 
@@ -59,23 +64,28 @@ void System::Reset()
     m_clocks_since_reset = 0;
     m_reset_timer.Reset();
 
-    m_frame_limiter = true;
-    m_accurate_timing = true;
+    m_memory_locked_cycles = 0;
 }
 
 void System::Step()
 {
     uint32 cycles = m_cpu->Step();
+    uint32 clocks = cycles;
+    DebugAssert((cycles % 4) == 0);
+    cycles /= 4;
+
+    // Handle memory locking
+    if (m_memory_locked_cycles > 0)
+        m_memory_locked_cycles = (cycles > m_memory_locked_cycles) ? 0 : (m_memory_locked_cycles - cycles);
 
     // Simulate display
-    DebugAssert((cycles % 4) == 0);
-    m_display->ExecuteFor(cycles / 4);
+    m_display->ExecuteFor(cycles);
 
     // Simulate timers
-    UpdateTimer(cycles);
+    UpdateTimer(clocks);
 
     // update our counter
-    m_clocks_since_reset += cycles;
+    m_clocks_since_reset += clocks;
 }
 
 uint64 System::TimeToClocks(double time)
@@ -374,6 +384,14 @@ uint8 System::CPURead(uint16 address) const
 //     if (address == 0xc009)
 //         __debugbreak();
 
+    // when DMA transfer is in progress, all memory except FF80-FFFE is inaccessible
+    if (m_memory_locked_cycles > 0 && (address < 0xFF80 || address > 0xFFFE))
+    {
+        Log_WarningPrintf("CPU read of address 0x%04X denied during DMA transfer", address);
+        return 0x00;
+    }
+
+    // select address range
     switch (address & 0xF000)
     {
         // cart memory
@@ -486,6 +504,14 @@ void System::CPUWrite(uint16 address, uint8 value)
 //     if (address == 0xc009)
 //         __debugbreak();
 
+    // when DMA transfer is in progress, all memory except FF80-FFFE is inaccessible
+    if (m_memory_locked_cycles > 0 && (address < 0xFF80 || address > 0xFFFE))
+    {
+        Log_WarningPrintf("CPU write of address 0x%04X (value 0x%02X) denied during DMA transfer", address, value);
+        return;
+    }
+
+    // select memory range
     switch (address & 0xF000)
     {
         // cart memory
