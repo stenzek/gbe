@@ -95,11 +95,12 @@ double System::ExecuteFrame()
     // check that we're not ahead (is perfectly possible since each instruction takes a minimum of 4 clocks)
     if (target_clocks > current_clocks)
     {
-        // determine how many cycles to execute
-        uint32 cycles_to_execute = (uint32)(target_clocks - current_clocks);
-        Log_TracePrintf("cycles_to_execute = %u", (uint32)cycles_to_execute);
-        for (uint32 i = 0; i < cycles_to_execute; i++)
+        // keep executing until we meet our target
+        while (m_clocks_since_reset < target_clocks)
             Step();
+
+        // calculate current speed
+        m_current_speed = float(double(m_clocks_since_reset - current_clocks) / double(target_clocks - current_clocks)) * m_speed_multiplier;
     }
 
     // calculate the ideal time we want to hit the next frame

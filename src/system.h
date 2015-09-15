@@ -41,6 +41,9 @@ public:
     void SetPadDirection(PAD_DIRECTION direction, bool state);
     void SetPadButton(PAD_BUTTON button, bool state);
 
+    // current speed
+    float GetCurrentSpeed() const { return m_current_speed; }
+
     // emulation speed multiplier
     float GetTargetSpeed() const { return m_speed_multiplier; }
     void SetTargetSpeed(float multiplier);
@@ -88,6 +91,7 @@ private:
 
     uint64 m_clocks_since_reset;
     float m_speed_multiplier;
+    float m_current_speed;
 
     // bios, rom banks 0-1
     byte m_memory_vram[0x2000];

@@ -223,6 +223,8 @@ static void CleanupState(State *state)
 
 static int Run(State *state)
 {
+    Timer time_since_last_report;
+
     while (state->running)
     {
         SDL_PumpEvents();
@@ -319,10 +321,17 @@ static int Run(State *state)
         {
             // round down to the next millisecond (fix when usleep is implemented)
             //uint32 sleep_time_ms = (uint32)(Math::Truncate(Math::Floor(sleep_time_seconds * 1000.0f)));
-            //uint32 sleep_time_ms = (uint32)std::floor(sleep_time_seconds * 1000.0);
-            //if (sleep_time_ms > 1)
-                //Thread::Sleep(sleep_time_ms - 1);
-            Thread::Sleep(1);
+            uint32 sleep_time_ms = (uint32)std::floor(sleep_time_seconds * 1000.0);
+            if (sleep_time_ms > 1)
+                Thread::Sleep(sleep_time_ms - 1);
+            //Thread::Sleep(1);
+        }
+
+        // report statistics
+        if (time_since_last_report.GetTimeSeconds() > 1.0)
+        {
+            Log_DevPrintf("Current emulation speed: %.3f%%, target emulation speed: %.3f%%", state->system->GetCurrentSpeed() * 100.0f, state->system->GetTargetSpeed() * 100.0f);
+            time_since_last_report.Reset();
         }
     }
 
