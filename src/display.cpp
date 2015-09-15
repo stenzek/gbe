@@ -18,6 +18,81 @@ Display::~Display()
 
 }
 
+uint8 Display::CPUReadRegister(uint8 index) const
+{
+    switch (index)
+    {
+    case DISPLAY_REG_LCDC:
+        return m_registers.LCDC;
+    case DISPLAY_REG_STAT:
+        return m_registers.STAT;
+    case DISPLAY_REG_SCY:
+        return m_registers.SCY;
+    case DISPLAY_REG_SCX:
+        return m_registers.SCX;
+    case DISPLAY_REG_LY:
+        return m_registers.LY;
+    case DISPLAY_REG_LYC:
+        return m_registers.LYC;
+    case DISPLAY_REG_WY:
+        return m_registers.WY;
+    case DISPLAY_REG_WX:
+        return m_registers.WX;
+    case DISPLAY_REG_BGP:
+        return m_registers.BGP;
+    case DISPLAY_REG_OBP0:
+        return m_registers.OBP0;
+    case DISPLAY_REG_OBP1:
+        return m_registers.OBP1;
+    }
+
+    Log_WarningPrintf("Unhandled LCD register read: %02X", index);
+    return 0x00;
+}
+
+void Display::CPUWriteRegister(uint8 index, uint8 value)
+{
+    switch (index)
+    {
+    case DISPLAY_REG_LCDC:
+        m_registers.LCDC = value;
+        return;
+    case DISPLAY_REG_STAT:
+        m_registers.STAT = (m_registers.STAT & ~0x78) | (value & 0x78);
+        return;
+    case DISPLAY_REG_SCY:
+        m_registers.SCY = value;
+        return;
+    case DISPLAY_REG_SCX:
+        m_registers.SCX = value;
+        return;
+    case DISPLAY_REG_LY:
+        SetLYRegister(value);
+        return;
+    case DISPLAY_REG_LYC:
+        m_registers.LYC = value;
+        return;
+    case DISPLAY_REG_WY:
+        m_registers.WY = value;
+        return;
+    case DISPLAY_REG_WX:
+        m_registers.WX = value;
+        return;
+    case DISPLAY_REG_BGP:
+        m_registers.BGP = value;
+        return;
+    case DISPLAY_REG_OBP0:
+        m_registers.OBP0 = value;
+        return;
+    case DISPLAY_REG_OBP1:
+        m_registers.OBP1 = value;
+        return;
+
+    }
+
+    Log_WarningPrintf("Unhandled LCD register write: %02X (value %02X)", index, value);
+}
+
 void Display::Reset()
 {
     Y_memset(m_frameBuffer, 0xFF, sizeof(m_frameBuffer));
@@ -29,8 +104,9 @@ void Display::Reset()
     //m_registers[DISPLAY_REG_LCDC] = 0xFF;
 
     // start at the end of vblank which is equal to starting fresh
-    SetScanline(0);
+    m_currentScanLine = 0;
     SetState(DISPLAY_STATE_OAM_READ);
+    SetLYRegister(0);
 }
 
 void Display::SetState(DISPLAY_STATE state)
@@ -108,16 +184,15 @@ void Display::SetState(DISPLAY_STATE state)
     }
 }
 
-
-void Display::SetScanline(uint32 scanline)
+void Display::SetLYRegister(uint8 value)
 {
-    m_registers.LY = scanline & 0xFF;
+    m_registers.LY = value;
 
     // update coincidence flag
     uint8 coincidence_flag = (uint8)(m_registers.LYC == m_registers.LY);
     m_registers.STAT = (m_registers.STAT & ~(1 << 2)) | (coincidence_flag << 2);
 
-    // coindcince interrupts
+    // coincidence interrupts
     if (coincidence_flag && m_registers.STAT & (1 << 6))
         m_system->CPUInterruptRequest(CPU_INT_LCDSTAT);    
 }
@@ -150,7 +225,7 @@ void Display::ExecuteFor(uint32 cpuCycles)
         case DISPLAY_STATE_OAM_VRAM_READ:
             {
                 // Render this scanline.
-                RenderScanline();
+                RenderScanline(m_currentScanLine);
 
                 // Enter HBLANK for this scanline
                 SetState(DISPLAY_STATE_HBLANK);
@@ -160,10 +235,11 @@ void Display::ExecuteFor(uint32 cpuCycles)
         case DISPLAY_STATE_HBLANK:
             {
                 // Move to the next scanline
-                SetScanline(GetRegisterCurrentScanline() + 1);
+                m_currentScanLine++;
+                SetLYRegister(m_registers.LY + 1);
 
                 // Is this the last visible scanline?
-                if (GetRegisterCurrentScanline() != 144)
+                if (m_currentScanLine != 144)
                 {
                     // Switch back to OAM read for this scaline.
                     SetState(DISPLAY_STATE_OAM_READ);
@@ -180,18 +256,20 @@ void Display::ExecuteFor(uint32 cpuCycles)
         case DISPLAY_STATE_VBLANK:
             {
                 // Is this the last out-of-range scanline?
-                if (GetRegisterCurrentScanline() == 153)
+                if (m_currentScanLine == 153)
                 {
                     // Next frame.
                     m_frameReady = false;
+                    m_currentScanLine = 0;
                     SetState(DISPLAY_STATE_OAM_READ);
-                    SetScanline(0);
+                    SetLYRegister(0);
                 }
                 else
                 {
                     // Move to the next out-of-range scanline
-                    SetScanline(GetRegisterCurrentScanline() + 1);
                     m_modeClocksRemaining = 456;
+                    m_currentScanLine++;
+                    SetLYRegister(m_registers.LY + 1);
                 }
 
                 break;
@@ -223,13 +301,13 @@ uint8 Display::ReadTile(bool high_tileset, int32 tile, uint8 x, uint8 y) const
     return colourBit & 0x3;
 }
 
-void Display::RenderScanline()
+void Display::RenderScanline(uint8 LINE)
 {
     const uint32 grayscale_colors[4] = { 0xFFFFFFFF, 0xFFC0C0C0, 0xFF606060, 0xFF000000 };
     //const uint32 grayscale_colors[4] = { 0xFF000000, 0xFF606060, 0xFFC0C0C0, 0xFFFFFFFF};
 
     // blank the line
-    byte *pFrameBufferLine = m_frameBuffer + ((uint32)m_registers.LY * SCREEN_WIDTH * 4);
+    byte *pFrameBufferLine = m_frameBuffer + (LINE * SCREEN_WIDTH * 4);
     Y_memset(pFrameBufferLine, 0xFF, SCREEN_WIDTH * 4);
 
     // if display disabled, skip entirely (TODO Move this to a member variable, it shouldn't be modified outside of vsync)
@@ -238,7 +316,6 @@ void Display::RenderScanline()
 
     // read control register
     uint8 LCDC = m_registers.LCDC;
-    uint8 LINE = m_registers.LY;
     uint8 SCX = m_registers.SCX;
     uint8 SCY = m_registers.SCY;
     uint8 WX = m_registers.WX;
@@ -470,16 +547,9 @@ void Display::DisplayTiles()
 }
 void Display::RenderFull()
 {
-    uint8 line = GetRegisterCurrentScanline();
-    
-
     for (uint32 y = 0; y < SCREEN_HEIGHT; y++)
-    {
-        m_registers.LY = y & 0xff;
-        RenderScanline();
-    }
+        RenderScanline((uint8)y);
 
-    m_registers.LY = line;
     m_system->CopyFrameBufferToSurface();
 }
 

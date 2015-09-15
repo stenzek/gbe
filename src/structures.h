@@ -31,20 +31,18 @@ enum CPU_IRQ
 enum DISPLAY_REG
 {
     // Range of 0xFF40-0xFF4B       // CPU Access
-    DISPLAY_REG_LCDC = 0x00,        // R/W
-    DISPLAY_REG_STAT = 0x01,        // R/W
-    DISPLAY_REG_SCY = 0x02,         // R/W
-    DISPLAY_REG_SCX = 0x03,         // R/W
-    DISPLAY_REG_LY = 0x04,          // R
-    DISPLAY_REG_LYC = 0x05,         // R/W
-    DISPLAY_REG_DMA = 0x06,         // W
-    DISPLAY_REG_WY = 0x0A,          // R/W
-    DISPLAY_REG_WX = 0x0B,          // R/W
-    DISPLAY_REG_BGP = 0x07,         // R/W - non-cgb mode only
-    DISPLAY_REG_OBP0 = 0x08,        // R/W - non-cgb mode only
-    DISPLAY_REG_OBP1 = 0x09,        // R/W - non-cgb mode only
-
-    NUM_DISPLAY_REGS = 0x0C
+    DISPLAY_REG_LCDC = 0x40,        // R/W
+    DISPLAY_REG_STAT = 0x41,        // R/W
+    DISPLAY_REG_SCY = 0x42,         // R/W
+    DISPLAY_REG_SCX = 0x43,         // R/W
+    DISPLAY_REG_LY = 0x44,          // R
+    DISPLAY_REG_LYC = 0x45,         // R/W
+    DISPLAY_REG_DMA = 0x46,         // W
+    DISPLAY_REG_WY = 0x4A,          // R/W
+    DISPLAY_REG_WX = 0x4B,          // R/W
+    DISPLAY_REG_BGP = 0x47,         // R/W - non-cgb mode only
+    DISPLAY_REG_OBP0 = 0x48,        // R/W - non-cgb mode only
+    DISPLAY_REG_OBP1 = 0x49         // R/W - non-cgb mode only
 };
 
 enum DISPLAY_STATE

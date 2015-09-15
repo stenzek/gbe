@@ -512,8 +512,21 @@ uint8 System::CPUReadIORegister(uint8 index) const
     case 0x40:
         {
             // LCD registers
-            if (index <= 0x4B)
-                return m_display->GetRegister((DISPLAY_REG)(index - 0x40));
+            switch (index & 0x0F)
+            {
+            case 0x00:      // FF40 - LCDC - LCD Control (R/W)
+            case 0x01:      // FF41 - STAT - LCDC Status (R/W)
+            case 0x02:      // FF42 - SCY - Scroll Y (R/W)
+            case 0x03:      // FF43 - SCX - Scroll X (R/W)
+            case 0x04:      // FF44 - LY - LCDC Y-Coordinate (R/W?)
+            case 0x05:      // FF45 - LYC - LY Compare(R / W)
+            case 0x07:      // FF47 - BGP - BG Palette Data (R/W) - Non CGB Mode Only
+            case 0x08:      // FF48 - OBP0 - Object Palette 0 Data (R/W) - Non CGB Mode Only
+            case 0x09:      // FF49 - OBP1 - Object Palette 1 Data(R / W) - Non CGB Mode Only
+            case 0x0A:      // FF4A - WY - Window Y Position (R/W)
+            case 0x0B:      // FF4B - WX - Window X Position minus 7 (R/W)
+                return m_display->CPUReadRegister(index);
+            }
 
             break;
         }
@@ -664,14 +677,14 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             case 0x01:      // FF41 - STAT - LCDC Status (R/W)
             case 0x02:      // FF42 - SCY - Scroll Y (R/W)
             case 0x03:      // FF43 - SCX - Scroll X (R/W)
-            case 0x04:      // FF44 - LY - LCDC Y-Coordinate (R)
+            case 0x04:      // FF44 - LY - LCDC Y-Coordinate (R/W?)
             case 0x05:      // FF45 - LYC - LY Compare(R / W)
             case 0x07:      // FF47 - BGP - BG Palette Data (R/W) - Non CGB Mode Only
             case 0x08:      // FF48 - OBP0 - Object Palette 0 Data (R/W) - Non CGB Mode Only
             case 0x09:      // FF49 - OBP1 - Object Palette 1 Data(R / W) - Non CGB Mode Only
             case 0x0A:      // FF4A - WY - Window Y Position (R/W)
             case 0x0B:      // FF4B - WX - Window X Position minus 7 (R/W)
-                m_display->SetRegister((DISPLAY_REG)(index - 0x40), value);
+                m_display->CPUWriteRegister(index, value);
                 return;
 
                 // FF46 - DMA - DMA Transfer and Start Address (W)

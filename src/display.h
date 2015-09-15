@@ -11,25 +11,17 @@ public:
 
     struct Registers
     {
-        union
-        {
-            struct  
-            {
-                uint8 LCDC;
-                uint8 STAT;
-                uint8 SCY;
-                uint8 SCX;
-                uint8 LY;
-                uint8 LYC;
-                uint8 DMA;
-                uint8 BGP;
-                uint8 OBP0;
-                uint8 OBP1;
-                uint8 WY;
-                uint8 WX;
-            };
-            uint8 regs[NUM_DISPLAY_REGS];
-        };
+        uint8 LCDC;
+        uint8 STAT;
+        uint8 SCY;
+        uint8 SCX;
+        uint8 LY;
+        uint8 LYC;
+        uint8 BGP;
+        uint8 OBP0;
+        uint8 OBP1;
+        uint8 WY;
+        uint8 WX;
     };
 
 public:
@@ -40,21 +32,12 @@ public:
     const bool GetFrameReady() const { return m_frameReady; }
     void ClearFrameReady() { m_frameReady = false; }
 
-    // register access
-    const uint8 GetRegister(DISPLAY_REG reg) { DebugAssert(reg < NUM_DISPLAY_REGS); return m_registers.regs[reg]; }
-    const uint8 GetRegisterControl() const { return m_registers.regs[DISPLAY_REG_LCDC]; }
-    const uint8 GetRegisterStatus() const { return m_registers.regs[DISPLAY_REG_STAT]; }
-    const uint8 GetRegisterScrollY() const { return m_registers.regs[DISPLAY_REG_SCY]; }
-    const uint8 GetRegisterScrollX() const { return m_registers.regs[DISPLAY_REG_SCX]; }
-    const uint8 GetRegisterCurrentScanline() const { return m_registers.regs[DISPLAY_REG_LY]; }
+    // current scanline access
+    const uint32 GetCurrentScanLine() const { return m_currentScanLine; }
 
-    // register writes
-    void SetRegister(DISPLAY_REG reg, uint8 value) { /* todo: read-only registers */ DebugAssert(reg < NUM_DISPLAY_REGS); m_registers.regs[reg] = value; }
-    void SetRegisterControl(uint8 value) { m_registers.regs[DISPLAY_REG_LCDC] = value; }
-    void SetRegisterStatus(uint8 value) { m_registers.regs[DISPLAY_REG_STAT] = value; }
-    void SetRegisterScrollY(uint8 value) { m_registers.regs[DISPLAY_REG_SCY] = value; }
-    void SetRegisterScrollX(uint8 value) { m_registers.regs[DISPLAY_REG_SCX] = value; }
-    void SetRegisterCurrentScanline(uint8 value) { m_registers.regs[DISPLAY_REG_LY] = value; }
+    // register access
+    uint8 CPUReadRegister(uint8 index) const;
+    void CPUWriteRegister(uint8 index, uint8 value);
 
     // reset
     void Reset();
@@ -63,13 +46,13 @@ public:
     void ExecuteFor(uint32 cpuCycles);
 
 private:
-    void RenderScanline();
+    void RenderScanline(uint8 LINE);
     void RenderFull();
     void DumpTiles();
     void DisplayTiles();
 
     void SetState(DISPLAY_STATE state);
-    void SetScanline(uint32 scanline);
+    void SetLYRegister(uint8 value);
 
     void PutPixel(uint32 x, uint32 y, uint32 color);
 
@@ -84,6 +67,7 @@ private:
     // state
     DISPLAY_STATE m_state;
     uint32 m_modeClocksRemaining;
+    uint8 m_currentScanLine;
     
     byte m_frameBuffer[SCREEN_WIDTH * SCREEN_HEIGHT * 4];   // RGBA
     bool m_frameReady;
