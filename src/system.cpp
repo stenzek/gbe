@@ -398,7 +398,16 @@ uint8 System::CPURead(uint16 address) const
         // video memory
     case 0x8000:
     case 0x9000:
-        return m_memory_vram[address & 0x1FFF];
+        {
+            if (m_vramLocked)
+            {
+                // Apparently returns 0xFF?
+                Log_WarningPrintf("CPU read of VRAM address 0x%04X while locked.", address);
+                return 0xFF;
+            }
+
+            return m_memory_vram[address & 0x1FFF];
+        }
 
         // working ram
     case 0xC000:
@@ -433,8 +442,21 @@ uint8 System::CPURead(uint16 address) const
 
                 // oam
             case 0xE00:
-                // cpu can read oam???
-                return (address < 0xFEA0) ? m_memory_oam[address & 0xFF] : 0x00;
+                {
+                    if (m_oamLocked)
+                    {
+                        // Apparently returns 0xFF?
+                        Log_WarningPrintf("CPU read of OAM address 0x%04X while locked.", address);
+                        return 0xFF;
+                    }
+                    else if (address >= 0xFEA0)
+                    {
+                        Log_WarningPrintf("Out-of-range read of OAM address 0x04X", address);
+                        return 0x00;
+                    }
+
+                    return m_memory_oam[address & 0xFF];
+                }
 
                 // zero page
             case 0xF00:
@@ -487,8 +509,17 @@ void System::CPUWrite(uint16 address, uint8 value)
         // vram
     case 0x8000:
     case 0x9000:
-        m_memory_vram[address & 0x1FFF] = value;
-        return;
+        {
+            if (m_vramLocked)
+            {
+                Log_WarningPrintf("CPU write of VRAM address 0x%04X (value 0x%02X) while locked.", address, value);
+                return;
+            }
+
+            m_memory_vram[address & 0x1FFF] = value;
+            return;
+        }
+
 
         // working ram
     case 0xC000:
@@ -527,9 +558,19 @@ void System::CPUWrite(uint16 address, uint8 value)
                 // oam
             case 0xE00:
                 {
-                    if (address < 0xFEA0)
-                        m_memory_oam[address & 0xFF] = value;
+                    if (m_oamLocked)
+                    {
+                        // Apparently returns 0xFF?
+                        Log_WarningPrintf("CPU write of OAM address 0x%04X (value 0x%02X) while locked.", address, value);
+                        return;
+                    }
+                    else if (address >= 0xFEA0)
+                    {
+                        Log_WarningPrintf("Out-of-range write of OAM address 0x04X (value 0x%02X)", address, value);
+                        return;
+                    }
 
+                    m_memory_oam[address & 0xFF] = value;
                     return;
                 }
 
