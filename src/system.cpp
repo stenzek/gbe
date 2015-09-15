@@ -535,9 +535,9 @@ uint8 System::CPUReadIORegister(uint8 index) const
         {
             switch (index & 0x0F)
             {
-                // FFFF = IF
+                // FFFF = IE
             case 0x0F:
-                return m_cpu->GetRegisters()->IF;
+                return m_cpu->GetRegisters()->IE;
 
             }
             break;
