@@ -58,6 +58,7 @@ public:
 
 private:
     void RenderScanline(uint8 LINE);
+    void RenderScanline_CGB(uint8 LINE);
     void RenderFull();
     void DumpTiles();
     void DisplayTiles();
@@ -71,7 +72,7 @@ private:
     void PutPixel(uint32 x, uint32 y, uint32 color);
 
     // returns index into palette
-    uint8 ReadTile(bool high_tileset, int32 tile, uint8 x, uint8 y) const;
+    uint8 ReadTile(uint8 bank, bool high_tileset, int32 tile, uint8 x, uint8 y) const;
 
     System *m_system;
 

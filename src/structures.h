@@ -29,7 +29,8 @@ struct OAM_ENTRY
     byte y;
     byte x;
     byte tile;
-    byte __unused : 4;
+    byte cgb_palette : 3;
+    byte cgb_bank : 1;
     byte palette : 1;
     byte hflip : 1;
     byte vflip : 1;
