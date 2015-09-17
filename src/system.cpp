@@ -48,6 +48,9 @@ bool System::Init(CallbackInterface *callbacks, SYSTEM_MODE mode, const byte *bi
     m_memory_locked_cycles = 0;
     m_memory_permissive = false;
 
+    m_high_wram_bank = 1;
+    m_cgb_speed_switch = 0;
+
     Log_InfoPrintf("Initialized system in mode %s.", NameTable_GetNameString(NameTables::SystemMode, m_mode));
     return true;
 }
@@ -63,7 +66,7 @@ void System::Reset()
         m_cartridge->Reset();
 
     // if bios not provided, emulate post-bootstrap state
-    if (m_bios == nullptr)
+    if (m_bios == nullptr || m_mode != SYSTEM_MODE_DMG)
         SetPostBootstrapState();
 
     m_clocks_since_reset = 0;
@@ -71,6 +74,9 @@ void System::Reset()
     m_frame_counter = 0;
 
     m_memory_locked_cycles = 0;
+
+    m_high_wram_bank = 1;
+    m_cgb_speed_switch = 0;
 }
 
 void System::Step()
@@ -78,18 +84,22 @@ void System::Step()
     uint32 clocks = m_cpu->Step();
     DebugAssert((clocks % 4) == 0);
 
-    // Handle memory locking
+    // Make each instruction take half as long in double-speed mode.
+    uint32 slow_speed_shift = (m_cgb_speed_switch >> 7);
+    uint32 slow_speed_clocks = clocks >> slow_speed_shift;
+
+    // Handle memory locking for OAM transfers [affected by double speed]
     if (m_memory_locked_cycles > 0)
-        m_memory_locked_cycles = (clocks > m_memory_locked_cycles) ? 0 : (m_memory_locked_cycles - clocks);
+        m_memory_locked_cycles = (clocks > m_memory_locked_cycles) ? 0 : (clocks - slow_speed_clocks);
 
-    // Simulate display
-    m_display->ExecuteFor(clocks);
+    // Simulate display [not affected by double speed]
+    m_display->ExecuteFor(slow_speed_clocks);
 
-    // Simulate timers
+    // Simulate timers [affected by double speed]
     UpdateTimer(clocks);
 
-    // update our counter
-    m_clocks_since_reset += clocks;
+    // update our counter [use the normal speed as a reference]
+    m_clocks_since_reset += slow_speed_clocks;
 }
 
 uint64 System::TimeToClocks(double time)
@@ -249,6 +259,23 @@ void System::DMATransfer(uint16 source_address, uint16 destination_address, uint
     m_memory_locked_cycles = 640;
 }
 
+void System::SwitchCGBSpeed()
+{
+    if (!(m_cgb_speed_switch & (1 << 0)))
+        return;
+
+    // Flips the switch bit off at the same time.
+    m_cgb_speed_switch ^= 0x81;
+    if (m_cgb_speed_switch & 0x80)
+        Log_DevPrintf("Switching to CGB double speed mode.");
+    else
+        Log_DevPrintf("Switching to normal speed mode.");
+
+    // reset timing - so that accurate timing doesn't break
+    //m_clocks_since_reset = 0;
+    //m_reset_timer.Reset();
+}
+
 void System::ResetMemory()
 {
     // bios is initially mapped
@@ -285,7 +312,7 @@ void System::SetPostBootstrapState()
 {
     // http://bgb.bircd.org/pandocs.txt -> Power Up Sequence
     CPU::Registers *registers = m_cpu->GetRegisters();
-    registers->AF = 0x01B0;
+    registers->AF = (InCGBMode()) ? 0x11B0 : 0x01B0;
     registers->BC = 0x0013;
     registers->DE = 0x00D8;
     registers->HL = 0x014D;
@@ -312,7 +339,7 @@ void System::SetPostBootstrapState()
     CPUWriteIORegister(0x23, 0xBF);   // NR30
     CPUWriteIORegister(0x24, 0x77);   // NR50
     CPUWriteIORegister(0x25, 0xF3);   // NR51
-    CPUWriteIORegister(0x26, 0xF1);     // NR52 (F0 on SGB)
+    CPUWriteIORegister(0x26, (InSGBMode()) ? 0xF0 : 0xF1);     // NR52 (F0 on SGB)
     CPUWriteIORegister(0x40, 0x91);   // LCDC
     CPUWriteIORegister(0x42, 0x00);   // SCY
     CPUWriteIORegister(0x43, 0x00);   // SCX
@@ -434,12 +461,14 @@ uint8 System::CPURead(uint16 address) const
 
         // working ram
     case 0xC000:
+        return m_memory_wram[0][address & 0xFFF];
+
     case 0xD000:
-        return m_memory_wram[address & 0x1FFF];
+        return m_memory_wram[m_high_wram_bank][address & 0xFFF];
 
         // working ram shadow
     case 0xE000:
-        return m_memory_wram[address & 0x1FFF];
+        return m_memory_wram[0][address & 0xFFF];
 
         // working ram shadow, i/o, zero-page
     case 0xF000:
@@ -461,7 +490,7 @@ uint8 System::CPURead(uint16 address) const
             case 0xB00:
             case 0xC00:
             case 0xD00:
-                return m_memory_wram[address & 0x1FFF];
+                return m_memory_wram[m_high_wram_bank][address & 0xFFF];
 
                 // oam
             case 0xE00:
@@ -474,7 +503,7 @@ uint8 System::CPURead(uint16 address) const
                     }
                     else if (address >= 0xFEA0)
                     {
-                        Log_WarningPrintf("Out-of-range read of OAM address 0x04X", address);
+                        Log_WarningPrintf("Out-of-range read of OAM address 0x%04X", address);
                         return 0x00;
                     }
 
@@ -554,13 +583,16 @@ void System::CPUWrite(uint16 address, uint8 value)
 
         // working ram
     case 0xC000:
+        m_memory_wram[0][address & 0xFFF] = value;
+        return;
+
     case 0xD000:
-        m_memory_wram[address & 0x1FFF] = value;
+        m_memory_wram[m_high_wram_bank][address & 0xFFF] = value;
         return;
 
         // working ram shadow
     case 0xE000:
-        m_memory_wram[address & 0x1FFF] = value;
+        m_memory_wram[0][address & 0xFFF] = value;
         return;
 
         // working ram shadow, i/o, zero-page
@@ -583,7 +615,7 @@ void System::CPUWrite(uint16 address, uint8 value)
             case 0xB00:
             case 0xC00:
             case 0xD00:
-                m_memory_wram[address & 0x1FFF] = value;
+                m_memory_wram[m_high_wram_bank][address & 0xFFF] = value;
                 return;
 
                 // oam
@@ -794,7 +826,6 @@ uint8 System::CPUReadIORegister(uint8 index) const
             case 0x09:      // FF49 - OBP1 - Object Palette 1 Data(R / W) - Non CGB Mode Only
             case 0x0A:      // FF4A - WY - Window Y Position (R/W)
             case 0x0B:      // FF4B - WX - Window X Position minus 7 (R/W)
-            case 0x0F:      // FF4F - VBK - CGB Mode Only - VRAM Bank
                 return m_display->CPUReadRegister(index);
             }
 
@@ -806,31 +837,14 @@ uint8 System::CPUReadIORegister(uint8 index) const
             // LCD registers
             switch (index & 0x0F)
             {
-            case 0x51:      // FF51 - HDMA1 - CGB Mode Only - New DMA Source, High
-            case 0x52:      // FF52 - HDMA2 - CGB Mode Only - New DMA Source, Low
-            case 0x53:      // FF53 - HDMA3 - CGB Mode Only - New DMA Destination, High
-            case 0x54:      // FF54 - HDMA4 - CGB Mode Only - New DMA Destination, Low
-            case 0x55:      // FF55 - HDMA5 - CGB Mode Only - New DMA Length/Mode/Start
-                return m_display->CPUReadRegister(index);
+            case 0x00:      // FF50 - BIOS latch
+                return m_biosLatch;
             }
 
             break;
         }
 
-    case 0x60:
-        {
-            // LCD registers
-            switch (index & 0x0F)
-            {
-            case 0x68:      // FF68 - BCPS/BGPI - CGB Mode Only - Background Palette Index
-            case 0x69:      // FF69 - BCPD/BGPD - CGB Mode Only - Background Palette Data
-            case 0x6A:      // FF6A - OCPS/OBPI - CGB Mode Only - Sprite Palette Index
-            case 0x6B:      // FF6B - OCPD/OBPD - CGB Mode Only - Sprite Palette Data
-                return m_display->CPUReadRegister(index);
-            }
 
-            break;
-        }
 
     case 0xF0:
         {
@@ -842,6 +856,68 @@ uint8 System::CPUReadIORegister(uint8 index) const
 
             }
             break;
+        }
+    }
+
+    // CGB-only registers
+    if (InCGBMode())
+    {
+        switch (index & 0xF0)
+        {
+        case 0x40:
+            {
+                switch (index & 0x0F)
+                {
+                case 0x0F:      // FF4F - VBK - CGB Mode Only - VRAM Bank
+                    return m_display->CPUReadRegister(index);
+
+                case 0x0D:      // FF4D - KEY1 - CGB Mode Only - Prepare Speed Switch
+                    return m_cgb_speed_switch;
+                }
+
+                break;
+            }
+
+        case 0x50:
+            {
+                switch (index & 0x0F)
+                {
+                case 0x51:      // FF51 - HDMA1 - CGB Mode Only - New DMA Source, High
+                case 0x52:      // FF52 - HDMA2 - CGB Mode Only - New DMA Source, Low
+                case 0x53:      // FF53 - HDMA3 - CGB Mode Only - New DMA Destination, High
+                case 0x54:      // FF54 - HDMA4 - CGB Mode Only - New DMA Destination, Low
+                case 0x55:      // FF55 - HDMA5 - CGB Mode Only - New DMA Length/Mode/Start
+                    return m_display->CPUReadRegister(index);
+                }
+
+                break;
+            }
+
+        case 0x60:
+            {
+                // LCD registers
+                switch (index & 0x0F)
+                {
+                case 0x68:      // FF68 - BCPS/BGPI - CGB Mode Only - Background Palette Index
+                case 0x69:      // FF69 - BCPD/BGPD - CGB Mode Only - Background Palette Data
+                case 0x6A:      // FF6A - OCPS/OBPI - CGB Mode Only - Sprite Palette Index
+                case 0x6B:      // FF6B - OCPD/OBPD - CGB Mode Only - Sprite Palette Data
+                    return m_display->CPUReadRegister(index);
+                }
+
+                break;
+            }
+
+        case 0x70:
+            {
+                switch (index & 0x0F)
+                {
+                case 0x70:      // FF70 - SVBK - CGB Mode Only - WRAM Bank
+                    return (InCGBMode()) ? m_high_wram_bank : 0x00;
+                }
+
+                break;
+            }
         }
     }
 
@@ -1031,8 +1107,7 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                 m_display->CPUWriteRegister(index, value);
                 return;
 
-                // FF46 - DMA - DMA Transfer and Start Address (W)
-            case 0x06:
+            case 0x06:      // FF46 - DMA - DMA Transfer and Start Address (W)
                 {
                     // Writing to this register launches a DMA transfer from ROM or RAM to OAM memory (sprite attribute table). The written value specifies the transfer source address divided by 100h
                     // It takes 160 microseconds until the transfer has completed (80 microseconds in CGB Double Speed Mode), during this time the CPU can access only HRAM (memory at FF80-FFFE).
@@ -1042,10 +1117,6 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                     DMATransfer(source_address, destination_address, 160);
                     return;
                 }
-
-                // FF4F - VBK - CGB Mode Only - VRAM Bank
-            case 0x0F:
-                return;
             }
 
             break;
@@ -1058,34 +1129,11 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             case 0x00:      // FF00 - BIOS enable/disable latch
                 m_biosLatch = (value == 0);
                 return;
-
-            case 0x51:      // FF51 - HDMA1 - CGB Mode Only - New DMA Source, High
-            case 0x52:      // FF52 - HDMA2 - CGB Mode Only - New DMA Source, Low
-            case 0x53:      // FF53 - HDMA3 - CGB Mode Only - New DMA Destination, High
-            case 0x54:      // FF54 - HDMA4 - CGB Mode Only - New DMA Destination, Low
-            case 0x55:      // FF55 - HDMA5 - CGB Mode Only - New DMA Length/Mode/Start
-                m_display->CPUWriteRegister(index, value);
-                return;
             }
 
             break;
         }
 
-    case 0x60:
-        {
-            switch (index & 0x0F)
-            {
-                case 0x68:      // FF68 - BCPS/BGPI - CGB Mode Only - Background Palette Index
-                case 0x69:      // FF69 - BCPD/BGPD - CGB Mode Only - Background Palette Data
-                case 0x6A:      // FF6A - OCPS/OBPI - CGB Mode Only - Sprite Palette Index
-                case 0x6B:      // FF6B - OCPD/OBPD - CGB Mode Only - Sprite Palette Data
-                    m_display->CPUWriteRegister(index, value);
-                    return;
-            }
-
-            break;
-
-        }
     case 0xF0:
         {
             switch (index & 0x0F)
@@ -1097,6 +1145,72 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             }
 
             break;
+        }
+    }
+
+    // CGB-only registers
+    if (InCGBMode())
+    {
+        switch (index & 0xF0)
+        {
+        case 0x40:
+            {
+                switch (index & 0x0F)
+                {
+                case 0x0F:      // FF4F - VBK - CGB Mode Only - VRAM Bank
+                    m_display->CPUWriteRegister(index, value);
+                    return;
+
+                case 0x0D:      // FF4D - KEY1 - CGB Mode Only - Prepare Speed Switch
+                    m_cgb_speed_switch |= (value & 0x01);
+                    return;
+                }
+
+                break;
+            }
+
+        case 0x50:
+            {
+                switch (index & 0x0F)
+                {
+                case 0x51:      // FF51 - HDMA1 - CGB Mode Only - New DMA Source, High
+                case 0x52:      // FF52 - HDMA2 - CGB Mode Only - New DMA Source, Low
+                case 0x53:      // FF53 - HDMA3 - CGB Mode Only - New DMA Destination, High
+                case 0x54:      // FF54 - HDMA4 - CGB Mode Only - New DMA Destination, Low
+                case 0x55:      // FF55 - HDMA5 - CGB Mode Only - New DMA Length/Mode/Start
+                    m_display->CPUWriteRegister(index, value);
+                    return;
+                }
+
+                break;
+            }
+
+        case 0x60:
+            {
+                switch (index & 0x0F)
+                {
+                case 0x68:      // FF68 - BCPS/BGPI - CGB Mode Only - Background Palette Index
+                case 0x69:      // FF69 - BCPD/BGPD - CGB Mode Only - Background Palette Data
+                case 0x6A:      // FF6A - OCPS/OBPI - CGB Mode Only - Sprite Palette Index
+                case 0x6B:      // FF6B - OCPD/OBPD - CGB Mode Only - Sprite Palette Data
+                    m_display->CPUWriteRegister(index, value);
+                    return;
+                }
+
+                break;
+            }
+
+        case 0x70:
+            {
+                switch (index & 0x0F)
+                {
+                case 0x00:      // FF70 - SVBK - CGB Mode Only - WRAM Bank
+                    m_high_wram_bank = value & 0x03;
+                    return;
+                }
+
+                break;
+            }
         }
     }
 

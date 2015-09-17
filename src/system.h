@@ -89,6 +89,9 @@ private:
     // OAM DMA Transfer
     void DMATransfer(uint16 source_address, uint16 destination_address, uint32 bytes);
 
+    // CGB Speed Switch
+    void SwitchCGBSpeed();
+
 private:
     void ResetMemory();
     void ResetTimer();
@@ -117,9 +120,10 @@ private:
 
     // bios, rom banks 0-1
     byte m_memory_vram[0x2000];
-    byte m_memory_wram[0x2000];
+    byte m_memory_wram[8][0x1000];      // 8 banks of 4KB each in CGB mode
     byte m_memory_oam[0xFF];
     byte m_memory_zram[127];
+    uint8 m_high_wram_bank;
 
     // when doing DMA transfer, locked memory # cycles
     uint32 m_memory_locked_cycles;
@@ -137,6 +141,9 @@ private:
     uint8 m_pad_row_select;
     uint8 m_pad_direction_state;
     uint8 m_pad_button_state;
+
+    // cgb speed switch
+    uint8 m_cgb_speed_switch;
 
     bool m_biosLatch;
     bool m_vramLocked;

@@ -1324,6 +1324,9 @@ uint32 CPU::Step()
         {
             m_halted = true;
             Log_DevPrintf("CPU Stop");
+            if (m_system->InCGBMode())
+                m_system->SwitchCGBSpeed();
+
             break;
         }
 
