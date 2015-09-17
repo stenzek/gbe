@@ -44,6 +44,7 @@ static const char *MBC_NAME_STRINGS[NUM_MBC_TYPES] =
     "MBC_MBC2",
     "MBC_MBC3",
     "MBC_MBC4",
+    "MBC_MBC5",
     "MBC_MMM01",
 };
 static const uint32 CART_EXTERNAL_RAM_SIZES[4] = { 0, 2048 /* 2KB */, 8192 /* 8KB */, 32768 /* 32KB */ };
