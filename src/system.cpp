@@ -72,17 +72,15 @@ void System::Reset()
 
 void System::Step()
 {
-    uint32 cycles = m_cpu->Step();
-    uint32 clocks = cycles;
-    DebugAssert((cycles % 4) == 0);
-    cycles /= 4;
+    uint32 clocks = m_cpu->Step();
+    DebugAssert((clocks % 4) == 0);
 
     // Handle memory locking
     if (m_memory_locked_cycles > 0)
-        m_memory_locked_cycles = (cycles > m_memory_locked_cycles) ? 0 : (m_memory_locked_cycles - cycles);
+        m_memory_locked_cycles = (clocks > m_memory_locked_cycles) ? 0 : (m_memory_locked_cycles - clocks);
 
     // Simulate display
-    m_display->ExecuteFor(cycles);
+    m_display->ExecuteFor(clocks);
 
     // Simulate timers
     UpdateTimer(clocks);
@@ -93,9 +91,8 @@ void System::Step()
 
 uint64 System::TimeToClocks(double time)
 {
-    // cpu runs at 4,194,304hz (with each instruction taking 4 cycles, ugh, this is confusing)
-    //return Math::Truncate(Math::Floor(time * 4194304.0f));
-    return (uint64)(time * 4194304.0 * 4.0);
+    // cpu runs at 4,194,304hz
+    return (uint64)(time * 4194304.0);
 }
 
 double System::ExecuteFrame()
@@ -241,8 +238,12 @@ void System::DMATransfer(uint16 source_address, uint16 destination_address, uint
     for (uint32 i = 0; i < bytes; i++, current_source_address++, current_destination_address++)
         CPUWrite(current_destination_address, CPURead(current_source_address));
 
-    // Stall memory access for 160 cycles
-    m_memory_locked_cycles = 160;
+    // Stall memory access for 160 microseconds
+    // This number here should be 671, but because part of the time of an instruction
+    // can be consumed by another memory read, and we're not handling that yet, we'll
+    // give it a few extra cycles.
+    //m_memory_locked_cycles = 671;
+    m_memory_locked_cycles = 640;
 }
 
 void System::ResetMemory()
