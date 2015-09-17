@@ -18,6 +18,7 @@ struct ProgramArgs
     const char *bios_filename;
     const char *cart_filename;
     bool disable_bios;
+    bool permissive_memory;
 };
 
 struct State : public System::CallbackInterface
@@ -162,7 +163,7 @@ static bool LoadCart(const char *filename, State *state)
 static void ShowUsage(const char *progname)
 {
     fprintf(stderr, "gbe\n");
-    fprintf(stderr, "usage: %s [-h] [-b <bios file>] [-db] [cart file]\n", progname);
+    fprintf(stderr, "usage: %s [-h] [-bios <bios file>] [-nobios] [-permissivememory] [cart file]\n", progname);
 
 }
 
@@ -174,6 +175,7 @@ static bool ParseArguments(int argc, char *argv[], ProgramArgs *out_args)
     out_args->bios_filename = nullptr;
     out_args->cart_filename = nullptr;
     out_args->disable_bios = false;
+    out_args->permissive_memory = false;
 
     for (int i = 1; i < argc; i++)
     {
@@ -182,13 +184,17 @@ static bool ParseArguments(int argc, char *argv[], ProgramArgs *out_args)
             ShowUsage(argv[0]);
             return false;
         }
-        else if (CHECK_ARG_PARAM("-b"))
+        else if (CHECK_ARG_PARAM("-bios"))
         {
             out_args->bios_filename = argv[++i];
         }
-        else if (CHECK_ARG("-db"))
+        else if (CHECK_ARG("-nobios"))
         {
             out_args->disable_bios = true;
+        }
+        else if (CHECK_ARG("-permissivememory"))
+        {
+            out_args->permissive_memory = true;
         }
         else
         {
@@ -244,6 +250,9 @@ static bool InitializeState(const ProgramArgs *args, State *state)
         Log_ErrorPrintf("Failed to initialize system");
         return false;
     }
+
+    // apply options
+    state->system->SetPermissiveMemoryAccess(args->permissive_memory);
 
     // reset system
     state->system->Reset();
