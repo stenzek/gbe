@@ -134,7 +134,8 @@ uint32 CPU::Step()
                     PushWord(m_registers.PC);
                     m_registers.PC = jump_locations[i];
                     m_halted = false;
-                    break;
+                    //break;
+                    return 20;
                 }
             }
         }
