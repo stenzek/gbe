@@ -790,6 +790,38 @@ uint8 System::CPUReadIORegister(uint8 index) const
             case 0x09:      // FF49 - OBP1 - Object Palette 1 Data(R / W) - Non CGB Mode Only
             case 0x0A:      // FF4A - WY - Window Y Position (R/W)
             case 0x0B:      // FF4B - WX - Window X Position minus 7 (R/W)
+            case 0x0F:      // FF4F - VBK - CGB Mode Only - VRAM Bank
+                return m_display->CPUReadRegister(index);
+            }
+
+            break;
+        }
+
+    case 0x50:
+        {
+            // LCD registers
+            switch (index & 0x0F)
+            {
+            case 0x51:      // FF51 - HDMA1 - CGB Mode Only - New DMA Source, High
+            case 0x52:      // FF52 - HDMA2 - CGB Mode Only - New DMA Source, Low
+            case 0x53:      // FF53 - HDMA3 - CGB Mode Only - New DMA Destination, High
+            case 0x54:      // FF54 - HDMA4 - CGB Mode Only - New DMA Destination, Low
+            case 0x55:      // FF55 - HDMA5 - CGB Mode Only - New DMA Length/Mode/Start
+                return m_display->CPUReadRegister(index);
+            }
+
+            break;
+        }
+
+    case 0x60:
+        {
+            // LCD registers
+            switch (index & 0x0F)
+            {
+            case 0x68:      // FF68 - BCPS/BGPI - CGB Mode Only - Background Palette Index
+            case 0x69:      // FF69 - BCPD/BGPD - CGB Mode Only - Background Palette Data
+            case 0x6A:      // FF6A - OCPS/OBPI - CGB Mode Only - Sprite Palette Index
+            case 0x6B:      // FF6B - OCPD/OBPD - CGB Mode Only - Sprite Palette Data
                 return m_display->CPUReadRegister(index);
             }
 
@@ -1014,43 +1046,37 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
 
             break;
         }
+
     case 0x50:
         {
             switch (index & 0x0F)
             {
-                // BIOS enable/disable latch
-            case 0x00:
+            case 0x00:      // FF00 - BIOS enable/disable latch
                 m_biosLatch = (value == 0);
                 return;
 
-                // FF51 - HDMA1 - CGB Mode Only - New DMA Source, High
-                // FF52 - HDMA2 - CGB Mode Only - New DMA Source, Low
-                // FF53 - HDMA3 - CGB Mode Only - New DMA Destination, High
-                // FF54 - HDMA4 - CGB Mode Only - New DMA Destination, Low
-                // FF55 - HDMA5 - CGB Mode Only - New DMA Length/Mode/Start
+            case 0x51:      // FF51 - HDMA1 - CGB Mode Only - New DMA Source, High
+            case 0x52:      // FF52 - HDMA2 - CGB Mode Only - New DMA Source, Low
+            case 0x53:      // FF53 - HDMA3 - CGB Mode Only - New DMA Destination, High
+            case 0x54:      // FF54 - HDMA4 - CGB Mode Only - New DMA Destination, Low
+            case 0x55:      // FF55 - HDMA5 - CGB Mode Only - New DMA Length/Mode/Start
+                m_display->CPUWriteRegister(index, value);
+                return;
             }
 
             break;
         }
+
     case 0x60:
         {
             switch (index & 0x0F)
             {
-                // FF68 - BCPS / BGPI - CGB Mode Only - Background Palette Index
-            case 0x08:
-                return;
-
-                // FF69 - BCPD/BGPD - CGB Mode Only - Background Palette Data
-            case 0x09:
-                return;
-
-                // FF6A - OCPS/OBPI - CGB Mode Only - Sprite Palette Index
-            case 0x0A:
-                return;
-
-                // FF6B - OCPD/OBPD - CGB Mode Only - Sprite Palette Data
-            case 0x0B:
-                return;
+                case 0x68:      // FF68 - BCPS/BGPI - CGB Mode Only - Background Palette Index
+                case 0x69:      // FF69 - BCPD/BGPD - CGB Mode Only - Background Palette Data
+                case 0x6A:      // FF6A - OCPS/OBPI - CGB Mode Only - Sprite Palette Index
+                case 0x6B:      // FF6B - OCPD/OBPD - CGB Mode Only - Sprite Palette Data
+                    m_display->CPUWriteRegister(index, value);
+                    return;
             }
 
             break;

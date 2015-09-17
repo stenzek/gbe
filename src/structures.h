@@ -49,7 +49,18 @@ enum DISPLAY_REG
     DISPLAY_REG_WX = 0x4B,          // R/W
     DISPLAY_REG_BGP = 0x47,         // R/W - non-cgb mode only
     DISPLAY_REG_OBP0 = 0x48,        // R/W - non-cgb mode only
-    DISPLAY_REG_OBP1 = 0x49         // R/W - non-cgb mode only
+    DISPLAY_REG_OBP1 = 0x49,        // R/W - non-cgb mode only
+
+    DISPLAY_REG_VBK = 0x4F,         // R/W - cgb mode only
+    DISPLAY_REG_HDMA1 = 0x51,       // R/W - cgb mode only
+    DISPLAY_REG_HDMA2 = 0x52,       // R/W - cgb mode only
+    DISPLAY_REG_HDMA3 = 0x53,       // R/W - cgb mode only
+    DISPLAY_REG_HDMA4 = 0x54,       // R/W - cgb mode only
+    DISPLAY_REG_HDMA5 = 0x55,       // R/W - cgb mode only
+    DISPLAY_REG_BGPI = 0x68,        // R/W - cgb mode only
+    DISPLAY_REG_BGPD = 0x69,        // R/W - cgb mode only
+    DISPLAY_REG_OBPI = 0x6A,        // R/W - cgb mode only
+    DISPLAY_REG_OBPD = 0x6B,        // R/W - cgb mode only
 };
 
 enum DISPLAY_STATE

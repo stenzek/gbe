@@ -22,6 +22,18 @@ public:
         uint8 OBP1;
         uint8 WY;
         uint8 WX;
+
+        // CGB
+        uint8 VBK;
+        uint8 HDMA1;
+        uint8 HDMA2;
+        uint8 HDMA3;
+        uint8 HDMA4;
+        uint8 HDMA5;
+        uint8 BGPI;
+        uint8 BGPD;
+        uint8 OBPI;
+        uint8 OBPD;
     };
 
 public:

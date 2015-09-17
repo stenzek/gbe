@@ -44,6 +44,26 @@ uint8 Display::CPUReadRegister(uint8 index) const
         return m_registers.OBP0;
     case DISPLAY_REG_OBP1:
         return m_registers.OBP1;
+    case DISPLAY_REG_VBK:
+        return m_registers.VBK;
+    case DISPLAY_REG_HDMA1:
+        return m_registers.HDMA1;
+    case DISPLAY_REG_HDMA2:
+        return m_registers.HDMA2;
+    case DISPLAY_REG_HDMA3:
+        return m_registers.HDMA3;
+    case DISPLAY_REG_HDMA4:
+        return m_registers.HDMA4;
+    case DISPLAY_REG_HDMA5:
+        return m_registers.HDMA5;
+    case DISPLAY_REG_BGPI:
+        return m_registers.BGPI;
+    case DISPLAY_REG_BGPD:
+        return m_registers.BGPD;
+    case DISPLAY_REG_OBPI:
+        return m_registers.OBPI;
+    case DISPLAY_REG_OBPD:
+        return m_registers.OBPD;
     }
 
     Log_WarningPrintf("Unhandled LCD register read: %02X", index);
@@ -87,7 +107,36 @@ void Display::CPUWriteRegister(uint8 index, uint8 value)
     case DISPLAY_REG_OBP1:
         m_registers.OBP1 = value;
         return;
-
+    case DISPLAY_REG_VBK:
+        m_registers.VBK = value;
+        return;
+    case DISPLAY_REG_HDMA1:
+        m_registers.HDMA1 = value;
+        return;
+    case DISPLAY_REG_HDMA2:
+        m_registers.HDMA2 = value;
+        return;
+    case DISPLAY_REG_HDMA3:
+        m_registers.HDMA3 = value;
+        return;
+    case DISPLAY_REG_HDMA4:
+        m_registers.HDMA4 = value;
+        return;
+    case DISPLAY_REG_HDMA5:
+        m_registers.HDMA5 = value;
+        return;
+    case DISPLAY_REG_BGPI:
+        m_registers.BGPI = value;
+        return;
+    case DISPLAY_REG_BGPD:
+        m_registers.BGPD = value;
+        return;
+    case DISPLAY_REG_OBPI:
+        m_registers.OBPI = value;
+        return;
+    case DISPLAY_REG_OBPD:
+        m_registers.OBPD = value;
+        return;
     }
 
     Log_WarningPrintf("Unhandled LCD register write: %02X (value %02X)", index, value);
