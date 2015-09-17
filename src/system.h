@@ -83,7 +83,7 @@ private:
     void SetOAMLock(bool locked) { m_oamLocked = locked; }
 
     // vram access from gpu
-    const byte *GetVRAM() const { return m_memory_vram; }
+    const byte *GetVRAM(size_t bank) const { return m_memory_vram[bank]; }
     void SetVRAMLock(bool locked) { m_vramLocked = locked; }
 
     // OAM DMA Transfer
@@ -119,10 +119,11 @@ private:
     bool m_accurate_timing;
 
     // bios, rom banks 0-1
-    byte m_memory_vram[0x2000];
+    byte m_memory_vram[2][0x2000];
     byte m_memory_wram[8][0x1000];      // 8 banks of 4KB each in CGB mode
     byte m_memory_oam[0xFF];
     byte m_memory_zram[127];
+    uint8 m_vram_bank;
     uint8 m_high_wram_bank;
 
     // when doing DMA transfer, locked memory # cycles

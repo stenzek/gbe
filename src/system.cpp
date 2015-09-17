@@ -49,6 +49,7 @@ bool System::Init(CallbackInterface *callbacks, SYSTEM_MODE mode, const byte *bi
     m_memory_permissive = false;
 
     m_high_wram_bank = 1;
+    m_vram_bank = 0;
     m_cgb_speed_switch = 0;
 
     Log_InfoPrintf("Initialized system in mode %s.", NameTable_GetNameString(NameTables::SystemMode, m_mode));
@@ -76,6 +77,7 @@ void System::Reset()
     m_memory_locked_cycles = 0;
 
     m_high_wram_bank = 1;
+    m_vram_bank = 0;
     m_cgb_speed_switch = 0;
 }
 
@@ -456,7 +458,7 @@ uint8 System::CPURead(uint16 address) const
                 return 0xFF;
             }
 
-            return m_memory_vram[address & 0x1FFF];
+            return m_memory_vram[m_vram_bank][address & 0x1FFF];
         }
 
         // working ram
@@ -576,7 +578,7 @@ void System::CPUWrite(uint16 address, uint8 value)
                 return;
             }
 
-            m_memory_vram[address & 0x1FFF] = value;
+            m_memory_vram[m_vram_bank][address & 0x1FFF] = value;
             return;
         }
 
@@ -869,7 +871,7 @@ uint8 System::CPUReadIORegister(uint8 index) const
                 switch (index & 0x0F)
                 {
                 case 0x0F:      // FF4F - VBK - CGB Mode Only - VRAM Bank
-                    return m_display->CPUReadRegister(index);
+                    return m_vram_bank;
 
                 case 0x0D:      // FF4D - KEY1 - CGB Mode Only - Prepare Speed Switch
                     return m_cgb_speed_switch;
@@ -1158,7 +1160,7 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                 switch (index & 0x0F)
                 {
                 case 0x0F:      // FF4F - VBK - CGB Mode Only - VRAM Bank
-                    m_display->CPUWriteRegister(index, value);
+                    m_vram_bank = value & 0x1;
                     return;
 
                 case 0x0D:      // FF4D - KEY1 - CGB Mode Only - Prepare Speed Switch

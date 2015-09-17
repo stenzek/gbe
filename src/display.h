@@ -24,7 +24,6 @@ public:
         uint8 WX;
 
         // CGB
-        uint8 VBK;
         uint8 HDMA1;
         uint8 HDMA2;
         uint8 HDMA3;

@@ -44,8 +44,6 @@ uint8 Display::CPUReadRegister(uint8 index) const
         return m_registers.OBP0;
     case DISPLAY_REG_OBP1:
         return m_registers.OBP1;
-    case DISPLAY_REG_VBK:
-        return m_registers.VBK;
     case DISPLAY_REG_HDMA1:
         return m_registers.HDMA1;
     case DISPLAY_REG_HDMA2:
@@ -106,9 +104,6 @@ void Display::CPUWriteRegister(uint8 index, uint8 value)
         return;
     case DISPLAY_REG_OBP1:
         m_registers.OBP1 = value;
-        return;
-    case DISPLAY_REG_VBK:
-        m_registers.VBK = value;
         return;
     case DISPLAY_REG_HDMA1:
         m_registers.HDMA1 = value;
@@ -380,7 +375,7 @@ uint8 Display::ReadTile(bool high_tileset, int32 tile, uint8 x, uint8 y) const
 {
     // find the base address of this tile
     //uint16 BGTILEBASE = (high_tileset) ? 0x0800 : 0x0000;
-    const byte *tilemem = m_system->GetVRAM();// + BGTILEBASE;
+    const byte *tilemem = m_system->GetVRAM(0);// + BGTILEBASE;
     if (high_tileset)
         tilemem += 0x800 + ((tile + 128) * 16);
     else
@@ -420,7 +415,7 @@ void Display::RenderScanline(uint8 LINE)
     uint8 WY = m_registers.WY;
 
     // parse control register
-    const byte *VRAM = m_system->GetVRAM();
+    const byte *VRAM = m_system->GetVRAM(0);
     uint8 BG_ENABLE = !!(LCDC & 0x01);
     //uint16 BGMAPBASE = (LCDC & 0x08) ? 0x1C00 : 0x1800;
     uint8 BG_TILEMAP = (LCDC >> 3) & 0x1;
@@ -677,7 +672,7 @@ void Display::RenderFull()
 void Display::DumpTiles()
 {
     uint8 LCDC = m_registers.LCDC;
-    const byte *VRAM = m_system->GetVRAM();
+    const byte *VRAM = m_system->GetVRAM(0);
     uint8 BG_ENABLE = !!(LCDC & 0x01);
     uint16 BGMAPBASE = (LCDC & 0x08) ? 0x1C00 : 0x1800;
 
