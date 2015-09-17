@@ -28,8 +28,9 @@ System::~System()
     delete m_cpu;
 }
 
-bool System::Init(CallbackInterface *callbacks, const byte *bios, Cartridge *cartridge)
+bool System::Init(CallbackInterface *callbacks, SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge)
 {
+    m_mode = (mode == NUM_SYSTEM_MODES) ? cartridge->GetSystemMode() : mode;
     m_callbacks = callbacks;
     m_bios = bios;
     m_cartridge = cartridge;
@@ -46,6 +47,8 @@ bool System::Init(CallbackInterface *callbacks, const byte *bios, Cartridge *car
 
     m_memory_locked_cycles = 0;
     m_memory_permissive = false;
+
+    Log_InfoPrintf("Initialized system in mode %s.", NameTable_GetNameString(NameTables::SystemMode, m_mode));
     return true;
 }
 

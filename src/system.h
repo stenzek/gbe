@@ -23,13 +23,16 @@ public:
 public:
     System();
     ~System();
+
+    bool InSGBMode() const { return (m_mode == SYSTEM_MODE_SGB); }
+    bool InCGBMode() const { return (m_mode == SYSTEM_MODE_CGB); }
     
     CPU *GetCPU() const { return m_cpu; }
     Display *GetDisplay() const { return m_display; }
 
     Cartridge *GetCartridge() const { return m_cartridge; }
 
-    bool Init(CallbackInterface *callbacks, const byte *bios, Cartridge *cartridge);
+    bool Init(CallbackInterface *callbacks, SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge);
     void Reset();   
     void Step();
 
@@ -95,6 +98,7 @@ private:
     void DisassembleCart(const char *outfile);
     uint64 TimeToClocks(double time);
 
+    SYSTEM_MODE m_mode;
     CPU *m_cpu;
     Display *m_display;
 

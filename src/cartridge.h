@@ -2,6 +2,7 @@
 #include "YBaseLib/Common.h"
 #include "YBaseLib/Assert.h"
 #include "YBaseLib/String.h"
+#include "structures.h"
 
 class ByteStream;
 class Error;
@@ -40,6 +41,7 @@ public:
 
     const String &GetName() const { return m_name; }
     const MBC GetMBC() const { return m_mbc; }
+    const SYSTEM_MODE GetSystemMode() const { return m_system_mode; }
     const uint32 GetExternalRAMSize() const { return m_external_ram_size; }
     const CartridgeTypeInfo *GetTypeInfo() const { return m_typeinfo; }
 
@@ -58,6 +60,7 @@ private:
 
     String m_name;
     MBC m_mbc;
+    SYSTEM_MODE m_system_mode;
 
     const CartridgeTypeInfo *m_typeinfo;
 

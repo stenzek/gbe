@@ -1,5 +1,6 @@
 #pragma once
 #include "YBaseLib/Common.h"
+#include "YBaseLib/NameTable.h"
 
 const uint32 GB_BIOS_LENGTH = 256;
 
@@ -9,6 +10,18 @@ const uint32 GB_BIOS_LENGTH = 256;
 #else
     #define TRACE(...) 
 #endif
+
+enum SYSTEM_MODE
+{
+    SYSTEM_MODE_DMG,
+    SYSTEM_MODE_SGB,
+    SYSTEM_MODE_CGB,
+    NUM_SYSTEM_MODES
+};
+
+namespace NameTables {
+    Y_Declare_NameTable(SystemMode);
+};
 
 #pragma pack(push, 1)
 struct OAM_ENTRY

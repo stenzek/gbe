@@ -245,7 +245,7 @@ static bool InitializeState(const ProgramArgs *args, State *state)
 
     // init system
     state->system = new System();
-    if (!state->system->Init(state, state->bios, state->cart))
+    if (!state->system->Init(state, NUM_SYSTEM_MODES, state->bios, state->cart))
     {
         Log_ErrorPrintf("Failed to initialize system");
         return false;

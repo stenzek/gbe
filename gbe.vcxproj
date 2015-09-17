@@ -120,6 +120,7 @@
   <ItemGroup>
     <ClCompile Include="src\cartridge.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\structures.cpp" />
     <ClCompile Include="src\system.cpp" />
     <ClCompile Include="src\display.cpp" />
     <ClCompile Include="src\cpu.cpp" />
