@@ -871,6 +871,10 @@ void Display::PushFrame()
         m_system->m_callbacks->PresentDisplayBuffer(m_frameBuffer, SCREEN_WIDTH * 4);
 
     m_system->m_frame_counter++;
+
+    //static Timer timer;
+    //Log_DevPrintf("Time since last vblank: %.4f ms", timer.GetTimeMilliseconds());
+    //timer.Reset();
 }
 
 void Display::DisplayTiles()

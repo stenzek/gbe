@@ -1,8 +1,11 @@
 #pragma once
 #include "structures.h"
 #include "audio_buffer.h"
+#include "YBaseLib/Mutex.h"
 
 class System;
+class Gb_Apu;
+class Stereo_Buffer;
 
 class Audio
 {
@@ -11,42 +14,27 @@ public:
     ~Audio();
 
     void Reset();
+    void ExecuteFor(uint32 cycles);
 
     // register access
     uint8 CPUReadRegister(uint8 index) const;
     void CPUWriteRegister(uint8 index, uint8 value);
 
-private:
-    struct Registers
-    {
-        uint8 NR10;
-        uint8 NR11;
-        uint8 NR12;
-        uint8 NR13;
-        uint8 NR14;
-        uint8 NR21;
-        uint8 NR22;
-        uint8 NR23;
-        uint8 NR24;
-        uint8 NR30;
-        uint8 NR31;
-        uint8 NR32;
-        uint8 NR33;
-        uint8 NR34;
-        uint8 NR40;
-        uint8 NR41;
-        uint8 NR42;
-        uint8 NR43;
-        uint8 NR44;
-        uint8 NR50;
-        uint8 NR51;
-        uint8 NR52;
+    // sample access
+    void EndFrame();
+    size_t GetSamplesAvailable() const;
+    size_t ReadSamples(int16 *buffer, size_t count);
 
-        uint8 WAVE_PATTERN[16];
-    };
+private:
+    uint32 GetAudioCycle() const;
 
     System *m_system;
 
-    Registers m_registers;
+    Gb_Apu *m_apu;
+    Stereo_Buffer *m_buffer;
 
+    uint32 m_audio_cycle;
+    uint32 m_cpu_cycle;
+    mutable Mutex m_lock;
 };
+

@@ -106,6 +106,9 @@
     <ProjectReference />
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ProjectReference Include="dep\Gb_Snd_Emu.vcxproj">
+      <Project>{bac757b9-c0db-411d-b534-a6be0407fdf5}</Project>
+    </ProjectReference>
     <ProjectReference Include="dep\YBaseLib.vcxproj">
       <Project>{d05b6e35-3c9f-45fc-b294-ef56d3da7eaf}</Project>
     </ProjectReference>
@@ -120,7 +123,10 @@
     <ClInclude Include="src\cpu.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\audio.cpp" />
+    <ClCompile Include="src\audio.cpp">
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(SolutionDir)dep\Gb_Snd_Emu;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(SolutionDir)dep\Gb_Snd_Emu;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
     <ClCompile Include="src\cartridge.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\structures.cpp" />

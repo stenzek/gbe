@@ -31,6 +31,7 @@ public:
     
     CPU *GetCPU() const { return m_cpu; }
     Display *GetDisplay() const { return m_display; }
+    Audio *GetAudio() const { return m_audio; }
 
     Cartridge *GetCartridge() const { return m_cartridge; }
 

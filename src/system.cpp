@@ -102,6 +102,9 @@ void System::Step()
     // Simulate display [not affected by double speed]
     m_display->ExecuteFor(slow_speed_clocks);
 
+    // Simulate audio [not affected by double speed]
+    m_audio->ExecuteFor(slow_speed_clocks);
+
     // Simulate timers [affected by double speed]
     UpdateTimer(clocks);
 

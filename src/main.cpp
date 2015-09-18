@@ -1,6 +1,7 @@
 #include "system.h"
 #include "cartridge.h"
 #include "display.h"
+#include "audio.h"
 #include "YBaseLib/ByteStream.h"
 #include "YBaseLib/AutoReleasePtr.h"
 #include "YBaseLib/Error.h"
@@ -53,10 +54,22 @@ struct State : public System::CallbackInterface
 
     static void AudioCallback(void *pThis, uint8 *stream, int length)
     {
-        uint16 *samples = (uint16 *)stream;
-        DebugAssert((length % 2) == 0);
-        for (int i = 0; i < length / 2; i++)
-            samples[i] = 0;
+        State *pState = (State *)pThis;
+        Audio *audio = pState->system->GetAudio();
+
+        static Timer td;
+        Log_DevPrintf("audio callback td %.4f ms, len = %d", td.GetTimeMilliseconds(), length);
+        td.Reset();
+
+        audio->EndFrame();
+
+        size_t avail = audio->GetSamplesAvailable();
+        Log_DevPrintf("avail samples: %u", avail);
+
+        audio->ReadSamples((int16 *)stream, Min(avail, (size_t)length / 2));
+
+        for (int i = (int)avail; i < length; i++)
+            stream[i] = 0;
     }
 
     void SetScale(uint32 scale)
@@ -255,7 +268,7 @@ static bool InitializeState(const ProgramArgs *args, State *state)
         return false;
 
     // create audio device
-    SDL_AudioSpec audio_spec = { 44100, AUDIO_S16, 2, 0, 4096, 0, 0, &State::AudioCallback, (void *)state };
+    SDL_AudioSpec audio_spec = { 44100, AUDIO_S16, 2, 0, 2048, 0, 0, &State::AudioCallback, (void *)state };
     SDL_AudioSpec obtained_audio_spec;
     state->audio_device_id = SDL_OpenAudioDevice(nullptr, 0, &audio_spec, &obtained_audio_spec, 0);
     if (state->audio_device_id == 0)
@@ -425,6 +438,7 @@ static int Run(State *state)
 
         // run a frame
         double sleep_time_seconds = state->system->ExecuteFrame();
+#if 0
         if (sleep_time_seconds >= 0.01)
         {
             // round down to the next millisecond (fix when usleep is implemented)
@@ -434,6 +448,7 @@ static int Run(State *state)
                 Thread::Sleep(sleep_time_ms - 1);
             //Thread::Sleep(1);
         }
+#endif
 
         // report statistics
         if (time_since_last_report.GetTimeSeconds() > 1.0)
