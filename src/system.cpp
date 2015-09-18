@@ -2,6 +2,7 @@
 #include "cartridge.h"
 #include "cpu.h"
 #include "display.h"
+#include "audio.h"
 #include "YBaseLib/Memory.h"
 #include "YBaseLib/Thread.h"
 #include "YBaseLib/Log.h"
@@ -14,6 +15,7 @@ System::System()
 {
     m_cpu = nullptr;
     m_display = nullptr;
+    m_audio = nullptr;
     m_cartridge = nullptr;
     m_callbacks = nullptr;
     m_bios = nullptr;
@@ -24,6 +26,7 @@ System::System()
 
 System::~System()
 {
+    delete m_audio;
     delete m_display;
     delete m_cpu;
 }
@@ -37,6 +40,7 @@ bool System::Init(CallbackInterface *callbacks, SYSTEM_MODE mode, const byte *bi
 
     m_cpu = new CPU(this);
     m_display = new Display(this);
+    m_audio = new Audio(this);
 
     m_clocks_since_reset = 0;
     m_speed_multiplier = 1.0f;
@@ -60,6 +64,7 @@ void System::Reset()
 {
     m_cpu->Reset();
     m_display->Reset();
+    m_audio->Reset();
     ResetMemory();
     ResetTimer();
     ResetPad();
@@ -710,61 +715,21 @@ uint8 System::CPUReadIORegister(uint8 index) const
         {
             switch (index & 0x0F)
             {
-                // FF10 - NR10 - Channel 1 Sweep register (R/W)
-            case 0x00:
-                return 0x00;
-
-                // FF11 - NR11 - Channel 1 Sound length/Wave pattern duty (R/W)
-            case 0x01:
-                return 0x00;
-
-                // FF12 - NR12 - Channel 1 Volume Envelope (R/W)
-            case 0x02:
-                return 0x00;
-
-                // FF13 - NR13 - Channel 1 Frequency lo (Write Only)
-            case 0x03:
-                return 0x00;
-
-                // FF14 - NR14 - Channel 1 Frequency hi (R/W)
-            case 0x04:
-                return 0x00;
-
-                // FF16 - NR21 - Channel 2 Sound Length/Wave Pattern Duty (R/W)
-            case 0x06:
-                return 0x00;
-
-                // FF17 - NR22 - Channel 2 Volume Envelope (R/W)
-            case 0x07:
-                return 0x00;
-
-                // FF18 - NR23 - Channel 2 Frequency lo data (W)
-            case 0x08:
-                return 0x00;
-
-                // FF19 - NR24 - Channel 2 Frequency hi data (R/W)
-            case 0x09:
-                return 0x00;
-
-                // FF1A - NR30 - Channel 3 Sound on/off (R/W)
-            case 0x0A:
-                return 0x00;
-
-                // FF1B - NR31 - Channel 3 Sound Length
-            case 0x0B:
-                return 0x00;
-
-                // FF1C - NR32 - Channel 3 Select output level (R/W)
-            case 0x0C:
-                return 0x00;
-
-                // FF1D - NR33 - Channel 3 Frequency's lower data (W)
-            case 0x0D:
-                return 0x00;
-
-                // FF1E - NR34 - Channel 3 Frequency's higher data (R/W)
-            case 0x0E:
-                return 0x00;
+            case 0x00:      // FF10 - NR10 - Channel 1 Sweep register (R/W)
+            case 0x01:      // FF11 - NR11 - Channel 1 Sound length/Wave pattern duty (R/W)
+            case 0x02:      // FF12 - NR12 - Channel 1 Volume Envelope (R/W)
+            case 0x03:      // FF13 - NR13 - Channel 1 Frequency lo (Write Only)
+            case 0x04:      // FF14 - NR14 - Channel 1 Frequency hi (R/W)
+            case 0x06:      // FF16 - NR21 - Channel 2 Sound Length/Wave Pattern Duty (R/W)
+            case 0x07:      // FF17 - NR22 - Channel 2 Volume Envelope (R/W)
+            case 0x08:      // FF18 - NR23 - Channel 2 Frequency lo data (W)
+            case 0x09:      // FF19 - NR24 - Channel 2 Frequency hi data (R/W)
+            case 0x0A:      // FF1A - NR30 - Channel 3 Sound on/off (R/W)
+            case 0x0B:      // FF1B - NR31 - Channel 3 Sound Length
+            case 0x0C:      // FF1C - NR32 - Channel 3 Select output level (R/W)
+            case 0x0D:      // FF1D - NR33 - Channel 3 Frequency's lower data (W)
+            case 0x0E:      // FF1E - NR34 - Channel 3 Frequency's higher data (R/W)
+                return m_audio->CPUReadRegister(index);
             }
 
             break;
@@ -774,33 +739,14 @@ uint8 System::CPUReadIORegister(uint8 index) const
         {
             switch (index & 0x0F)
             {
-                // FF20 - NR41 - Channel 4 Sound Length (R/W)
-            case 0x00:
-                return 0x00;
-
-                // FF21 - NR42 - Channel 4 Volume Envelope (R/W)
-            case 0x01:
-                return 0x00;
-
-                // FF22 - NR43 - Channel 4 Polynomial Counter (R/W)
-            case 0x02:
-                return 0x00;
-
-                // FF23 - NR44 - Channel 4 Counter/consecutive; Inital (R/W)
-            case 0x03:
-                return 0x00;
-
-                // FF24 - NR50 - Channel control / ON-OFF / Volume (R/W)
-            case 0x04:
-                return 0x00;
-
-                // FF25 - NR51 - Selection of Sound output terminal (R/W)
-            case 0x05:
-                return 0x00;
-
-                // FF26 - NR52 - sound on/off
-            case 0x06:
-                return 0x00;
+            case 0x00:      // FF20 - NR41 - Channel 4 Sound Length (R/W)
+            case 0x01:      // FF21 - NR42 - Channel 4 Volume Envelope (R/W)
+            case 0x02:      // FF22 - NR43 - Channel 4 Polynomial Counter (R/W)
+            case 0x03:      // FF23 - NR44 - Channel 4 Counter/consecutive; Inital (R/W)
+            case 0x04:      // FF24 - NR50 - Channel control / ON-OFF / Volume (R/W)
+            case 0x05:      // FF25 - NR51 - Selection of Sound output terminal (R/W)
+            case 0x06:      // FF26 - NR52 - sound on/off
+                return m_audio->CPUReadRegister(index);
             }
 
             break;
@@ -809,7 +755,7 @@ uint8 System::CPUReadIORegister(uint8 index) const
     case 0x30:
         {
             // FF30-FF3F - Wave Pattern RAM
-            return 0x00;
+            return m_audio->CPUReadRegister(index);
         }
 
     case 0x40:
@@ -989,60 +935,21 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
         {
             switch (index & 0x0F)
             {
-                // FF10 - NR10 - Channel 1 Sweep register (R/W)
-            case 0x00:
-                return;
-
-                // FF11 - NR11 - Channel 1 Sound length/Wave pattern duty (R/W)
-            case 0x01:
-                return;
-
-                // FF12 - NR12 - Channel 1 Volume Envelope (R/W)
-            case 0x02:
-                return;
-
-                // FF13 - NR13 - Channel 1 Frequency lo (Write Only)
-            case 0x03:
-                return;
-
-                // FF14 - NR14 - Channel 1 Frequency hi (R/W)
-            case 0x04:
-                return;
-
-                // FF16 - NR21 - Channel 2 Sound Length/Wave Pattern Duty (R/W)
-            case 0x06:
-                return;
-
-                // FF17 - NR22 - Channel 2 Volume Envelope (R/W)
-            case 0x07:
-                return;
-
-                // FF18 - NR23 - Channel 2 Frequency lo data (W)
-            case 0x08:
-                return;
-
-                // FF19 - NR24 - Channel 2 Frequency hi data (R/W)
-            case 0x09:
-                return;
-
-                // FF1A - NR30 - Channel 3 Sound on/off (R/W)
-            case 0x0A:
-                return;
-
-                // FF1B - NR31 - Channel 3 Sound Length
-            case 0x0B:
-                return;
-
-                // FF1C - NR32 - Channel 3 Select output level (R/W)
-            case 0x0C:
-                return;
-
-                // FF1D - NR33 - Channel 3 Frequency's lower data (W)
-            case 0x0D:
-                return;
-
-                // FF1E - NR34 - Channel 3 Frequency's higher data (R/W)
-            case 0x0E:
+            case 0x00:      // FF10 - NR10 - Channel 1 Sweep register (R/W)
+            case 0x01:      // FF11 - NR11 - Channel 1 Sound length/Wave pattern duty (R/W)
+            case 0x02:      // FF12 - NR12 - Channel 1 Volume Envelope (R/W)
+            case 0x03:      // FF13 - NR13 - Channel 1 Frequency lo (Write Only)
+            case 0x04:      // FF14 - NR14 - Channel 1 Frequency hi (R/W)
+            case 0x06:      // FF16 - NR21 - Channel 2 Sound Length/Wave Pattern Duty (R/W)
+            case 0x07:      // FF17 - NR22 - Channel 2 Volume Envelope (R/W)
+            case 0x08:      // FF18 - NR23 - Channel 2 Frequency lo data (W)
+            case 0x09:      // FF19 - NR24 - Channel 2 Frequency hi data (R/W)
+            case 0x0A:      // FF1A - NR30 - Channel 3 Sound on/off (R/W)
+            case 0x0B:      // FF1B - NR31 - Channel 3 Sound Length
+            case 0x0C:      // FF1C - NR32 - Channel 3 Select output level (R/W)
+            case 0x0D:      // FF1D - NR33 - Channel 3 Frequency's lower data (W)
+            case 0x0E:      // FF1E - NR34 - Channel 3 Frequency's higher data (R/W)
+                m_audio->CPUWriteRegister(index, value);
                 return;
             }
 
@@ -1053,32 +960,14 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
         {
             switch (index & 0x0F)
             {
-                // FF20 - NR41 - Channel 4 Sound Length (R/W)
-            case 0x00:
-                return;
-
-                // FF21 - NR42 - Channel 4 Volume Envelope (R/W)
-            case 0x01:
-                return;
-
-                // FF22 - NR43 - Channel 4 Polynomial Counter (R/W)
-            case 0x02:
-                return;
-
-                // FF23 - NR44 - Channel 4 Counter/consecutive; Inital (R/W)
-            case 0x03:
-                return;
-
-                // FF24 - NR50 - Channel control / ON-OFF / Volume (R/W)
-            case 0x04:
-                return;
-
-                // FF25 - NR51 - Selection of Sound output terminal (R/W)
-            case 0x05:
-                return;
-
-                // FF26 - NR52 - sound on/off
-            case 0x06:
+            case 0x00:      // FF20 - NR41 - Channel 4 Sound Length (R/W)
+            case 0x01:      // FF21 - NR42 - Channel 4 Volume Envelope (R/W)
+            case 0x02:      // FF22 - NR43 - Channel 4 Polynomial Counter (R/W)
+            case 0x03:      // FF23 - NR44 - Channel 4 Counter/consecutive; Inital (R/W)
+            case 0x04:      // FF24 - NR50 - Channel control / ON-OFF / Volume (R/W)
+            case 0x05:      // FF25 - NR51 - Selection of Sound output terminal (R/W)
+            case 0x06:      // FF26 - NR52 - sound on/off
+                m_audio->CPUWriteRegister(index, value);
                 return;
             }
 
@@ -1088,6 +977,7 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
     case 0x30:
         {
             // FF30-FF3F - Wave Pattern RAM
+            m_audio->CPUWriteRegister(index, value);
             return;
         }
 

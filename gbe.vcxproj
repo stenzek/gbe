@@ -111,6 +111,8 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\audio.h" />
+    <ClInclude Include="src\audio_buffer.h" />
     <ClInclude Include="src\cartridge.h" />
     <ClInclude Include="src\structures.h" />
     <ClInclude Include="src\system.h" />
@@ -118,6 +120,7 @@
     <ClInclude Include="src\cpu.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\audio.cpp" />
     <ClCompile Include="src\cartridge.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\structures.cpp" />

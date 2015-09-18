@@ -5,12 +5,14 @@
 
 class CPU;
 class Display;
+class Audio;
 class Cartridge;
 
 class System
 {
     friend CPU;
     friend Display;
+    friend Audio;
     friend Cartridge;
 
 public:
@@ -104,6 +106,7 @@ private:
     SYSTEM_MODE m_mode;
     CPU *m_cpu;
     Display *m_display;
+    Audio *m_audio;
 
     CallbackInterface *m_callbacks;
     const byte *m_bios;

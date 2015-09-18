@@ -32,6 +32,8 @@ struct State : public System::CallbackInterface
     SDL_Surface *surface;
     SDL_Surface *offscreen_surface;
 
+    SDL_AudioDeviceID audio_device_id;
+
     bool running;
 
 //     virtual void Sleep(uint32 duration_ms) override
@@ -48,6 +50,14 @@ struct State : public System::CallbackInterface
 //     {
 // 
 //     }
+
+    static void AudioCallback(void *pThis, uint8 *stream, int length)
+    {
+        uint16 *samples = (uint16 *)stream;
+        DebugAssert((length % 2) == 0);
+        for (int i = 0; i < length / 2; i++)
+            samples[i] = 0;
+    }
 
     void SetScale(uint32 scale)
     {
@@ -216,6 +226,7 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     state->window = nullptr;
     state->surface = nullptr;
     state->offscreen_surface = nullptr;
+    state->audio_device_id = 0;
     state->running = true;
 
     // load bios
@@ -242,6 +253,13 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     state->surface = SDL_GetWindowSurface(state->window);
     if (state->surface == nullptr)
         return false;
+
+    // create audio device
+    SDL_AudioSpec audio_spec = { 44100, AUDIO_S16, 2, 0, 4096, 0, 0, &State::AudioCallback, (void *)state };
+    SDL_AudioSpec obtained_audio_spec;
+    state->audio_device_id = SDL_OpenAudioDevice(nullptr, 0, &audio_spec, &obtained_audio_spec, 0);
+    if (state->audio_device_id == 0)
+        Log_WarningPrintf("Failed to open audio device (error: %s). No audio will be heard.", SDL_GetError());
 
     // init system
     state->system = new System();
@@ -272,6 +290,10 @@ static void CleanupState(State *state)
 static int Run(State *state)
 {
     Timer time_since_last_report;
+
+    // resume audio
+    if (state->audio_device_id != 0)
+        SDL_PauseAudioDevice(state->audio_device_id, 0);
 
     while (state->running)
     {
@@ -428,6 +450,10 @@ static int Run(State *state)
         }
     }
 
+    // pause audio
+    if (state->audio_device_id == 0)
+        SDL_PauseAudioDevice(state->audio_device_id, 1);
+
     return 0;
 }
 
@@ -451,6 +477,10 @@ extern "C" int main(int argc, char *argv[])
         Panic("SDL initialization failed");
         return -1;
     }
+
+    // init sdl audio
+    if (SDL_Init(SDL_INIT_AUDIO) < 0)
+        Log_WarningPrintf("Failed to initialize SDL audio subsystem: %s", SDL_GetError());
 
     // parse args
     ProgramArgs args;
