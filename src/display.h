@@ -30,9 +30,7 @@ public:
         uint8 HDMA4;
         uint8 HDMA5;
         uint8 BGPI;
-        uint8 BGPD;
         uint8 OBPI;
-        uint8 OBPD;
     };
 
 public:
@@ -73,11 +71,16 @@ private:
 
     // returns index into palette
     uint8 ReadTile(uint8 bank, bool high_tileset, int32 tile, uint8 x, uint8 y) const;
+    uint32 ReadCGBPalette(const uint8 *palette, uint8 palette_index, uint8 color_index) const;
 
     System *m_system;
 
     // registers - use a struct here?
     Registers m_registers;
+
+    // CGB palette
+    uint8 m_cgb_bg_palette[64];
+    uint8 m_cgb_sprite_palette[64];
 
     // state
     DISPLAY_STATE m_state;

@@ -884,11 +884,11 @@ uint8 System::CPUReadIORegister(uint8 index) const
             {
                 switch (index & 0x0F)
                 {
-                case 0x51:      // FF51 - HDMA1 - CGB Mode Only - New DMA Source, High
-                case 0x52:      // FF52 - HDMA2 - CGB Mode Only - New DMA Source, Low
-                case 0x53:      // FF53 - HDMA3 - CGB Mode Only - New DMA Destination, High
-                case 0x54:      // FF54 - HDMA4 - CGB Mode Only - New DMA Destination, Low
-                case 0x55:      // FF55 - HDMA5 - CGB Mode Only - New DMA Length/Mode/Start
+                case 0x01:      // FF51 - HDMA1 - CGB Mode Only - New DMA Source, High
+                case 0x02:      // FF52 - HDMA2 - CGB Mode Only - New DMA Source, Low
+                case 0x03:      // FF53 - HDMA3 - CGB Mode Only - New DMA Destination, High
+                case 0x04:      // FF54 - HDMA4 - CGB Mode Only - New DMA Destination, Low
+                case 0x05:      // FF55 - HDMA5 - CGB Mode Only - New DMA Length/Mode/Start
                     return m_display->CPUReadRegister(index);
                 }
 
@@ -900,10 +900,10 @@ uint8 System::CPUReadIORegister(uint8 index) const
                 // LCD registers
                 switch (index & 0x0F)
                 {
-                case 0x68:      // FF68 - BCPS/BGPI - CGB Mode Only - Background Palette Index
-                case 0x69:      // FF69 - BCPD/BGPD - CGB Mode Only - Background Palette Data
-                case 0x6A:      // FF6A - OCPS/OBPI - CGB Mode Only - Sprite Palette Index
-                case 0x6B:      // FF6B - OCPD/OBPD - CGB Mode Only - Sprite Palette Data
+                case 0x08:      // FF68 - BCPS/BGPI - CGB Mode Only - Background Palette Index
+                case 0x09:      // FF69 - BCPD/BGPD - CGB Mode Only - Background Palette Data
+                case 0x0A:      // FF6A - OCPS/OBPI - CGB Mode Only - Sprite Palette Index
+                case 0x0B:      // FF6B - OCPD/OBPD - CGB Mode Only - Sprite Palette Data
                     return m_display->CPUReadRegister(index);
                 }
 
@@ -1175,11 +1175,11 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             {
                 switch (index & 0x0F)
                 {
-                case 0x51:      // FF51 - HDMA1 - CGB Mode Only - New DMA Source, High
-                case 0x52:      // FF52 - HDMA2 - CGB Mode Only - New DMA Source, Low
-                case 0x53:      // FF53 - HDMA3 - CGB Mode Only - New DMA Destination, High
-                case 0x54:      // FF54 - HDMA4 - CGB Mode Only - New DMA Destination, Low
-                case 0x55:      // FF55 - HDMA5 - CGB Mode Only - New DMA Length/Mode/Start
+                case 0x01:      // FF51 - HDMA1 - CGB Mode Only - New DMA Source, High
+                case 0x02:      // FF52 - HDMA2 - CGB Mode Only - New DMA Source, Low
+                case 0x03:      // FF53 - HDMA3 - CGB Mode Only - New DMA Destination, High
+                case 0x04:      // FF54 - HDMA4 - CGB Mode Only - New DMA Destination, Low
+                case 0x05:      // FF55 - HDMA5 - CGB Mode Only - New DMA Length/Mode/Start
                     m_display->CPUWriteRegister(index, value);
                     return;
                 }
@@ -1191,10 +1191,10 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             {
                 switch (index & 0x0F)
                 {
-                case 0x68:      // FF68 - BCPS/BGPI - CGB Mode Only - Background Palette Index
-                case 0x69:      // FF69 - BCPD/BGPD - CGB Mode Only - Background Palette Data
-                case 0x6A:      // FF6A - OCPS/OBPI - CGB Mode Only - Sprite Palette Index
-                case 0x6B:      // FF6B - OCPD/OBPD - CGB Mode Only - Sprite Palette Data
+                case 0x08:      // FF68 - BCPS/BGPI - CGB Mode Only - Background Palette Index
+                case 0x09:      // FF69 - BCPD/BGPD - CGB Mode Only - Background Palette Data
+                case 0x0A:      // FF6A - OCPS/OBPI - CGB Mode Only - Sprite Palette Index
+                case 0x0B:      // FF6B - OCPD/OBPD - CGB Mode Only - Sprite Palette Data
                     m_display->CPUWriteRegister(index, value);
                     return;
                 }
