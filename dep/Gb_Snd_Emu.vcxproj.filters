@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="Gb_Snd_Emu\Effects_Buffer.cpp" />
+    <ClCompile Include="Gb_Snd_Emu\Gb_Apu.cpp" />
+    <ClCompile Include="Gb_Snd_Emu\Gb_Apu_State.cpp" />
+    <ClCompile Include="Gb_Snd_Emu\Gb_Oscs.cpp" />
+    <ClCompile Include="Gb_Snd_Emu\Multi_Buffer.cpp" />
+    <ClCompile Include="Gb_Snd_Emu\Blip_Buffer.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Gb_Snd_Emu\Effects_Buffer.h" />
+    <ClInclude Include="Gb_Snd_Emu\Gb_Apu.h" />
+    <ClInclude Include="Gb_Snd_Emu\Gb_Oscs.h" />
+    <ClInclude Include="Gb_Snd_Emu\Multi_Buffer.h" />
+    <ClInclude Include="Gb_Snd_Emu\blargg_common.h" />
+    <ClInclude Include="Gb_Snd_Emu\blargg_config.h" />
+    <ClInclude Include="Gb_Snd_Emu\blargg_source.h" />
+    <ClInclude Include="Gb_Snd_Emu\Blip_Buffer.h" />
+  </ItemGroup>
+</Project>
