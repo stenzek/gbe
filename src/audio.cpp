@@ -72,7 +72,10 @@ void Audio::ExecuteFor(uint32 cycles)
                     size_t copy_samples = Min(remaining, OUTPUT_BUFFER_SIZE - m_output_buffer_wpos);
                     if (!m_output_buffer_write_overrun && m_output_buffer_rpos > m_output_buffer_wpos && (m_output_buffer_wpos + copy_samples) > m_output_buffer_rpos)
                     {
-                        Log_WarningPrintf("Audio buffer overrun by write (too much data)");
+                        // don't spam about overruns with frame limiter off (it's guaranteed to happen)
+                        if (m_system->GetFrameLimiter() && m_system->GetTargetSpeed() == 1.0f)
+                            Log_WarningPrintf("Audio buffer overrun by write (too much data)");
+
                         m_output_buffer_write_overrun = true;
                     }
 
