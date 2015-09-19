@@ -7,6 +7,7 @@
 Log_SetChannel(Audio);
 
 static const uint32 OUTPUT_BUFFER_SIZE = 11025 * 2; // 0.25 seconds output buffering (stereo)
+static const uint32 PUSH_FREQUENCY_IN_CYCLES = 8192;
 
 Audio::Audio(System *system)
     : m_system(system)
@@ -18,6 +19,7 @@ Audio::Audio(System *system)
     , m_output_buffer_wpos(0)
     , m_output_buffer_read_overrun(false)
     , m_output_buffer_write_overrun(false)
+    , m_output_enabled(true)
 {
     m_buffer->clock_rate(4194304);
     m_buffer->set_sample_rate(44100);
@@ -29,6 +31,30 @@ Audio::~Audio()
     delete[] m_output_buffer;
     delete m_apu;
     delete m_buffer;
+}
+
+void Audio::SetOutputEnabled(bool enabled)
+{
+    if (m_output_enabled == enabled)
+        return;
+
+    if (enabled)
+    {
+        m_buffer->clear();
+        m_apu->set_output(m_buffer->center(), m_buffer->left(), m_buffer->right());
+        m_output_buffer_rpos = 0;
+        m_output_buffer_wpos = 0;
+        m_output_buffer_read_overrun = false;
+        m_output_buffer_write_overrun = false;
+        m_output_enabled = true;
+    }
+    else
+    {
+        m_buffer->end_frame(PUSH_FREQUENCY_IN_CYCLES);
+        m_apu->set_output(nullptr);
+        m_output_enabled = false;
+    }
+
 }
 
 void Audio::Reset()
@@ -44,8 +70,6 @@ uint32 Audio::GetAudioCycle() const
 
 void Audio::ExecuteFor(uint32 cycles)
 {
-    uint32 PUSH_FREQUENCY_IN_CYCLES = 8192;
-
     m_audio_cycle += cycles;
 
     while (m_audio_cycle >= PUSH_FREQUENCY_IN_CYCLES)
@@ -54,11 +78,12 @@ void Audio::ExecuteFor(uint32 cycles)
 
         // push a frame
         m_apu->end_frame(PUSH_FREQUENCY_IN_CYCLES);
-        m_buffer->end_frame(PUSH_FREQUENCY_IN_CYCLES);
-        m_audio_cycle = 0;
 
         // copy to output buffer
+        if (m_output_enabled)
         {
+            m_buffer->end_frame(PUSH_FREQUENCY_IN_CYCLES);
+
             m_lock.Lock();
             {
                 // no more read buffer overrun
@@ -107,6 +132,9 @@ void Audio::CPUWriteRegister(uint8 index, uint8 value)
 
 size_t Audio::ReadSamples(int16 *buffer, size_t count)
 {
+    if (!m_output_enabled)
+        return 0;
+
     MutexLock lock(m_lock);
     if (m_output_buffer_write_overrun)
     {

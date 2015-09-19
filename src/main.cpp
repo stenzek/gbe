@@ -377,6 +377,17 @@ static int Run(State *state)
                                 break;
                             }
 
+                        case SDLK_KP_MULTIPLY:
+                            {
+                                if (!down)
+                                {
+                                    state->system->SetAudioEnabled(!state->system->GetAudioEnabled());
+                                    Log_DevPrintf("Audio is now %s", state->system->GetAudioEnabled() ? "enabled" : "disabled");
+                                }
+
+                                break;
+                            }
+
                         case SDLK_KP_PLUS:
                             {
                                 if (down)

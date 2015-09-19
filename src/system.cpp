@@ -253,6 +253,16 @@ void System::SetAccurateTiming(bool on)
     m_clocks_since_reset = 0;
 }
 
+bool System::GetAudioEnabled() const
+{
+    return m_audio->GetOutputEnabled();
+}
+
+void System::SetAudioEnabled(bool enabled)
+{
+    m_audio->SetOutputEnabled(enabled);
+}
+
 void System::DMATransfer(uint16 source_address, uint16 destination_address, uint32 bytes)
 {
     // slow but due to the ranges has to be done this awy

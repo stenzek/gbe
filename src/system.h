@@ -69,6 +69,10 @@ public:
     bool GetPermissiveMemoryAccess() const { return m_memory_permissive; }
     void SetPermissiveMemoryAccess(bool on) { m_memory_permissive = on; }
 
+    // audio enable/disable
+    bool GetAudioEnabled() const;
+    void SetAudioEnabled(bool enabled);
+
 private:
     // cpu view of memory
     uint8 CPURead(uint16 address) const;

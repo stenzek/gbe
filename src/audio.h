@@ -12,6 +12,9 @@ public:
     Audio(System *system);
     ~Audio();
 
+    bool GetOutputEnabled() const { return m_output_enabled; }
+    void SetOutputEnabled(bool enabled);
+
     void Reset();
     void ExecuteFor(uint32 cycles);
 
@@ -39,5 +42,6 @@ private:
     size_t m_output_buffer_wpos;
     bool m_output_buffer_read_overrun;
     bool m_output_buffer_write_overrun;
+    bool m_output_enabled;
 };
 
