@@ -90,6 +90,13 @@ private:
             uint8 ram_bank_number;
             bool ram_rtc_enable;
         } mbc3;
+
+        struct
+        {
+            uint16 rom_bank_number;
+            uint8 ram_bank_number;
+            bool ram_enable;
+        } mbc5;
     } m_mbc_data;
 
     // MBC_NONE
@@ -111,4 +118,11 @@ private:
     uint8 MBC_MBC3_Read(uint16 address);
     void MBC_MBC3_Write(uint16 address, uint8 value);
     void MBC_MBC3_UpdateActiveBanks();
+
+    // MBC_MBC5
+    bool MBC_MBC5_Init();
+    void MBC_MBC5_Reset();
+    uint8 MBC_MBC5_Read(uint16 address);
+    void MBC_MBC5_Write(uint16 address, uint8 value);
+    void MBC_MBC5_UpdateActiveBanks();
 };
