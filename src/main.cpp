@@ -56,20 +56,12 @@ struct State : public System::CallbackInterface
     {
         State *pState = (State *)pThis;
         Audio *audio = pState->system->GetAudio();
+        int16 *samples = (int16 *)stream;
+        size_t nsamples = length / 2;
 
-        static Timer td;
-        Log_DevPrintf("audio callback td %.4f ms, len = %d", td.GetTimeMilliseconds(), length);
-        td.Reset();
-
-        audio->EndFrame();
-
-        size_t avail = audio->GetSamplesAvailable();
-        Log_DevPrintf("avail samples: %u", avail);
-
-        audio->ReadSamples((int16 *)stream, Min(avail, (size_t)length / 2));
-
-        for (int i = (int)avail; i < length; i++)
-            stream[i] = 0;
+        size_t i = audio->ReadSamples(samples, nsamples);
+        if (i < nsamples)
+            Y_memzero(samples + i, (nsamples - i) * 2);
     }
 
     void SetScale(uint32 scale)

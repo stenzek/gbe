@@ -1,11 +1,11 @@
 #pragma once
 #include "structures.h"
-#include "audio_buffer.h"
 #include "YBaseLib/Mutex.h"
 
 class System;
 class Gb_Apu;
 class Stereo_Buffer;
+class AudioBuffer;
 
 class Audio
 {
@@ -21,8 +21,6 @@ public:
     void CPUWriteRegister(uint8 index, uint8 value);
 
     // sample access
-    void EndFrame();
-    size_t GetSamplesAvailable() const;
     size_t ReadSamples(int16 *buffer, size_t count);
 
 private:
@@ -34,7 +32,8 @@ private:
     Stereo_Buffer *m_buffer;
 
     uint32 m_audio_cycle;
-    uint32 m_cpu_cycle;
-    mutable Mutex m_lock;
+
+    AudioBuffer *m_queue;
+    Mutex m_lock;
 };
 
