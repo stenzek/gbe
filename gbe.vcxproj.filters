@@ -7,7 +7,6 @@
     <ClInclude Include="src\structures.h" />
     <ClInclude Include="src\cpu.h" />
     <ClInclude Include="src\audio.h" />
-    <ClInclude Include="src\audio_buffer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
@@ -19,6 +18,5 @@
     <ClCompile Include="src\cpu_instruction_table.cpp" />
     <ClCompile Include="src\structures.cpp" />
     <ClCompile Include="src\audio.cpp" />
-    <ClCompile Include="src\audio_buffer.cpp" />
   </ItemGroup>
 </Project>

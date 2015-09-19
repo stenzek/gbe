@@ -115,7 +115,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\audio.h" />
-    <ClInclude Include="src\audio_buffer.h" />
     <ClInclude Include="src\cartridge.h" />
     <ClInclude Include="src\structures.h" />
     <ClInclude Include="src\system.h" />
@@ -127,7 +126,6 @@
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(SolutionDir)dep\Gb_Snd_Emu;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(SolutionDir)dep\Gb_Snd_Emu;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
-    <ClCompile Include="src\audio_buffer.cpp" />
     <ClCompile Include="src\cartridge.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\structures.cpp" />

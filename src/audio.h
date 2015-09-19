@@ -5,7 +5,6 @@
 class System;
 class Gb_Apu;
 class Stereo_Buffer;
-class AudioBuffer;
 
 class Audio
 {
@@ -33,7 +32,12 @@ private:
 
     uint32 m_audio_cycle;
 
-    AudioBuffer *m_queue;
     Mutex m_lock;
+
+    int16 *m_output_buffer;
+    size_t m_output_buffer_rpos;
+    size_t m_output_buffer_wpos;
+    bool m_output_buffer_read_overrun;
+    bool m_output_buffer_write_overrun;
 };
 
