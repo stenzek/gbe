@@ -1,7 +1,6 @@
 #include "audio.h"
 #include "system.h"
 #include "YBaseLib/Log.h"
-#include "YBaseLib/MutexLock.h"
 #include "Multi_Buffer.h"
 #include "Gb_Apu.h"
 Log_SetChannel(Audio);
@@ -38,6 +37,7 @@ void Audio::SetOutputEnabled(bool enabled)
     if (m_output_enabled == enabled)
         return;
 
+    m_lock.Lock();
     if (enabled)
     {
         m_buffer->clear();
@@ -54,6 +54,7 @@ void Audio::SetOutputEnabled(bool enabled)
         m_apu->set_output(nullptr);
         m_output_enabled = false;
     }
+    m_lock.Unlock();
 
 }
 
@@ -132,10 +133,13 @@ void Audio::CPUWriteRegister(uint8 index, uint8 value)
 
 size_t Audio::ReadSamples(int16 *buffer, size_t count)
 {
+    m_lock.Lock();
     if (!m_output_enabled)
+    {
+        m_lock.Unlock();
         return 0;
+    }
 
-    MutexLock lock(m_lock);
     if (m_output_buffer_write_overrun)
     {
         // cancel the write overrun
@@ -146,7 +150,10 @@ size_t Audio::ReadSamples(int16 *buffer, size_t count)
         // silence until we have at least a full buffer worth of samples to begin with
         size_t available_samples = (m_output_buffer_wpos > m_output_buffer_rpos) ? (m_output_buffer_wpos - m_output_buffer_rpos) : ((OUTPUT_BUFFER_SIZE - m_output_buffer_rpos) + m_output_buffer_wpos);
         if (available_samples < count)
+        {
+            m_lock.Unlock();
             return 0;
+        }
     }
 
     size_t remaining = count;
@@ -172,6 +179,7 @@ size_t Audio::ReadSamples(int16 *buffer, size_t count)
             m_output_buffer_wpos = m_output_buffer_rpos;
     }
 
+    m_lock.Unlock();
     return count;
 }
 
