@@ -3,8 +3,15 @@
 #include "YBaseLib/Assert.h"
 #include "system.h"
 
+class ByteStream;
+class BinaryReader;
+class BinaryWriter;
+class Error;
+
 class Display
 {
+    friend System;
+
 public:
     static const uint32 SCREEN_WIDTH = 160;
     static const uint32 SCREEN_HEIGHT = 144;
@@ -66,6 +73,11 @@ private:
     void SetLCDCRegister(uint8 value);
     void SetLYRegister(uint8 value);
 
+    // state saving
+    bool LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError);
+    void SaveState(ByteStream *pStream, BinaryWriter &binaryWriter);
+
+    // framebuffer ops
     void ClearFrameBuffer();
     void PutPixel(uint32 x, uint32 y, uint32 color);
 

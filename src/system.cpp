@@ -8,6 +8,10 @@
 #include "YBaseLib/Log.h"
 #include "YBaseLib/FileSystem.h"
 #include "YBaseLib/Math.h"
+#include "YBaseLib/BinaryReader.h"
+#include "YBaseLib/BinaryWriter.h"
+#include "YBaseLib/ByteStream.h"
+#include "YBaseLib/Error.h"
 #include <cmath>
 Log_SetChannel(System);
 
@@ -261,6 +265,171 @@ bool System::GetAudioEnabled() const
 void System::SetAudioEnabled(bool enabled)
 {
     m_audio->SetOutputEnabled(enabled);
+}
+
+bool System::LoadState(ByteStream *pStream, Error *pError)
+{
+    Timer loadTimer;
+
+    // Create stream, load header
+    BinaryReader binaryReader(pStream);
+    uint32 saveStateVersion = binaryReader.ReadUInt32();
+    if (saveStateVersion != SAVESTATE_VERSION)
+    {
+        pError->SetErrorUserFormatted(1, "Save state version mismatch, expected %u, got %u", (uint32)SAVESTATE_VERSION, saveStateVersion);
+        return false;
+    }
+
+    // Read state
+    m_mode = (SYSTEM_MODE)binaryReader.ReadUInt8();
+    m_frame_counter = binaryReader.ReadUInt32();
+
+    // Read memory
+    binaryReader.ReadBytes(m_memory_vram, sizeof(m_memory_vram));
+    binaryReader.ReadBytes(m_memory_wram, sizeof(m_memory_wram));
+    binaryReader.ReadBytes(m_memory_oam, sizeof(m_memory_oam));
+    binaryReader.ReadBytes(m_memory_zram, sizeof(m_memory_zram));
+
+    // Write registers
+    m_vram_bank = binaryReader.ReadUInt8();
+    m_high_wram_bank = binaryReader.ReadUInt8();
+    m_memory_locked_cycles = binaryReader.ReadUInt32();
+    m_timer_clocks  = binaryReader.ReadUInt32();
+    m_timer_divider_clocks = binaryReader.ReadUInt32();
+    m_timer_divider = binaryReader.ReadUInt8();
+    m_timer_counter = binaryReader.ReadUInt8();
+    m_timer_overflow_value = binaryReader.ReadUInt8();
+    m_timer_control = binaryReader.ReadUInt8();
+    m_pad_row_select = binaryReader.ReadUInt8();
+    m_pad_direction_state = binaryReader.ReadUInt8();
+    m_pad_button_state = binaryReader.ReadUInt8();
+    m_cgb_speed_switch = binaryReader.ReadUInt8();
+    m_biosLatch = binaryReader.ReadBool();
+    m_vramLocked = binaryReader.ReadBool();
+    m_oamLocked = binaryReader.ReadBool();
+    if (pStream->InErrorState())
+    {
+        pError->SetErrorUserFormatted(1, "Stream read error after restoring system.");
+        return false;
+    }
+
+    // Write Cartridge state
+    if (!m_cartridge->LoadState(pStream, binaryReader, pError))
+        return false;
+    if (pStream->InErrorState())
+    {
+        pError->SetErrorUserFormatted(1, "Stream read error after restoring Cartridge.");
+        return false;
+    }
+
+    // Write CPU state
+    if (!m_cpu->LoadState(pStream, binaryReader, pError))
+        return false;
+    if (pStream->InErrorState())
+    {
+        pError->SetErrorUserFormatted(1, "Stream read error after restoring CPU.");
+        return false;
+    }
+
+    // Write Display state
+    if (!m_display->LoadState(pStream, binaryReader, pError))
+        return false;
+    if (pStream->InErrorState())
+    {
+        pError->SetErrorUserFormatted(1, "Stream read error after restoring display.");
+        return false;
+    }
+
+    // Write Audio state
+    if (!m_audio->LoadState(pStream, binaryReader, pError))
+        return false;
+    if (pStream->InErrorState())
+    {
+        pError->SetErrorUserFormatted(1, "Stream read error after restoring audio.");
+        return false;
+    }
+
+    // Done
+    saveStateVersion = binaryReader.ReadUInt32();
+    if (saveStateVersion != ~(uint32)SAVESTATE_VERSION || pStream->InErrorState())
+    {
+        pError->SetErrorUserFormatted(1, "Error reading trailing signature.");
+        return false;
+    }
+
+    // All good
+    Log_DevPrintf("State loaded.");
+    Log_ProfilePrintf("State load took %.4fms", loadTimer.GetTimeMilliseconds());
+    return true;
+}
+
+bool System::SaveState(ByteStream *pStream)
+{
+    Timer saveTimer;
+
+    // Create stream, write header
+    BinaryWriter binaryWriter(pStream);
+    binaryWriter.WriteUInt32(SAVESTATE_VERSION);
+
+    // Write state
+    binaryWriter.WriteUInt8((uint8)m_mode);
+    binaryWriter.WriteUInt32(m_frame_counter);
+
+    // Write memory
+    binaryWriter.WriteBytes(m_memory_vram, sizeof(m_memory_vram));
+    binaryWriter.WriteBytes(m_memory_wram, sizeof(m_memory_wram));
+    binaryWriter.WriteBytes(m_memory_oam, sizeof(m_memory_oam));
+    binaryWriter.WriteBytes(m_memory_zram, sizeof(m_memory_zram));
+    
+    // Write registers
+    binaryWriter.WriteUInt8(m_vram_bank);
+    binaryWriter.WriteUInt8(m_high_wram_bank);
+    binaryWriter.WriteUInt32(m_memory_locked_cycles);
+    binaryWriter.WriteUInt32(m_timer_clocks);
+    binaryWriter.WriteUInt32(m_timer_divider_clocks);
+    binaryWriter.WriteUInt8(m_timer_divider);
+    binaryWriter.WriteUInt8(m_timer_counter);
+    binaryWriter.WriteUInt8(m_timer_overflow_value);
+    binaryWriter.WriteUInt8(m_timer_control);
+    binaryWriter.WriteUInt8(m_pad_row_select);
+    binaryWriter.WriteUInt8(m_pad_direction_state);
+    binaryWriter.WriteUInt8(m_pad_button_state);
+    binaryWriter.WriteUInt8(m_cgb_speed_switch);
+    binaryWriter.WriteBool(m_biosLatch);
+    binaryWriter.WriteBool(m_vramLocked);
+    binaryWriter.WriteBool(m_oamLocked);
+    if (pStream->InErrorState())
+        return false;
+
+    // Write Cartridge state
+    m_cartridge->SaveState(pStream, binaryWriter);
+    if (pStream->InErrorState())
+        return false;
+
+    // Write CPU state
+    m_cpu->SaveState(pStream, binaryWriter);
+    if (pStream->InErrorState())
+        return false;
+
+    // Write Display state
+    m_display->SaveState(pStream, binaryWriter);
+    if (pStream->InErrorState())
+        return false;
+
+    // Write Audio state
+    m_audio->SaveState(pStream, binaryWriter);
+    if (pStream->InErrorState())
+        return false;
+
+    // Write trailing signature
+    binaryWriter.WriteUInt32(~(uint32)SAVESTATE_VERSION);
+    if (binaryWriter.InErrorState())
+        return false;
+
+    // All good
+    Log_DevPrintf("State saved.");
+    Log_ProfilePrintf("State save took %.4fms", saveTimer.GetTimeMilliseconds());
+    return true;
 }
 
 void System::DMATransfer(uint16 source_address, uint16 destination_address, uint32 bytes)

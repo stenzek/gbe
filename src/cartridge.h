@@ -5,7 +5,11 @@
 #include "structures.h"
 
 class ByteStream;
+class BinaryReader;
+class BinaryWriter;
 class Error;
+
+class System;
 
 #define ROM_BANK_SIZE (16384)
 #define MAX_NUM_ROM_BANKS (256)
@@ -35,6 +39,8 @@ struct CartridgeTypeInfo
 
 class Cartridge
 {
+    friend System;
+
 public:
     Cartridge();
     ~Cartridge();
@@ -58,9 +64,14 @@ public:
 private:
     bool ParseHeader(ByteStream *pStream, Error *pError);
 
+    // state saving
+    bool LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError);
+    void SaveState(ByteStream *pStream, BinaryWriter &binaryWriter);
+
     String m_name;
     MBC m_mbc;
     SYSTEM_MODE m_system_mode;
+    uint32 m_crc;
 
     const CartridgeTypeInfo *m_typeinfo;
 

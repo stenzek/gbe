@@ -2,12 +2,19 @@
 #include "structures.h"
 #include "YBaseLib/Mutex.h"
 
+class ByteStream;
+class BinaryReader;
+class BinaryWriter;
+class Error;
+
 class System;
 class Gb_Apu;
 class Stereo_Buffer;
 
 class Audio
 {
+    friend System;
+
 public:
     Audio(System *system);
     ~Audio();
@@ -26,7 +33,9 @@ public:
     size_t ReadSamples(int16 *buffer, size_t count);
 
 private:
-    uint32 GetAudioCycle() const;
+    // state saving
+    bool LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError);
+    void SaveState(ByteStream *pStream, BinaryWriter &binaryWriter);
 
     System *m_system;
 

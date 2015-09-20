@@ -5,6 +5,10 @@
 #include "YBaseLib/String.h"
 #include "YBaseLib/StringConverter.h"
 #include "YBaseLib/Log.h"
+#include "YBaseLib/ByteStream.h"
+#include "YBaseLib/BinaryReader.h"
+#include "YBaseLib/BinaryWriter.h"
+#include "YBaseLib/Error.h"
 Log_SetChannel(Cartridge);
 
 // http://bgb.bircd.org/pandocs.htm#thecartridgeheader
@@ -65,6 +69,7 @@ static const uint32 CART_ROM_BANK_COUNT[][2] =
 
 Cartridge::Cartridge()
     : m_mbc(NUM_MBC_TYPES)
+    , m_crc(0)
     , m_typeinfo(nullptr)
     , m_num_rom_banks(0)
     , m_external_ram(nullptr)
@@ -188,7 +193,6 @@ bool Cartridge::ParseHeader(ByteStream *pStream, Error *pError)
 
 }
 
-
 bool Cartridge::Load(ByteStream *pStream, Error *pError)
 {
     if (!ParseHeader(pStream, pError))
@@ -281,6 +285,39 @@ void Cartridge::CPUWrite(uint16 address, uint8 value)
     case MBC_MBC3:  return MBC_MBC3_Write(address, value);
     case MBC_MBC5:  return MBC_MBC5_Write(address, value);
     }
+}
+
+bool Cartridge::LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError)
+{
+    uint32 crc = binaryReader.ReadUInt32();
+    if (crc != m_crc)
+    {
+        pError->SetErrorUser(1, "CRC mismatch between save state cartridge and this cartridge");
+        return false;
+    }
+
+    uint32 external_ram_size = binaryReader.ReadUInt32();
+    if (m_external_ram_size != external_ram_size)
+    {
+        pError->SetErrorUser(1, "External ram size mismatch.");
+        return false;
+    }
+
+    if (external_ram_size > 0)
+        binaryReader.ReadBytes(m_external_ram, m_external_ram_size);
+    
+    // MBC specific stuff follows
+    return true;
+}
+
+void Cartridge::SaveState(ByteStream *pStream, BinaryWriter &binaryWriter)
+{
+    binaryWriter.WriteUInt32(m_crc);
+    binaryWriter.WriteUInt32(m_external_ram_size);
+    if (m_external_ram_size > 0)
+        binaryWriter.WriteBytes(m_external_ram, m_external_ram_size);
+
+    // MBC specific stuff follows
 }
 
 bool Cartridge::MBC_NONE_Init()

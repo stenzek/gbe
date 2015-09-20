@@ -3,8 +3,12 @@
 #include "system.h"
 
 class String;
-class Cartridge;
 class ByteStream;
+class BinaryReader;
+class BinaryWriter;
+class Error;
+
+class Cartridge;
 
 class CPU
 {
@@ -181,6 +185,10 @@ private:
 
     // raise interrupt
     void RaiseInterrupt(uint8 index);
+
+    // state saving
+    bool LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError);
+    void SaveState(ByteStream *pStream, BinaryWriter &binaryWriter);
     
     // registers
     Registers m_registers;

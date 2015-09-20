@@ -1,6 +1,10 @@
 #include "audio.h"
 #include "system.h"
 #include "YBaseLib/Log.h"
+#include "YBaseLib/ByteStream.h"
+#include "YBaseLib/BinaryReader.h"
+#include "YBaseLib/BinaryWriter.h"
+#include "YBaseLib/Error.h"
 #include "Multi_Buffer.h"
 #include "Gb_Apu.h"
 Log_SetChannel(Audio);
@@ -64,9 +68,43 @@ void Audio::Reset()
     m_audio_cycle = 0;
 }
 
-uint32 Audio::GetAudioCycle() const
+bool Audio::LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError)
 {
-    return m_audio_cycle;
+    m_audio_cycle = binaryReader.ReadUInt32();
+
+    gb_apu_state_t state_in;
+    binaryReader.ReadBytes(&state_in, sizeof(state_in));
+    if (pStream->InErrorState())
+        return false;
+
+    m_apu->reset((m_system->InCGBMode()) ? Gb_Apu::mode_cgb : Gb_Apu::mode_dmg, false);
+    const char *err = m_apu->load_state(state_in);
+    if (err != nullptr)
+    {
+        pError->SetErrorUserFormatted(2, "Failed to load APU state: %s", err);
+        return false;
+    }
+
+    if (m_output_enabled)
+    {
+        m_output_buffer_rpos = 0;
+        m_output_buffer_wpos = 0;
+        m_output_buffer_read_overrun = false;
+        m_output_buffer_write_overrun = false;
+        m_buffer->end_frame(PUSH_FREQUENCY_IN_CYCLES);
+        m_buffer->clear();
+    }
+
+    return true;
+}
+
+void Audio::SaveState(ByteStream *pStream, BinaryWriter &binaryWriter)
+{
+    gb_apu_state_t state_out;
+    m_apu->save_state(&state_out);
+
+    binaryWriter.WriteUInt32(m_audio_cycle);
+    binaryWriter.WriteBytes(&state_out, sizeof(state_out));
 }
 
 void Audio::ExecuteFor(uint32 cycles)
@@ -123,12 +161,12 @@ void Audio::ExecuteFor(uint32 cycles)
 
 uint8 Audio::CPUReadRegister(uint8 index) const
 {
-    return (uint8)m_apu->read_register(GetAudioCycle(), 0xFF00 | index);
+    return (uint8)m_apu->read_register(m_audio_cycle, 0xFF00 | index);
 }
 
 void Audio::CPUWriteRegister(uint8 index, uint8 value)
 {
-    return m_apu->write_register(GetAudioCycle(), 0xFF00 | index, value);
+    return m_apu->write_register(m_audio_cycle, 0xFF00 | index, value);
 }
 
 size_t Audio::ReadSamples(int16 *buffer, size_t count)

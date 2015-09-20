@@ -3,6 +3,11 @@
 #include "YBaseLib/Timer.h"
 #include "structures.h"
 
+class ByteStream;
+class BinaryReader;
+class BinaryWriter;
+class Error;
+
 class CPU;
 class Display;
 class Audio;
@@ -72,6 +77,10 @@ public:
     // audio enable/disable
     bool GetAudioEnabled() const;
     void SetAudioEnabled(bool enabled);
+
+    // save/load savestate
+    bool LoadState(ByteStream *pStream, Error *pError);
+    bool SaveState(ByteStream *pStream);
 
 private:
     // cpu view of memory

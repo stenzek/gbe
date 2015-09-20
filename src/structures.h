@@ -139,3 +139,5 @@ struct CART_HEADER
 #pragma pack(pop)
 
 #define CART_HEADER_OFFSET (0x0100)
+
+#define SAVESTATE_VERSION (1)

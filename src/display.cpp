@@ -4,6 +4,10 @@
 #include "YBaseLib/Assert.h"
 #include "YBaseLib/Log.h"
 #include "YBaseLib/String.h"
+#include "YBaseLib/ByteStream.h"
+#include "YBaseLib/BinaryReader.h"
+#include "YBaseLib/BinaryWriter.h"
+#include "YBaseLib/Error.h"
 Log_SetChannel(Display);
 
 Display::Display(System *memory)
@@ -177,6 +181,73 @@ void Display::Reset()
     SetState(DISPLAY_STATE_OAM_READ);
     SetLYRegister(0);
     PushFrame();
+}
+
+bool Display::LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError)
+{
+    // Read registers
+    m_registers.LCDC = binaryReader.ReadUInt8();
+    m_registers.STAT = binaryReader.ReadUInt8();
+    m_registers.SCY = binaryReader.ReadUInt8();
+    m_registers.SCX = binaryReader.ReadUInt8();
+    m_registers.LY = binaryReader.ReadUInt8();
+    m_registers.LYC = binaryReader.ReadUInt8();
+    m_registers.BGP = binaryReader.ReadUInt8();
+    m_registers.OBP0 = binaryReader.ReadUInt8();
+    m_registers.OBP1 = binaryReader.ReadUInt8();
+    m_registers.WY = binaryReader.ReadUInt8();
+    m_registers.WX = binaryReader.ReadUInt8();
+    m_registers.HDMA1 = binaryReader.ReadUInt8();
+    m_registers.HDMA2 = binaryReader.ReadUInt8();
+    m_registers.HDMA3 = binaryReader.ReadUInt8();
+    m_registers.HDMA4 = binaryReader.ReadUInt8();
+    m_registers.HDMA5 = binaryReader.ReadUInt8();
+    m_registers.BGPI = binaryReader.ReadUInt8();
+    m_registers.OBPI = binaryReader.ReadUInt8();
+
+    // Read cgb palettes
+    binaryReader.ReadBytes(m_cgb_bg_palette, sizeof(m_cgb_bg_palette));
+    binaryReader.ReadBytes(m_cgb_sprite_palette, sizeof(m_cgb_sprite_palette));
+
+    // Read state
+    m_state = (DISPLAY_STATE)binaryReader.ReadUInt8();
+    m_modeClocksRemaining = binaryReader.ReadUInt32();
+    m_cyclesSinceVBlank = binaryReader.ReadUInt32();
+    m_currentScanLine = binaryReader.ReadUInt8();
+    return true;
+}
+
+void Display::SaveState(ByteStream *pStream, BinaryWriter &binaryWriter)
+{
+    // Write registers
+    binaryWriter.WriteUInt8(m_registers.LCDC);
+    binaryWriter.WriteUInt8(m_registers.STAT);
+    binaryWriter.WriteUInt8(m_registers.SCY);
+    binaryWriter.WriteUInt8(m_registers.SCX);
+    binaryWriter.WriteUInt8(m_registers.LY);
+    binaryWriter.WriteUInt8(m_registers.LYC);
+    binaryWriter.WriteUInt8(m_registers.BGP);
+    binaryWriter.WriteUInt8(m_registers.OBP0);
+    binaryWriter.WriteUInt8(m_registers.OBP1);
+    binaryWriter.WriteUInt8(m_registers.WY);
+    binaryWriter.WriteUInt8(m_registers.WX);
+    binaryWriter.WriteUInt8(m_registers.HDMA1);
+    binaryWriter.WriteUInt8(m_registers.HDMA2);
+    binaryWriter.WriteUInt8(m_registers.HDMA3);
+    binaryWriter.WriteUInt8(m_registers.HDMA4);
+    binaryWriter.WriteUInt8(m_registers.HDMA5);
+    binaryWriter.WriteUInt8(m_registers.BGPI);
+    binaryWriter.WriteUInt8(m_registers.OBPI);
+
+    // Write cgb palettes
+    binaryWriter.WriteBytes(m_cgb_bg_palette, sizeof(m_cgb_bg_palette));
+    binaryWriter.WriteBytes(m_cgb_sprite_palette, sizeof(m_cgb_sprite_palette));
+
+    // Write state
+    binaryWriter.WriteUInt8((uint8)m_state);
+    binaryWriter.WriteUInt32(m_modeClocksRemaining);
+    binaryWriter.WriteUInt32(m_cyclesSinceVBlank);
+    binaryWriter.WriteUInt8(m_currentScanLine);
 }
 
 void Display::SetState(DISPLAY_STATE state)

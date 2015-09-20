@@ -3,6 +3,10 @@
 #include "YBaseLib/Assert.h"
 #include "YBaseLib/String.h"
 #include "YBaseLib/Log.h"
+#include "YBaseLib/ByteStream.h"
+#include "YBaseLib/BinaryReader.h"
+#include "YBaseLib/BinaryWriter.h"
+#include "YBaseLib/Error.h"
 Log_SetChannel(CPU);
 
 CPU::CPU(System *system)
@@ -70,6 +74,47 @@ void CPU::RaiseInterrupt(uint8 index)
     //Log_DevPrintf("Raise interrupt %u", index);
     m_registers.IF |= (1 << index);
     m_halted = false;
+}
+
+bool CPU::LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError)
+{
+    // Read registers
+    m_registers.F = binaryReader.ReadUInt8();
+    m_registers.A = binaryReader.ReadUInt8();
+    m_registers.C = binaryReader.ReadUInt8();
+    m_registers.B = binaryReader.ReadUInt8();
+    m_registers.E = binaryReader.ReadUInt8();
+    m_registers.D = binaryReader.ReadUInt8();
+    m_registers.L = binaryReader.ReadUInt8();
+    m_registers.H = binaryReader.ReadUInt8();
+    m_registers.SP = binaryReader.ReadUInt16();
+    m_registers.PC = binaryReader.ReadUInt16();
+    m_registers.IME = binaryReader.ReadBool();
+    m_registers.IE = binaryReader.ReadUInt8();
+    m_registers.IF = binaryReader.ReadUInt8();
+    m_halted = binaryReader.ReadBool();
+    m_clock = binaryReader.ReadUInt32();
+    return true;
+}
+
+void CPU::SaveState(ByteStream *pStream, BinaryWriter &binaryWriter)
+{
+    // Write registers
+    binaryWriter.WriteUInt8(m_registers.F);
+    binaryWriter.WriteUInt8(m_registers.A);
+    binaryWriter.WriteUInt8(m_registers.C);
+    binaryWriter.WriteUInt8(m_registers.B);
+    binaryWriter.WriteUInt8(m_registers.E);
+    binaryWriter.WriteUInt8(m_registers.D);
+    binaryWriter.WriteUInt8(m_registers.L);
+    binaryWriter.WriteUInt8(m_registers.H);
+    binaryWriter.WriteUInt16(m_registers.SP);
+    binaryWriter.WriteUInt16(m_registers.PC);
+    binaryWriter.WriteBool(m_registers.IME);
+    binaryWriter.WriteUInt8(m_registers.IE);
+    binaryWriter.WriteUInt8(m_registers.IF);
+    binaryWriter.WriteBool(m_halted);
+    binaryWriter.WriteUInt32(m_clock);
 }
 
 bool CPU::TestPredicate(Instruction::Predicate condition)
