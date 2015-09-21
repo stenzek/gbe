@@ -115,12 +115,16 @@ private:
     void MBC_NONE_Reset();
     uint8 MBC_NONE_Read(uint16 address);
     void MBC_NONE_Write(uint16 address, uint8 value);
+    bool MBC_NONE_LoadState(ByteStream *pStream, BinaryReader &binaryReader);
+    void MBC_NONE_SaveState(ByteStream *pStream, BinaryWriter &binaryWriter);
 
     // MBC_MBC1
     bool MBC_MBC1_Init();
     void MBC_MBC1_Reset();
     uint8 MBC_MBC1_Read(uint16 address);
     void MBC_MBC1_Write(uint16 address, uint8 value);
+    bool MBC_MBC1_LoadState(ByteStream *pStream, BinaryReader &binaryReader);
+    void MBC_MBC1_SaveState(ByteStream *pStream, BinaryWriter &binaryWriter);
     void MBC_MBC1_UpdateActiveBanks();
 
     // MBC_MBC3
@@ -128,6 +132,8 @@ private:
     void MBC_MBC3_Reset();
     uint8 MBC_MBC3_Read(uint16 address);
     void MBC_MBC3_Write(uint16 address, uint8 value);
+    bool MBC_MBC3_LoadState(ByteStream *pStream, BinaryReader &binaryReader);
+    void MBC_MBC3_SaveState(ByteStream *pStream, BinaryWriter &binaryWriter);
     void MBC_MBC3_UpdateActiveBanks();
 
     // MBC_MBC5
@@ -135,5 +141,7 @@ private:
     void MBC_MBC5_Reset();
     uint8 MBC_MBC5_Read(uint16 address);
     void MBC_MBC5_Write(uint16 address, uint8 value);
+    bool MBC_MBC5_LoadState(ByteStream *pStream, BinaryReader &binaryReader);
+    void MBC_MBC5_SaveState(ByteStream *pStream, BinaryWriter &binaryWriter);
     void MBC_MBC5_UpdateActiveBanks();
 };

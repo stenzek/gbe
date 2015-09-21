@@ -307,6 +307,34 @@ bool Cartridge::LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error
         binaryReader.ReadBytes(m_external_ram, m_external_ram_size);
     
     // MBC specific stuff follows
+    uint32 ss_mbc = binaryReader.ReadUInt32();
+    if (ss_mbc != (uint32)m_mbc)
+    {
+        pError->SetErrorUser(1, "MBC type mismatch");
+        return false;
+    }
+
+    bool loadResult = false;
+    switch (m_mbc)
+    {
+    case MBC_NONE:  loadResult = MBC_NONE_LoadState(pStream, binaryReader); break;
+    case MBC_MBC1:  loadResult = MBC_MBC1_LoadState(pStream, binaryReader); break;
+    case MBC_MBC3:  loadResult = MBC_MBC3_LoadState(pStream, binaryReader); break;
+    case MBC_MBC5:  loadResult = MBC_MBC5_LoadState(pStream, binaryReader); break;
+    }
+    if (!loadResult)
+    {
+        pError->SetErrorUser(1, "MBC state load error");
+        return false;
+    }
+
+    ss_mbc = binaryReader.ReadUInt32();
+    if (ss_mbc != ~(uint32)m_mbc)
+    {
+        pError->SetErrorUser(1, "MBC trailing type mismatch");
+        return false;
+    }
+
     return true;
 }
 
@@ -318,6 +346,15 @@ void Cartridge::SaveState(ByteStream *pStream, BinaryWriter &binaryWriter)
         binaryWriter.WriteBytes(m_external_ram, m_external_ram_size);
 
     // MBC specific stuff follows
+    binaryWriter.WriteUInt32(m_mbc);
+    switch (m_mbc)
+    {
+    case MBC_NONE:  MBC_NONE_SaveState(pStream, binaryWriter);  break;
+    case MBC_MBC1:  MBC_MBC1_SaveState(pStream, binaryWriter);  break;
+    case MBC_MBC3:  MBC_MBC3_SaveState(pStream, binaryWriter);  break;
+    case MBC_MBC5:  MBC_MBC5_SaveState(pStream, binaryWriter);  break;
+    }
+    binaryWriter.WriteUInt32(~(uint32)m_mbc);
 }
 
 bool Cartridge::MBC_NONE_Init()
@@ -397,6 +434,16 @@ void Cartridge::MBC_NONE_Write(uint16 address, uint8 value)
 
     // ignore all writes
     Log_WarningPrintf("MBC_NONE unhandled write to 0x%04X (value %02X)", address, value);
+    return;
+}
+
+bool Cartridge::MBC_NONE_LoadState(ByteStream *pStream, BinaryReader &binaryReader)
+{
+    return true;
+}
+
+void Cartridge::MBC_NONE_SaveState(ByteStream *pStream, BinaryWriter &binaryWriter)
+{
     return;
 }
 
@@ -504,6 +551,30 @@ void Cartridge::MBC_MBC1_Write(uint16 address, uint8 value)
     // ignore all writes
     Log_WarningPrintf("MBC_MBC1 unhandled write to 0x%04X (value %02X)", address, value);
     return;
+}
+
+bool Cartridge::MBC_MBC1_LoadState(ByteStream *pStream, BinaryReader &binaryReader)
+{
+    m_mbc_data.mbc1.active_rom_bank = binaryReader.ReadUInt8();
+    m_mbc_data.mbc1.active_ram_bank = binaryReader.ReadUInt8();
+    m_mbc_data.mbc1.ram_enable = binaryReader.ReadBool();
+    m_mbc_data.mbc1.bank_mode = binaryReader.ReadUInt8();
+    m_mbc_data.mbc1.rom_bank_number = binaryReader.ReadUInt8();
+    m_mbc_data.mbc1.ram_bank_number = binaryReader.ReadUInt8();
+    if (m_mbc_data.mbc1.active_rom_bank >= m_num_rom_banks)
+        return false;
+
+    return true;
+}
+
+void Cartridge::MBC_MBC1_SaveState(ByteStream *pStream, BinaryWriter &binaryWriter)
+{
+    binaryWriter.WriteUInt8(m_mbc_data.mbc1.active_rom_bank);
+    binaryWriter.WriteUInt8(m_mbc_data.mbc1.active_ram_bank);
+    binaryWriter.WriteBool(m_mbc_data.mbc1.ram_enable);
+    binaryWriter.WriteUInt8(m_mbc_data.mbc1.bank_mode);
+    binaryWriter.WriteUInt8(m_mbc_data.mbc1.rom_bank_number);
+    binaryWriter.WriteUInt8(m_mbc_data.mbc1.ram_bank_number);
 }
 
 void Cartridge::MBC_MBC1_UpdateActiveBanks()
@@ -654,6 +725,24 @@ void Cartridge::MBC_MBC3_Write(uint16 address, uint8 value)
     return;
 }
 
+bool Cartridge::MBC_MBC3_LoadState(ByteStream *pStream, BinaryReader &binaryReader)
+{
+    m_mbc_data.mbc3.rom_bank_number = binaryReader.ReadUInt8();
+    m_mbc_data.mbc3.ram_bank_number = binaryReader.ReadUInt8();
+    m_mbc_data.mbc3.ram_rtc_enable = binaryReader.ReadBool();
+    if (m_mbc_data.mbc3.rom_bank_number >= m_num_rom_banks)
+        return false;
+
+    return true;
+}
+
+void Cartridge::MBC_MBC3_SaveState(ByteStream *pStream, BinaryWriter &binaryWriter)
+{
+    binaryWriter.WriteUInt8(m_mbc_data.mbc3.rom_bank_number);
+    binaryWriter.WriteUInt8(m_mbc_data.mbc3.ram_bank_number);
+    binaryWriter.WriteBool(m_mbc_data.mbc3.ram_rtc_enable);
+}
+
 void Cartridge::MBC_MBC3_UpdateActiveBanks()
 {
     // Same as for MBC1, except that the whole 7 bits of the RAM Bank Number are written directly to this address. As for the MBC1, writing a value of 00h, will select Bank 01h instead. All other values 01-7Fh select the corresponding ROM Banks.
@@ -774,6 +863,24 @@ void Cartridge::MBC_MBC5_Write(uint16 address, uint8 value)
     // ignore all writes
     Log_WarningPrintf("MBC_MBC5 unhandled write to 0x%04X (value %02X)", address, value);
     return;
+}
+
+bool Cartridge::MBC_MBC5_LoadState(ByteStream *pStream, BinaryReader &binaryReader)
+{
+    m_mbc_data.mbc5.rom_bank_number = binaryReader.ReadUInt16();
+    m_mbc_data.mbc5.ram_bank_number = binaryReader.ReadUInt8();
+    m_mbc_data.mbc5.ram_enable = binaryReader.ReadBool();
+    if (m_mbc_data.mbc5.rom_bank_number >= m_num_rom_banks)
+        return false;
+
+    return true;
+}
+
+void Cartridge::MBC_MBC5_SaveState(ByteStream *pStream, BinaryWriter &binaryWriter)
+{
+    binaryWriter.WriteUInt16(m_mbc_data.mbc5.rom_bank_number);
+    binaryWriter.WriteUInt8(m_mbc_data.mbc5.ram_bank_number);
+    binaryWriter.WriteBool(m_mbc_data.mbc5.ram_enable);
 }
 
 void Cartridge::MBC_MBC5_UpdateActiveBanks()

@@ -10,6 +10,7 @@
 #include "YBaseLib/CString.h"
 #include "YBaseLib/Thread.h"
 #include "YBaseLib/Math.h"
+#include "YBaseLib/Platform.h"
 #include <SDL/SDL.h>
 #include <cstdio>
 Log_SetChannel(Main);
@@ -35,22 +36,30 @@ struct State : public System::CallbackInterface
 
     SDL_AudioDeviceID audio_device_id;
 
+    String savestate_prefix;
+
     bool running;
 
-//     virtual void Sleep(uint32 duration_ms) override
-//     {
-//         throw std::logic_error("The method or operation is not implemented.");
-//     }
-// 
-//     virtual void PreExecuteIteration() override
-//     {
-// 
-//     }
-// 
-//     virtual void PostExecuteIteration() override
-//     {
-// 
-//     }
+    void SetSaveStatePrefix(const char *cartridge_file_name)
+    {
+        const char *last_part = Y_strrchr(cartridge_file_name, '/');
+        if (last_part == nullptr || Y_strrchr(cartridge_file_name, '\\') < last_part)
+            last_part = Y_strrchr(cartridge_file_name, '\\');
+        if (last_part != nullptr)
+            last_part++;
+        else
+            last_part = cartridge_file_name;
+
+        SmallString savestate_prefix_filepart;
+        savestate_prefix_filepart.AppendString("savestates/");
+        savestate_prefix_filepart.AppendString(last_part);
+        if (savestate_prefix_filepart.RFind('.') > 0)
+            savestate_prefix_filepart.Erase(savestate_prefix_filepart.RFind('.'));
+        
+        Platform::GetProgramFileName(savestate_prefix);
+        FileSystem::BuildPathRelativeToFile(savestate_prefix, savestate_prefix, savestate_prefix_filepart, true, true);
+    }
+
 
     static void AudioCallback(void *pThis, uint8 *stream, int length)
     {
@@ -82,6 +91,59 @@ struct State : public System::CallbackInterface
 
         SDL_SetWindowSize(window, 160 * scale, 144 * scale);
         surface = SDL_GetWindowSurface(window);
+    }
+
+    bool LoadState(uint32 index)
+    {
+        SmallString filename;
+        filename.Format("%s_%02u.savestate", savestate_prefix.GetCharArray(), index);
+        Log_DevPrintf("Savestate filename: '%s'", filename.GetCharArray());
+
+        ByteStream *pStream = FileSystem::OpenFile(filename, BYTESTREAM_OPEN_READ | BYTESTREAM_OPEN_STREAMED);
+        if (pStream == nullptr)
+        {
+            Log_ErrorPrintf("Failed to load state '%s': could not open file", filename.GetCharArray());
+            return false;
+        }
+
+        Error error;
+        if (!system->LoadState(pStream, &error))
+        {
+            Log_ErrorPrintf("Failed to save state '%s': load error: %s", filename.GetCharArray(), error.GetErrorCodeAndDescription().GetCharArray());
+            pStream->Release();
+            return false;
+        }
+
+        Log_InfoPrintf("Save state '%s' loaded.", filename.GetCharArray());
+        pStream->Release();
+        return true;
+    }
+
+    bool SaveState(uint32 index)
+    {
+        SmallString filename;
+        filename.Format("%s_%02u.savestate", savestate_prefix.GetCharArray(), index);
+        Log_DevPrintf("Savestate filename: '%s'", filename.GetCharArray());
+
+        ByteStream *pStream = FileSystem::OpenFile(filename, BYTESTREAM_OPEN_CREATE | BYTESTREAM_OPEN_CREATE_PATH | BYTESTREAM_OPEN_WRITE | BYTESTREAM_OPEN_TRUNCATE | BYTESTREAM_OPEN_STREAMED | BYTESTREAM_OPEN_ATOMIC_UPDATE);
+        if (pStream == nullptr)
+        {
+            Log_ErrorPrintf("Failed to save state '%s': could not open file", filename.GetCharArray());
+            return false;
+        }
+
+        if (!system->SaveState(pStream))
+        {
+            Log_ErrorPrintf("Failed to save state '%s': save error", filename.GetCharArray());
+            pStream->Discard();
+            pStream->Release();
+            return false;
+        }
+
+        Log_InfoPrintf("Save state '%s' saved.", filename.GetCharArray());
+        pStream->Commit();
+        pStream->Release();
+        return true;
     }
 
     // Callback to present a frame
@@ -172,6 +234,7 @@ static bool LoadCart(const char *filename, State *state)
         return false;
     }
 
+    state->SetSaveStatePrefix(filename);
     return true;
 }
 
@@ -427,6 +490,31 @@ static int Run(State *state)
                                 {
                                     state->system->SetFrameLimiter(!state->system->GetFrameLimiter());
                                     Log_DevPrintf("Set framelimiter %s", state->system->GetFrameLimiter() ? "on" : "off");
+                                }
+
+                                break;
+                            }
+
+                        case SDLK_F1:
+                        case SDLK_F2:
+                        case SDLK_F3:
+                        case SDLK_F4:
+                        case SDLK_F5:
+                        case SDLK_F6:
+                        case SDLK_F7:
+                        case SDLK_F8:
+                        case SDLK_F9:
+                        case SDLK_F10:
+                        case SDLK_F11:
+                        case SDLK_F12:
+                            {
+                                if (!down)
+                                {
+                                    uint32 index = event->key.keysym.sym - SDLK_F1 + 1;
+                                    if (event->key.keysym.mod & (KMOD_LSHIFT | KMOD_RSHIFT))
+                                        state->SaveState(index);
+                                    else
+                                        state->LoadState(index);
                                 }
 
                                 break;

@@ -283,6 +283,11 @@ bool System::LoadState(ByteStream *pStream, Error *pError)
     // Read state
     m_mode = (SYSTEM_MODE)binaryReader.ReadUInt8();
     m_frame_counter = binaryReader.ReadUInt32();
+    if (m_mode >= NUM_SYSTEM_MODES)
+    {
+        pError->SetErrorUserFormatted(1, "Corrupted save state.");
+        return false;
+    }
 
     // Read memory
     binaryReader.ReadBytes(m_memory_vram, sizeof(m_memory_vram));
