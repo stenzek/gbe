@@ -93,6 +93,15 @@ void System::Reset()
 void System::Step()
 {
     uint32 clocks = m_cpu->Step();
+
+    // This is possible to be zero in the case when the operation is done in registers.
+    if (clocks > 0)
+        StepOtherClocks(clocks);
+}
+
+void System::StepOtherClocks(uint32 clocks)
+{
+    // CPU clocks are always dividable by 4
     DebugAssert((clocks % 4) == 0);
 
     // Make each instruction take half as long in double-speed mode.

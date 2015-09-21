@@ -91,7 +91,7 @@ Log_SetChannel(CPU);
 #define SRA(dst, length, cycles) { Instruction::Type_SRA, dst, NoOperand(), length, cycles },
 #define SRL(dst, length, cycles) { Instruction::Type_SRL, dst, NoOperand(), length, cycles },
 #define DAA(length, cycles) { Instruction::Type_DAA, NoOperand(), NoOperand(), length, cycles },
-#define PREFIX() { Instruction::Type_Prefix },
+#define PREFIX() { Instruction::Type_Prefix, NoOperand(), NoOperand(), 1, 4 },
 
 const CPU::Instruction CPU::instructions[256] =
 {

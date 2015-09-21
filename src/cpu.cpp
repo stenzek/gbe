@@ -67,6 +67,42 @@ uint16 CPU::PopWord()
     return value;
 }
 
+#ifdef ACCURATE_MEMORY_TIMING
+
+void CPU::DelayForMemoryReadWrite(uint32 &cycles)
+{
+    // a memory access takes 4 clock cycles
+    cycles += 4;
+    m_system->StepOtherClocks(4);
+}
+
+#endif
+
+// uint8 CPU::TimedMemReadByte(uint32 &cycles, uint16 address)
+// {
+//     // read the value *after* the clock
+//     DelayForMemoryReadWrite(cycles);
+//     return m_system->CPURead(address);
+// }
+// 
+// uint16 CPU::TimedMemReadWord(uint32 &cycles, uint16 address)
+// {
+//     return (uint16)TimedMemReadByte(cycles, address) | ((uint16)TimedMemReadByte(cycles, address + 1) << 8);
+// }
+// 
+// void CPU::TimedMemWriteByte(uint32 &cycles, uint16 address, uint8 value)
+// {
+//     // write the value *after* the clock
+//     DelayForMemoryReadWrite(cycles);
+//     m_system->CPUWrite(address, value);
+// }
+// 
+// void CPU::TimedMemWriteWord(uint32 &cycles, uint16 address, uint16 value)
+// {
+//     TimedMemWriteByte(cycles, address, (uint8)(value & 0xFF));
+//     TimedMemWriteByte(cycles, address, (uint8)(value >> 8));
+// }
+
 void CPU::RaiseInterrupt(uint8 index)
 {
     DebugAssert(index < NUM_CPU_INT);
@@ -209,6 +245,7 @@ uint32 CPU::Step()
     }
 
     // fetch opcode
+    uint32 original_clocks = m_clock;
     uint16 original_pc = m_registers.PC;
     uint8 instruction_buffer[3] = { 0 };
     instruction_buffer[0] = MemReadByte(m_registers.PC++);
@@ -221,6 +258,7 @@ uint32 CPU::Step()
     {
         uint8 prefix = instruction_buffer[0];
         instruction_buffer[0] = MemReadByte(m_registers.PC++);
+
         switch (prefix)
         {
         case 0xCB:
@@ -453,6 +491,10 @@ uint32 CPU::Step()
                 UnreachableCode();
             }
 
+#ifdef ACCURATE_MEMORY_TIMING
+            DelayForMemoryReadWrite(m_clock);
+#endif
+
             // read memory
             m_registers.A = m_system->CPUReadIORegister(regnum);
             break;
@@ -475,6 +517,10 @@ uint32 CPU::Step()
             default:
                 UnreachableCode();
             }
+
+#ifdef ACCURATE_MEMORY_TIMING
+            DelayForMemoryReadWrite(m_clock);
+#endif
 
             // write memory
             m_system->CPUWriteIORegister(regnum, m_registers.A);
@@ -1372,6 +1418,12 @@ uint32 CPU::Step()
             if (m_system->InCGBMode())
                 m_system->SwitchCGBSpeed();
 
+#ifdef ACCURATE_MEMORY_TIMING
+            // For some reason, the parameter isn't actually read?
+            // All instruction manuals seem to say this takes 4 cycles,
+            // not 8, despite having a parameter.
+            m_clock -= 4;
+#endif
             break;
         }
 
@@ -1586,7 +1638,14 @@ uint32 CPU::Step()
 
     #undef get_imm8
     #undef get_imm16
+
+#ifdef ACCURATE_MEMORY_TIMING
+    uint32 diff_cycles = m_clock - original_clocks;
+    DebugAssert(diff_cycles <= cycles_consumed);
+    return cycles_consumed - diff_cycles;
+#else
     m_clock += cycles_consumed;
     return cycles_consumed;
+#endif
 }
 

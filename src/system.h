@@ -108,6 +108,9 @@ private:
     // CGB Speed Switch
     void SwitchCGBSpeed();
 
+    // execute other processors while the cpu is reading memory
+    void StepOtherClocks(uint32 clocks);
+
 private:
     void ResetMemory();
     void ResetTimer();
