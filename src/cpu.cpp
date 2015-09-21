@@ -180,6 +180,8 @@ bool CPU::TestPredicate(Instruction::Predicate condition)
 
 uint32 CPU::Step()
 {
+    uint32 original_clocks = m_clock;
+
     // interrupts enabled?
     if (m_registers.IME)
     {
@@ -215,8 +217,16 @@ uint32 CPU::Step()
                     PushWord(m_registers.PC);
                     m_registers.PC = jump_locations[i];
                     m_halted = false;
-                    //break;
+
+#ifdef ACCURATE_MEMORY_TIMING
+                    // interrupt takes 20 cycles total, 2 memory writes
+                    m_clock += 20 - 4 - 4;
+                    return 20 - 4 - 4;
+#else
+                    m_clock += 20;
                     return 20;
+#endif
+                    
                 }
             }
         }
@@ -245,7 +255,6 @@ uint32 CPU::Step()
     }
 
     // fetch opcode
-    uint32 original_clocks = m_clock;
     uint16 original_pc = m_registers.PC;
     uint8 instruction_buffer[3] = { 0 };
     instruction_buffer[0] = MemReadByte(m_registers.PC++);
