@@ -432,7 +432,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     BIT(0, Reg8(E), 2, 8)                               // 0x43 BIT 0,E
     BIT(0, Reg8(H), 2, 8)                               // 0x44 BIT 0,H
     BIT(0, Reg8(L), 2, 8)                               // 0x45 BIT 0,L
-    BIT(0, Mem16(HL), 2, 16)                            // 0x46 BIT 0,(HL)
+    BIT(0, Mem16(HL), 2, 12)                            // 0x46 BIT 0,(HL)
     BIT(0, Reg8(A), 2, 8)                               // 0x47 BIT 0,A
     BIT(1, Reg8(B), 2, 8)                               // 0x48 BIT 1,B
     BIT(1, Reg8(C), 2, 8)                               // 0x49 BIT 1,C
@@ -440,7 +440,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     BIT(1, Reg8(E), 2, 8)                               // 0x4B BIT 1,E
     BIT(1, Reg8(H), 2, 8)                               // 0x4C BIT 1,H
     BIT(1, Reg8(L), 2, 8)                               // 0x4D BIT 1,L
-    BIT(1, Mem16(HL), 2, 16)                            // 0x4E BIT 1,(HL)
+    BIT(1, Mem16(HL), 2, 12)                            // 0x4E BIT 1,(HL)
     BIT(1, Reg8(A), 2, 8)                               // 0x4F BIT 1,A
     BIT(2, Reg8(B), 2, 8)                               // 0x50 BIT 2,B
     BIT(2, Reg8(C), 2, 8)                               // 0x51 BIT 2,C
@@ -448,7 +448,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     BIT(2, Reg8(E), 2, 8)                               // 0x53 BIT 2,E
     BIT(2, Reg8(H), 2, 8)                               // 0x54 BIT 2,H
     BIT(2, Reg8(L), 2, 8)                               // 0x55 BIT 2,L
-    BIT(2, Mem16(HL), 2, 16)                            // 0x56 BIT 2,(HL)
+    BIT(2, Mem16(HL), 2, 12)                            // 0x56 BIT 2,(HL)
     BIT(2, Reg8(A), 2, 8)                               // 0x57 BIT 2,A
     BIT(3, Reg8(B), 2, 8)                               // 0x58 BIT 3,B
     BIT(3, Reg8(C), 2, 8)                               // 0x59 BIT 3,C
@@ -456,7 +456,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     BIT(3, Reg8(E), 2, 8)                               // 0x5B BIT 3,E
     BIT(3, Reg8(H), 2, 8)                               // 0x5C BIT 3,H
     BIT(3, Reg8(L), 2, 8)                               // 0x5D BIT 3,L
-    BIT(3, Mem16(HL), 2, 16)                            // 0x5E BIT 3,(HL)
+    BIT(3, Mem16(HL), 2, 12)                            // 0x5E BIT 3,(HL)
     BIT(3, Reg8(A), 2, 8)                               // 0x5F BIT 3,A
     BIT(4, Reg8(B), 2, 8)                               // 0x60 BIT 4,B
     BIT(4, Reg8(C), 2, 8)                               // 0x61 BIT 4,C
@@ -464,7 +464,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     BIT(4, Reg8(E), 2, 8)                               // 0x63 BIT 4,E
     BIT(4, Reg8(H), 2, 8)                               // 0x64 BIT 4,H
     BIT(4, Reg8(L), 2, 8)                               // 0x65 BIT 4,L
-    BIT(4, Mem16(HL), 2, 16)                            // 0x66 BIT 4,(HL)
+    BIT(4, Mem16(HL), 2, 12)                            // 0x66 BIT 4,(HL)
     BIT(4, Reg8(A), 2, 8)                               // 0x67 BIT 4,A
     BIT(5, Reg8(B), 2, 8)                               // 0x68 BIT 5,B
     BIT(5, Reg8(C), 2, 8)                               // 0x69 BIT 5,C
@@ -472,7 +472,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     BIT(5, Reg8(E), 2, 8)                               // 0x6B BIT 5,E
     BIT(5, Reg8(H), 2, 8)                               // 0x6C BIT 5,H
     BIT(5, Reg8(L), 2, 8)                               // 0x6D BIT 5,L
-    BIT(5, Mem16(HL), 2, 16)                            // 0x6E BIT 5,(HL)
+    BIT(5, Mem16(HL), 2, 12)                            // 0x6E BIT 5,(HL)
     BIT(5, Reg8(A), 2, 8)                               // 0x6F BIT 5,A
     BIT(6, Reg8(B), 2, 8)                               // 0x70 BIT 6,B
     BIT(6, Reg8(C), 2, 8)                               // 0x71 BIT 6,C
@@ -480,7 +480,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     BIT(6, Reg8(E), 2, 8)                               // 0x73 BIT 6,E
     BIT(6, Reg8(H), 2, 8)                               // 0x74 BIT 6,H
     BIT(6, Reg8(L), 2, 8)                               // 0x75 BIT 6,L
-    BIT(6, Mem16(HL), 2, 16)                            // 0x76 BIT 6,(HL)
+    BIT(6, Mem16(HL), 2, 12)                            // 0x76 BIT 6,(HL)
     BIT(6, Reg8(A), 2, 8)                               // 0x77 BIT 6,A
     BIT(7, Reg8(B), 2, 8)                               // 0x78 BIT 7,B
     BIT(7, Reg8(C), 2, 8)                               // 0x79 BIT 7,C
@@ -488,7 +488,7 @@ const CPU::Instruction CPU::cb_instructions[256] =
     BIT(7, Reg8(E), 2, 8)                               // 0x7B BIT 7,E
     BIT(7, Reg8(H), 2, 8)                               // 0x7C BIT 7,H
     BIT(7, Reg8(L), 2, 8)                               // 0x7D BIT 7,L
-    BIT(7, Mem16(HL), 2, 16)                            // 0x7E BIT 7,(HL)
+    BIT(7, Mem16(HL), 2, 12)                            // 0x7E BIT 7,(HL)
     BIT(7, Reg8(A), 2, 8)                               // 0x7F BIT 7,A
     RES(0, Reg8(B), 2, 8)                              // 0x80 RES 0,B
     RES(0, Reg8(C), 2, 8)                              // 0x81 RES 0,C
