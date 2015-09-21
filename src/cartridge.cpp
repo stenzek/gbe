@@ -181,8 +181,8 @@ bool Cartridge::ParseHeader(ByteStream *pStream, Error *pError)
     m_system_mode = SYSTEM_MODE_DMG;
     if (header.cgb_flag & 0x80)
         m_system_mode = SYSTEM_MODE_CGB;
-    else if (header.sgb_flag != 0x03)
-        m_system_mode = SYSTEM_MODE_SGB;
+    //else if (header.sgb_flag != 0x03)
+        //m_system_mode = SYSTEM_MODE_SGB;
     Log_InfoPrintf("  Detected system mode: %s", NameTable_GetNameString(NameTables::SystemMode, m_system_mode));
 
 //     // MBC2 mapper provides 512 bytes of 4-bit memory
