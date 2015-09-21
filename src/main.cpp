@@ -149,26 +149,14 @@ struct State : public System::CallbackInterface
     // Callback to present a frame
     virtual void PresentDisplayBuffer(const void *pixels, uint32 row_stride) override final
     {
-        const byte *pBytePixels = reinterpret_cast<const byte *>(pixels);
         SDL_Surface *write_surface = (offscreen_surface != nullptr) ? offscreen_surface : surface;
         if (SDL_MUSTLOCK(write_surface))
             SDL_LockSurface(write_surface);
 
-        for (uint32 y = 0; y < Display::SCREEN_HEIGHT; y++)
-        {
-            const byte *inLine = pBytePixels + (y * row_stride);
-            byte *outLine = (byte *)write_surface->pixels + (y * (uint32)write_surface->pitch);
-
-            for (uint32 x = 0; x < Display::SCREEN_WIDTH; x++)
-            {
-                outLine[0] = inLine[2];
-                outLine[1] = inLine[1];
-                outLine[2] = inLine[0];
-
-                inLine += 4;
-                outLine += 4;
-            }
-        }
+        if (row_stride == (uint32)write_surface->pitch)
+            Y_memcpy(write_surface->pixels, pixels, row_stride * Display::SCREEN_HEIGHT);
+        else
+            Y_memcpy_stride(write_surface->pixels, write_surface->pitch, pixels, row_stride, sizeof(uint32) * Display::SCREEN_WIDTH, Display::SCREEN_HEIGHT);
 
         if (offscreen_surface != nullptr)
         {
