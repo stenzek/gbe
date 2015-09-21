@@ -149,17 +149,16 @@ struct State : public System::CallbackInterface
     // Callback to present a frame
     virtual void PresentDisplayBuffer(const void *pixels, uint32 row_stride) override final
     {
-        SDL_Surface *write_surface = (offscreen_surface != nullptr) ? offscreen_surface : surface;
-        if (SDL_MUSTLOCK(write_surface))
-            SDL_LockSurface(write_surface);
-
-        if (row_stride == (uint32)write_surface->pitch)
-            Y_memcpy(write_surface->pixels, pixels, row_stride * Display::SCREEN_HEIGHT);
-        else
-            Y_memcpy_stride(write_surface->pixels, write_surface->pitch, pixels, row_stride, sizeof(uint32) * Display::SCREEN_WIDTH, Display::SCREEN_HEIGHT);
-
         if (offscreen_surface != nullptr)
         {
+            if (SDL_MUSTLOCK(offscreen_surface))
+                SDL_LockSurface(offscreen_surface);
+
+            if (row_stride == (uint32)offscreen_surface->pitch)
+                Y_memcpy(offscreen_surface->pixels, pixels, row_stride * Display::SCREEN_HEIGHT);
+            else
+                Y_memcpy_stride(offscreen_surface->pixels, offscreen_surface->pitch, pixels, row_stride, sizeof(uint32) * Display::SCREEN_WIDTH, Display::SCREEN_HEIGHT);
+
             if (SDL_MUSTLOCK(surface))
                 SDL_LockSurface(surface);
 
@@ -167,10 +166,31 @@ struct State : public System::CallbackInterface
 
             if (SDL_MUSTLOCK(surface))
                 SDL_UnlockSurface(surface);
-        }
 
-        if (SDL_MUSTLOCK(write_surface))
-            SDL_UnlockSurface(write_surface);
+            if (SDL_MUSTLOCK(offscreen_surface))
+                SDL_UnlockSurface(offscreen_surface);
+        }
+        else
+        {
+            if (SDL_MUSTLOCK(surface))
+                SDL_LockSurface(surface);
+
+            const byte *pBytePixels = reinterpret_cast<const byte *>(pixels);
+            for (uint32 y = 0; y < Display::SCREEN_HEIGHT; y++)
+            {
+                const byte *inLine = pBytePixels + (y * row_stride);
+                uint32 *outLine = (uint32 *)((byte *)surface->pixels + (y * (uint32)surface->pitch));
+
+                for (uint32 x = 0; x < Display::SCREEN_WIDTH; x++)
+                {
+                    *(outLine++) = SDL_MapRGB(surface->format, inLine[0], inLine[1], inLine[2]);
+                    inLine += 4;
+                }
+            }
+
+            if (SDL_MUSTLOCK(surface))
+                SDL_UnlockSurface(surface);
+        }
 
         SDL_UpdateWindowSurface(window);
     }
