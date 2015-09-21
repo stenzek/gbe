@@ -358,6 +358,13 @@ static void CleanupState(State *state)
     delete[] state->bios;
     delete state->cart;
     delete state->system;
+
+    if (state->offscreen_surface != nullptr)
+        SDL_FreeSurface(state->offscreen_surface);
+
+    if (state->audio_device_id != 0)
+        SDL_CloseAudioDevice(state->audio_device_id);
+
     if (state->window != nullptr)
         SDL_DestroyWindow(state->window);
 }
@@ -561,7 +568,7 @@ static int Run(State *state)
     }
 
     // pause audio
-    if (state->audio_device_id == 0)
+    if (state->audio_device_id != 0)
         SDL_PauseAudioDevice(state->audio_device_id, 1);
 
     return 0;
