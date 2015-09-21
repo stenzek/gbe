@@ -666,6 +666,12 @@ void Display::RenderScanline(uint8 LINE)
                 int32 tile_y = (int32)LINE - sprite_start_y;
                 DebugAssert(tile_x >= 0 && tile_x < 16 && tile_y >= 0 && tile_y < (int32)SPRITE_HEIGHT);
 
+                // handle flipped sprites
+                if (sprite->hflip)
+                    tile_x = 7 - tile_x;
+                if (sprite->vflip)
+                    tile_y = SPRITE_HEIGHT - tile_y;
+
                 // "In 8x16 mode, the lower bit of the tile number is ignored. Ie. the upper 8x8 tile is "NN AND FEh", and the lower 8x8 tile is "NN OR 01h"."
                 uint16 tile_index;
                 if (SPRITE_SIZE_BIT)
@@ -684,12 +690,6 @@ void Display::RenderScanline(uint8 LINE)
                 {
                     tile_index = sprite->tile;
                 }
-
-                // handle flipped sprites
-                if (sprite->hflip)
-                    tile_x = 15 - tile_x;
-                if (sprite->vflip)
-                    tile_y = SPRITE_HEIGHT - tile_y;
 
                 // get palette index
                 uint8 palette_index = ReadTile(0, 0, tile_index, (uint8)tile_x, (uint8)tile_y);
@@ -876,6 +876,12 @@ void Display::RenderScanline_CGB(uint8 LINE)
                 int32 tile_y = (int32)LINE - sprite_start_y;
                 DebugAssert(tile_x >= 0 && tile_x < 16 && tile_y >= 0 && tile_y < (int32)SPRITE_HEIGHT);
 
+                // handle flipped sprites
+                if (sprite->hflip)
+                    tile_x = 7 - tile_x;
+                if (sprite->vflip)
+                    tile_y = SPRITE_HEIGHT - tile_y;
+
                 // "In 8x16 mode, the lower bit of the tile number is ignored. Ie. the upper 8x8 tile is "NN AND FEh", and the lower 8x8 tile is "NN OR 01h"."
                 uint16 tile_index;
                 if (SPRITE_SIZE_BIT)
@@ -894,12 +900,6 @@ void Display::RenderScanline_CGB(uint8 LINE)
                 {
                     tile_index = sprite->tile;
                 }
-
-                // handle flipped sprites
-                if (sprite->hflip)
-                    tile_x = 15 - tile_x;
-                if (sprite->vflip)
-                    tile_y = SPRITE_HEIGHT - tile_y;
 
                 // get palette index
                 uint8 color_index = ReadTile(sprite->cgb_bank, 0, tile_index, (uint8)tile_x, (uint8)tile_y);
