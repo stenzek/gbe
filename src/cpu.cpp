@@ -135,8 +135,9 @@ bool CPU::LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pErr
     m_registers.IME = binaryReader.ReadBool();
     m_registers.IE = binaryReader.ReadUInt8();
     m_registers.IF = binaryReader.ReadUInt8();
-    m_halted = binaryReader.ReadBool();
     m_clock = binaryReader.ReadUInt32();
+    m_halted = binaryReader.ReadBool();
+    m_disabled = binaryReader.ReadBool();
     return true;
 }
 
@@ -156,8 +157,9 @@ void CPU::SaveState(ByteStream *pStream, BinaryWriter &binaryWriter)
     binaryWriter.WriteBool(m_registers.IME);
     binaryWriter.WriteUInt8(m_registers.IE);
     binaryWriter.WriteUInt8(m_registers.IF);
-    binaryWriter.WriteBool(m_halted);
     binaryWriter.WriteUInt32(m_clock);
+    binaryWriter.WriteBool(m_halted);
+    binaryWriter.WriteBool(m_disabled);
 }
 
 bool CPU::TestPredicate(Instruction::Predicate condition)

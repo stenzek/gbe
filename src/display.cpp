@@ -227,6 +227,7 @@ bool Display::LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *
     // Read state
     m_state = (DISPLAY_STATE)binaryReader.ReadUInt8();
     m_modeClocksRemaining = binaryReader.ReadUInt32();
+    m_HDMATransferClocksRemaining = binaryReader.ReadUInt32();
     m_cyclesSinceVBlank = binaryReader.ReadUInt32();
     m_currentScanLine = binaryReader.ReadUInt8();
     return true;
@@ -261,6 +262,7 @@ void Display::SaveState(ByteStream *pStream, BinaryWriter &binaryWriter)
     // Write state
     binaryWriter.WriteUInt8((uint8)m_state);
     binaryWriter.WriteUInt32(m_modeClocksRemaining);
+    binaryWriter.WriteUInt32(m_HDMATransferClocksRemaining);
     binaryWriter.WriteUInt32(m_cyclesSinceVBlank);
     binaryWriter.WriteUInt8(m_currentScanLine);
 }
