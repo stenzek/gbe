@@ -64,19 +64,14 @@ uint8 Display::CPUReadRegister(uint8 index) const
         switch (index)
         {
         case DISPLAY_REG_HDMA1:
-            Log_WarningPrintf("HDMA1 read");
             return m_registers.HDMA1;
         case DISPLAY_REG_HDMA2:
-            Log_WarningPrintf("HDMA2 read");
             return m_registers.HDMA2;
         case DISPLAY_REG_HDMA3:
-            Log_WarningPrintf("HDMA3 read");
             return m_registers.HDMA3;
         case DISPLAY_REG_HDMA4:
-            Log_WarningPrintf("HDMA4 read");
             return m_registers.HDMA4;
         case DISPLAY_REG_HDMA5:
-            Log_WarningPrintf("HDMA5 read");
             return m_registers.HDMA5;
         case DISPLAY_REG_BGPI:
             return m_registers.BGPI;
@@ -409,8 +404,11 @@ void Display::SetHDMA5Register(uint8 value)
         // Canceling HBlank transfer?
         if (old_value & 0x80)
         {
-            Log_WarningPrintf("Cancelling HBLANK HDMA transfer");
-            return;
+            uint32 old_remaining = uint32((old_value & 0x7F) + 1) * 0x10;
+            uint32 remaining = uint32((m_registers.HDMA5 & 0x7F) + 1) * 0x10;
+            Log_WarningPrintf("Cancelling HBLANK HDMA transfer (remaining: 0x%03X/%u bytes)", remaining);
+            if (old_remaining != remaining)
+                Log_WarningPrintf("  Amounts differ (0x%03X vs 0x%03X)", old_remaining, remaining);
         }
 
         // Copy the memory right now.
@@ -434,7 +432,7 @@ void Display::ExecuteHDMATransferBlock(uint32 bytes)
     uint16 current_destination_address = (destination_address & 0x1FFF);
 
     // check address range
-    Log_DevPrintf("HDMA transfer 0x%04X -> 0x%04X 0x%03X (%u) bytes", source_address, destination_address, bytes, bytes);
+    Log_DevPrintf("HDMA transfer 0x%04X -> 0x%04X 0x%03X (%u) bytes", source_address, destination_address, copy_length, copy_length);
     if ((source_address > 0x7FF0 && source_address < 0xA000) || source_address > 0xDFF0)
         Log_WarningPrintf("Source address out of range (0x%04X)", source_address);
     
