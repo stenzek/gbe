@@ -1255,7 +1255,7 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                     return;
 
                 case 0x0D:      // FF4D - KEY1 - CGB Mode Only - Prepare Speed Switch
-                    m_cgb_speed_switch |= (value & 0x01);
+                    m_cgb_speed_switch = (m_cgb_speed_switch & 0xFE) | (value & 0x01);
                     return;
                 }
 
