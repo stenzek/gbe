@@ -29,6 +29,7 @@ void CPU::Reset()
     m_registers.IME = true;
     m_clock = 0;
     m_halted = false;
+    m_disabled = false;
 }
 
 void CPU::Push(uint8 value)
@@ -112,6 +113,12 @@ void CPU::RaiseInterrupt(uint8 index)
     m_halted = false;
 }
 
+void CPU::Disable(bool disabled)
+{
+    Log_DevPrintf("CPU disable: %s", (disabled) ? "enabled" : "disabled");
+    m_disabled = disabled;
+}
+
 bool CPU::LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError)
 {
     // Read registers
@@ -181,6 +188,13 @@ bool CPU::TestPredicate(Instruction::Predicate condition)
 uint32 CPU::Step()
 {
     uint32 original_clocks = m_clock;
+
+    // cpu disabled for memory transfer?
+    if (m_disabled)
+    {
+        // keep other subsystems running, don't advance the instruction clock
+        return 4;
+    }
 
     // interrupts enabled?
     if (m_registers.IME)

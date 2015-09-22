@@ -10,6 +10,15 @@
 #include "YBaseLib/Error.h"
 Log_SetChannel(Display);
 
+static uint32 CalculateHDMATransferCycles(uint32 length)
+{
+    // 32 cycles per 16 bytes?
+    // that's two clocks per byte, HDMA is faster than normal
+    // memory reads (4 cycles per byte), so sounds right.
+    DebugAssert((length % 16) == 0);
+    return (length / 0x10) * 32;
+}
+
 Display::Display(System *memory)
     : m_system(memory)
     , m_frameReady(false)
@@ -55,14 +64,19 @@ uint8 Display::CPUReadRegister(uint8 index) const
         switch (index)
         {
         case DISPLAY_REG_HDMA1:
+            Log_WarningPrintf("HDMA1 read");
             return m_registers.HDMA1;
         case DISPLAY_REG_HDMA2:
+            Log_WarningPrintf("HDMA2 read");
             return m_registers.HDMA2;
         case DISPLAY_REG_HDMA3:
+            Log_WarningPrintf("HDMA3 read");
             return m_registers.HDMA3;
         case DISPLAY_REG_HDMA4:
+            Log_WarningPrintf("HDMA4 read");
             return m_registers.HDMA4;
         case DISPLAY_REG_HDMA5:
+            Log_WarningPrintf("HDMA5 read");
             return m_registers.HDMA5;
         case DISPLAY_REG_BGPI:
             return m_registers.BGPI;
@@ -135,7 +149,7 @@ void Display::CPUWriteRegister(uint8 index, uint8 value)
             m_registers.HDMA4 = value;
             return;
         case DISPLAY_REG_HDMA5:
-            m_registers.HDMA5 = value;
+            SetHDMA5Register(value);
             return;
         case DISPLAY_REG_BGPI:
             m_registers.BGPI = value;
@@ -176,6 +190,7 @@ void Display::Reset()
 
     // start at the end of vblank which is equal to starting fresh
     m_modeClocksRemaining = 0;
+    m_HDMATransferClocksRemaining = 0;
     m_cyclesSinceVBlank = 0;
     m_currentScanLine = 0;
     SetState(DISPLAY_STATE_OAM_READ);
@@ -272,6 +287,10 @@ void Display::SetState(DISPLAY_STATE state)
             // Fire interrupt
             if (m_registers.STAT & (1 << 3))
                 m_system->CPUInterruptRequest(CPU_INT_LCDSTAT);
+
+            // HDMA transfer pending?
+            if (m_registers.HDMA5 & (1 << 7))
+                ExecuteHDMATransferBlock(0x10);
 
             break;
         }
@@ -376,8 +395,95 @@ void Display::SetLYRegister(uint8 value)
         m_system->CPUInterruptRequest(CPU_INT_LCDSTAT);    
 }
 
+void Display::SetHDMA5Register(uint8 value)
+{
+    uint8 old_value = m_registers.HDMA5;
+    m_registers.HDMA5 = value;
+
+    // Starting general purpose DMA transfer?
+    uint8 mode = value >> 7;
+    if (mode == 0)
+    {
+        // Canceling HBlank transfer?
+        if (old_value & 0x80)
+        {
+            Log_WarningPrintf("Cancelling HBLANK HDMA transfer");
+            return;
+        }
+
+        // Copy the memory right now.
+        ExecuteHDMATransferBlock(0x800);
+    }
+}
+
+void Display::ExecuteHDMATransferBlock(uint32 bytes)
+{
+    uint16 source_address = (uint16(m_registers.HDMA1) << 8) | uint16(m_registers.HDMA2);
+    uint16 destination_address = (uint16(m_registers.HDMA3) << 8) | uint16(m_registers.HDMA4);
+    byte *vram = m_system->GetVRAM(m_system->GetActiveCPUVRAMBank());
+
+    // Writing to FF55 starts the transfer, the lower 7 bits of FF55 specify the Transfer Length (divided by 10h, minus 1). Ie. lengths of 10h-800h bytes can be defined by the values 00h-7Fh. 
+    uint32 length = uint32((m_registers.HDMA5 & 0x7F) + 1) * 0x10;
+    uint32 copy_length = Min(length, bytes);
+
+    // The Source Start Address may be located at 0000-7FF0 or A000-DFF0, the lower four bits of the address are ignored (treated as zero). 
+    // The Destination Start Address may be located at 8000-9FF0, the lower four bits of the address are ignored (treated as zero), the upper 3 bits are ignored either (destination is always in VRAM).
+    uint16 current_source_address = (source_address & 0xFFF0);
+    uint16 current_destination_address = (destination_address & 0x1FFF);
+
+    // check address range
+    Log_DevPrintf("HDMA transfer 0x%04X -> 0x%04X 0x%03X (%u) bytes", source_address, destination_address, bytes, bytes);
+    if ((source_address > 0x7FF0 && source_address < 0xA000) || source_address > 0xDFF0)
+        Log_WarningPrintf("Source address out of range (0x%04X)", source_address);
+    
+    // transfer bytes
+    for (uint32 i = 0; i < copy_length; i++)
+    {
+        DebugAssert(current_destination_address < 0x2000);
+        vram[current_destination_address++] = m_system->CPURead(current_source_address++);
+    }
+
+    // update registers with addresses
+    source_address += (uint16)copy_length;
+    destination_address += (uint16)copy_length;
+    m_registers.HDMA1 = (source_address >> 8);
+    m_registers.HDMA2 = source_address & 0xFF;
+    m_registers.HDMA3 = (destination_address >> 8);
+    m_registers.HDMA4 = destination_address & 0xFF;
+
+    // update remaining bytes
+    uint32 remaining = length - copy_length;
+    m_registers.HDMA5 = (m_registers.HDMA5 & 0x80) | uint8((remaining / 0x10) - 1);
+    if (remaining == 0)
+    {
+        // transfer done, clear bit 7
+        m_registers.HDMA5 &= 0x7F;
+    }
+
+    // calculate how many cycles we need to block the cpu for
+    m_HDMATransferClocksRemaining = CalculateHDMATransferCycles(copy_length);
+    m_system->DisableCPU(true);
+}
+
 void Display::ExecuteFor(uint32 cpuCycles)
 {
+    // Handle HDMA transfers blocking of cpu.
+    // This would be better placed elsewhere.
+    if (m_HDMATransferClocksRemaining > 0)
+    {
+        if (cpuCycles >= m_HDMATransferClocksRemaining)
+        {
+            // Re-enable the CPU.
+            m_system->DisableCPU(false);
+            m_HDMATransferClocksRemaining = 0;
+        }
+        else
+        {
+            // Still going.
+            m_HDMATransferClocksRemaining -= cpuCycles;
+        }
+    }
+
     // Don't do anything if we're disabled.
     if (!(m_registers.LCDC & (1 << 7)))
         return;

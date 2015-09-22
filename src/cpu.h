@@ -196,6 +196,9 @@ private:
     // raise interrupt
     void RaiseInterrupt(uint8 index);
 
+    // halt cycles
+    void Disable(bool disabled);
+
     // state saving
     bool LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError);
     void SaveState(ByteStream *pStream, BinaryWriter &binaryWriter);
@@ -211,6 +214,9 @@ private:
 
     // halted, waiting for interrupt
     bool m_halted;
+
+    // halted during memory transfer, cannot break out of this
+    bool m_disabled;
 
 public:
 

@@ -99,8 +99,13 @@ private:
     void SetOAMLock(bool locked) { m_oamLocked = locked; }
 
     // vram access from gpu
+    const uint8 GetActiveCPUVRAMBank() const { return m_vram_bank; }
     const byte *GetVRAM(size_t bank) const { return m_memory_vram[bank]; }
+    byte *GetVRAM(size_t bank) { return m_memory_vram[bank]; }
     void SetVRAMLock(bool locked) { m_vramLocked = locked; }
+
+    // disable cpu
+    void DisableCPU(bool disabled);
 
     // OAM DMA Transfer
     void DMATransfer(uint16 source_address, uint16 destination_address, uint32 bytes);

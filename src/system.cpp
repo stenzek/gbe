@@ -446,6 +446,11 @@ bool System::SaveState(ByteStream *pStream)
     return true;
 }
 
+void System::DisableCPU(bool disabled)
+{
+    m_cpu->Disable(disabled);
+}
+
 void System::DMATransfer(uint16 source_address, uint16 destination_address, uint32 bytes)
 {
     // slow but due to the ranges has to be done this awy

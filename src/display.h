@@ -72,6 +72,7 @@ private:
     void SetState(DISPLAY_STATE state);
     void SetLCDCRegister(uint8 value);
     void SetLYRegister(uint8 value);
+    void SetHDMA5Register(uint8 value);
 
     // state saving
     bool LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError);
@@ -85,6 +86,9 @@ private:
     uint8 ReadTile(uint8 bank, bool high_tileset, int32 tile, uint8 x, uint8 y) const;
     uint32 ReadCGBPalette(const uint8 *palette, uint8 palette_index, uint8 color_index) const;
 
+    // HDMA transfer
+    void ExecuteHDMATransferBlock(uint32 bytes);
+
     System *m_system;
 
     // registers - use a struct here?
@@ -97,6 +101,7 @@ private:
     // state
     DISPLAY_STATE m_state;
     uint32 m_modeClocksRemaining;
+    uint32 m_HDMATransferClocksRemaining;
     uint32 m_cyclesSinceVBlank;
     uint8 m_currentScanLine;
     
