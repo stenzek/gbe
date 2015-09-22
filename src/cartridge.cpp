@@ -367,7 +367,10 @@ bool Cartridge::MBC_NONE_Init()
 
     // create external ram
     if (m_external_ram_size > 0)
+    {
         m_external_ram = new byte[m_external_ram_size];
+        Y_memzero(m_external_ram, m_external_ram_size);
+    }
 
     MBC_NONE_Reset();
     return true;
@@ -375,8 +378,7 @@ bool Cartridge::MBC_NONE_Init()
 
 void Cartridge::MBC_NONE_Reset()
 {
-    if (m_external_ram != nullptr)
-        Y_memzero(m_external_ram, sizeof(m_external_ram));
+
 }
 
 uint8 Cartridge::MBC_NONE_Read(uint16 address)
@@ -451,7 +453,10 @@ bool Cartridge::MBC_MBC1_Init()
 {
     // create external ram
     if (m_external_ram_size > 0)
+    {
         m_external_ram = new byte[m_external_ram_size];
+        Y_memzero(m_external_ram, m_external_ram_size);
+    }
 
     MBC_MBC1_Reset();
     return true;
@@ -459,9 +464,6 @@ bool Cartridge::MBC_MBC1_Init()
 
 void Cartridge::MBC_MBC1_Reset()
 {
-    if (m_external_ram != nullptr)
-        Y_memzero(m_external_ram, sizeof(m_external_ram));
-
     m_mbc_data.mbc1.ram_enable = false;
     m_mbc_data.mbc1.bank_mode = 0;
     m_mbc_data.mbc1.rom_bank_number = 1;
@@ -609,7 +611,10 @@ bool Cartridge::MBC_MBC3_Init()
 {
     // create external ram
     if (m_external_ram_size > 0)
+    {
         m_external_ram = new byte[m_external_ram_size];
+        Y_memzero(m_external_ram, m_external_ram_size);
+    }
 
     MBC_MBC3_Reset();
     return true;
@@ -617,9 +622,6 @@ bool Cartridge::MBC_MBC3_Init()
 
 void Cartridge::MBC_MBC3_Reset()
 {
-    if (m_external_ram != nullptr)
-        Y_memzero(m_external_ram, sizeof(m_external_ram));
-
     m_mbc_data.mbc3.rom_bank_number = 1;
     m_mbc_data.mbc3.ram_bank_number = 0;
     m_mbc_data.mbc3.ram_rtc_enable = false;
@@ -764,7 +766,10 @@ bool Cartridge::MBC_MBC5_Init()
 {
     // create external ram
     if (m_external_ram_size > 0)
+    {
         m_external_ram = new byte[m_external_ram_size];
+        Y_memzero(m_external_ram, m_external_ram_size);
+    }
 
     MBC_MBC5_Reset();
     return true;
@@ -772,9 +777,6 @@ bool Cartridge::MBC_MBC5_Init()
 
 void Cartridge::MBC_MBC5_Reset()
 {
-    if (m_external_ram != nullptr)
-        Y_memzero(m_external_ram, sizeof(m_external_ram));
-
     m_mbc_data.mbc5.rom_bank_number = 1;
     m_mbc_data.mbc5.ram_bank_number = 0;
     m_mbc_data.mbc5.ram_enable = false;

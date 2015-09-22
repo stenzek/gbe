@@ -534,6 +534,16 @@ static int Run(State *state)
 
                                 break;
                             }
+
+                        case SDLK_PAUSE:
+                            {
+                                if (!down)
+                                {
+                                    Log_DevPrintf("Resetting system.");
+                                    state->system->Reset();
+                                }
+                                break;
+                            }
                         }
 
                         break;
