@@ -147,7 +147,7 @@ void Display::CPUWriteRegister(uint8 index, uint8 value)
             {
                 m_cgb_bg_palette[m_registers.BGPI & 0x3F] = value;
                 if (m_registers.BGPI & 0x80)
-                    m_registers.BGPI = 0x80 | ((m_registers.BGPI & 0x7F) + 1) & 0x7F;
+                    m_registers.BGPI = 0x80 | ((m_registers.BGPI + 1) & 0x3F);
 
                 return;
             }
@@ -155,7 +155,7 @@ void Display::CPUWriteRegister(uint8 index, uint8 value)
             {
                 m_cgb_sprite_palette[m_registers.OBPI & 0x3F] = value;
                 if (m_registers.OBPI & 0x80)
-                    m_registers.OBPI = 0x80 | ((m_registers.OBPI & 0x7F) + 1) & 0x7F;
+                    m_registers.OBPI = 0x80 | ((m_registers.OBPI + 1) & 0x3F);
 
                 return;
             }
@@ -992,12 +992,14 @@ void Display::RenderFull()
     PushFrame();
 }
 
-void Display::DumpTiles()
+void Display::DumpTiles(uint8 tilemap)
 {
     uint8 LCDC = m_registers.LCDC;
     const byte *VRAM = m_system->GetVRAM(0);
+    const byte *VRAM1 = m_system->GetVRAM(1);
     uint8 BG_ENABLE = !!(LCDC & 0x01);
-    uint16 BGMAPBASE = (LCDC & 0x08) ? 0x1C00 : 0x1800;
+    uint16 BGMAPBASE = (tilemap) ? 0x1C00 : 0x1800;
+    Log_DevPrintf("BGMAPBASE = %04X", BGMAPBASE);
 
     if (BG_ENABLE)
     {
@@ -1010,7 +1012,9 @@ void Display::DumpTiles()
             for (uint32 gx = 0; gx < 32; gx++)
             {
                 int8 id = (int8)VRAM[BGMAPBASE + gy * 32 + gx];
-                msg.AppendFormattedString("%d, ", id);
+                uint8 flags = VRAM1[BGMAPBASE + gy * 32 + gx];
+                uint8 palette = flags & 0x7;
+                msg.AppendFormattedString("%d (p%u), ", (int)id, (uint32)palette);
             }
             Log_DevPrint(msg);
         }

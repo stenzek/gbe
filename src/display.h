@@ -65,7 +65,7 @@ private:
     void RenderScanline(uint8 LINE);
     void RenderScanline_CGB(uint8 LINE);
     void RenderFull();
-    void DumpTiles();
+    void DumpTiles(uint8 tilemap);
     void DisplayTiles();
     void PushFrame();
 
