@@ -261,7 +261,7 @@ static bool ParseArguments(int argc, char *argv[], ProgramArgs *out_args)
     out_args->bios_filename = nullptr;
     out_args->cart_filename = nullptr;
     out_args->disable_bios = false;
-    out_args->permissive_memory = false;
+    out_args->permissive_memory = true;
 
     for (int i = 1; i < argc; i++)
     {
@@ -281,6 +281,10 @@ static bool ParseArguments(int argc, char *argv[], ProgramArgs *out_args)
         else if (CHECK_ARG("-permissivememory"))
         {
             out_args->permissive_memory = true;
+        }
+        else if (CHECK_ARG("-nopermissivememory"))
+        {
+            out_args->permissive_memory = false;
         }
         else
         {
