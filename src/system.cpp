@@ -1061,7 +1061,7 @@ uint8 System::CPUReadIORegister(uint8 index) const
             {
                 switch (index & 0x0F)
                 {
-                case 0x70:      // FF70 - SVBK - CGB Mode Only - WRAM Bank
+                case 0x00:      // FF70 - SVBK - CGB Mode Only - WRAM Bank
                     return (InCGBMode()) ? m_high_wram_bank : 0x00;
                 }
 
@@ -1299,6 +1299,11 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                 {
                 case 0x00:      // FF70 - SVBK - CGB Mode Only - WRAM Bank
                     m_high_wram_bank = value & 0x03;
+
+                    // Writing a value of 01h-07h will select Bank 1-7, writing a value of 00h will select Bank 1 either.
+                    if (m_high_wram_bank == 0)
+                        m_high_wram_bank = 1;
+
                     return;
                 }
 
