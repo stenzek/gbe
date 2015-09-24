@@ -110,7 +110,7 @@ void System::StepOtherClocks(uint32 clocks)
 
     // Handle memory locking for OAM transfers [affected by double speed]
     if (m_memory_locked_cycles > 0)
-        m_memory_locked_cycles = (clocks > m_memory_locked_cycles) ? 0 : (clocks - slow_speed_clocks);
+        m_memory_locked_cycles = (clocks > m_memory_locked_cycles) ? 0 : (m_memory_locked_cycles - clocks);
 
     // Simulate display [not affected by double speed]
     m_display->ExecuteFor(slow_speed_clocks);
@@ -494,6 +494,7 @@ void System::ResetMemory()
     Y_memzero(m_memory_wram, sizeof(m_memory_wram));
     Y_memzero(m_memory_oam, sizeof(m_memory_oam));
     Y_memzero(m_memory_zram, sizeof(m_memory_zram));
+    Y_memzero(m_memory_ioreg, sizeof(m_memory_ioreg));
 
     // pad
     m_pad_row_select = 0;
@@ -1078,7 +1079,8 @@ uint8 System::CPUReadIORegister(uint8 index) const
     }
 
     Log_WarningPrintf("Unhandled CPU IO register read: 0x%02X", index);
-    return 0x00;
+    //return 0x00;
+    return m_memory_ioreg[index];
 }
 
 void System::CPUWriteIORegister(uint8 index, uint8 value)
@@ -1321,6 +1323,7 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
     }
 
     Log_WarningPrintf("Unhandled CPU IO register write: 0x%02X (value 0x%02X)", index, value);
+    m_memory_ioreg[index] = value;
 }
 
 void System::CPUInterruptRequest(uint8 index)

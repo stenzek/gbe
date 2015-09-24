@@ -370,6 +370,7 @@ void Display::SetLCDCRegister(uint8 value)
             m_system->SetOAMLock(false);
 
             // Clear the framebuffer, and update display.
+            Log_DevPrintf("Display disabled.");
             m_frameReady = true;
             ClearFrameBuffer();
             PushFrame();
@@ -377,6 +378,7 @@ void Display::SetLCDCRegister(uint8 value)
         else
         {
             // Reset back to original state (is this correct behavior?)
+            Log_DevPrintf("Display enabled.");
             //m_currentScanLine = 0;
             //m_cyclesSinceVBlank = 0;
             //SetState(DISPLAY_STATE_OAM_READ);
@@ -1057,7 +1059,7 @@ void Display::PushFrame()
         m_system->m_callbacks->PresentDisplayBuffer(m_frameBuffer, SCREEN_WIDTH * 4);
 
     m_system->m_frame_counter++;
-    Log_DevPrintf("SCX: %u, SCY: %u", m_registers.SCX, m_registers.SCY);
+    //Log_DevPrintf("SCX: %u, SCY: %u", m_registers.SCX, m_registers.SCY);
 
     //static Timer timer;
     //Log_DevPrintf("Time since last vblank: %.4f ms", timer.GetTimeMilliseconds());

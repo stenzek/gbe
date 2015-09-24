@@ -51,7 +51,7 @@ static const char *MBC_NAME_STRINGS[NUM_MBC_TYPES] =
     "MBC_MBC5",
     "MBC_MMM01",
 };
-static const uint32 CART_EXTERNAL_RAM_SIZES[4] = { 0, 2048 /* 2KB */, 8192 /* 8KB */, 32768 /* 32KB */ };
+static const uint32 CART_EXTERNAL_RAM_SIZES[6] = { 0, 2048 /* 2KB */, 8192 /* 8KB */, 32768 /* 32KB */, 65536 /* 64KB */, 131072 /* 128KB */ };
 static const uint32 CART_ROM_BANK_COUNT[][2] =
 {
     { 0x00, 2 }, // no rom banks

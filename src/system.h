@@ -148,6 +148,7 @@ private:
     byte m_memory_wram[8][0x1000];      // 8 banks of 4KB each in CGB mode
     byte m_memory_oam[0xFF];
     byte m_memory_zram[127];
+    byte m_memory_ioreg[256];
     uint8 m_vram_bank;
     uint8 m_high_wram_bank;
 
