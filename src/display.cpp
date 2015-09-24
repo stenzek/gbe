@@ -359,6 +359,7 @@ void Display::SetLCDCRegister(uint8 value)
                 Log_WarningPrintf("LCD display turned off whilst out of vblank state. This may damage a real DMG.");
 
                 // Set to vblank mode (since the rom is misbehaving)
+                m_cyclesSinceVBlank = 65664;
                 m_currentScanLine = 144;
                 SetState(DISPLAY_STATE_VBLANK);
                 SetLYRegister(m_currentScanLine);

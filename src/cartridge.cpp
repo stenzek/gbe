@@ -594,7 +594,7 @@ void Cartridge::MBC_MBC1_UpdateActiveBanks()
 
     // "But (when using the register below to specify the upper ROM Bank bits), the same happens for Bank 20h, 40h, and 60h. Any attempt to address these ROM Banks will select Bank 21h, 41h, and 61h instead."
     if (m_mbc_data.mbc1.active_rom_bank == 0x00 || m_mbc_data.mbc1.active_rom_bank == 0x20 || m_mbc_data.mbc1.active_rom_bank == 0x40 || m_mbc_data.mbc1.active_rom_bank == 0x60)
-        m_mbc_data.mbc1.active_ram_bank++;
+        m_mbc_data.mbc1.active_rom_bank++;
 
     // check ranges
     if (m_mbc_data.mbc1.active_rom_bank >= m_num_rom_banks)

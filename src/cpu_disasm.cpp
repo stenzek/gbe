@@ -77,7 +77,7 @@ bool CPU::Disassemble(String *pDestination, System *memory, uint16 address)
         return true;
 
     case 0x06:
-        pDestination->Format("%04X 06       LD B,n", address);
+        pDestination->Format("%04X 06       LD B, $%02X", address, imm8);
         return true;
 
     case 0x07:

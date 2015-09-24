@@ -592,6 +592,7 @@ static int Run(State *state)
 extern "C" int main(int argc, char *argv[])
 {
     // set log flags
+    //g_pLog->SetConsoleOutputParams(true, nullptr, LOGLEVEL_TRACE);
     g_pLog->SetConsoleOutputParams(true, nullptr, LOGLEVEL_PROFILE);
     //g_pLog->SetConsoleOutputParams(true, "CPU System");
     //g_pLog->SetDebugOutputParams(true);
