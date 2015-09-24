@@ -245,7 +245,7 @@ bool CPU::Disassemble(String *pDestination, System *memory, uint16 address)
         return true;
 
     case 0x30:
-        pDestination->Format("%04X 30       JR NC,n", address);
+        pDestination->Format("%04X 30       JR NC, %d", address, (int8)imm8);
         return true;
 
     case 0x31:

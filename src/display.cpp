@@ -347,7 +347,7 @@ void Display::SetLCDCRegister(uint8 value)
 {
     // handle switching LCD on/off
     bool lcd_current_state = !!(m_registers.LCDC >> 7);
-    bool lcd_new_state = !!(m_registers.LCDC >> 7);
+    bool lcd_new_state = !!(value >> 7);
     if (lcd_current_state != lcd_new_state)
     {
         // Turning off LCD?
@@ -370,6 +370,7 @@ void Display::SetLCDCRegister(uint8 value)
         {
             // Reset back to original state (is this correct behavior?)
             m_currentScanLine = 0;
+            m_cyclesSinceVBlank = 0;
             SetState(DISPLAY_STATE_OAM_READ);
             SetLYRegister(0);
         }
@@ -485,8 +486,8 @@ void Display::ExecuteFor(uint32 cpuCycles)
     }
 
     // Don't do anything if we're disabled.
-    if (!(m_registers.LCDC & (1 << 7)))
-        return;
+    //if (!(m_registers.LCDC & (1 << 7)))
+        //return;
 
     // Execute as much time as we can.
     while (cpuCycles > 0)
@@ -1048,6 +1049,7 @@ void Display::PushFrame()
         m_system->m_callbacks->PresentDisplayBuffer(m_frameBuffer, SCREEN_WIDTH * 4);
 
     m_system->m_frame_counter++;
+    Log_DevPrintf("SCX: %u, SCY: %u", m_registers.SCX, m_registers.SCY);
 
     //static Timer timer;
     //Log_DevPrintf("Time since last vblank: %.4f ms", timer.GetTimeMilliseconds());
