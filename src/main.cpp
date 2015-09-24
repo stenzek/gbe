@@ -43,7 +43,7 @@ struct State : public System::CallbackInterface
     void SetSaveStatePrefix(const char *cartridge_file_name)
     {
         const char *last_part = Y_strrchr(cartridge_file_name, '/');
-        if (last_part == nullptr || Y_strrchr(cartridge_file_name, '\\') < last_part)
+        if (last_part == nullptr || Y_strrchr(cartridge_file_name, '\\') > last_part)
             last_part = Y_strrchr(cartridge_file_name, '\\');
         if (last_part != nullptr)
             last_part++;

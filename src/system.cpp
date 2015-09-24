@@ -837,7 +837,7 @@ void System::CPUWrite(uint16 address, uint8 value)
                     }
                     else if (address >= 0xFEA0)
                     {
-                        Log_WarningPrintf("Out-of-range write of OAM address 0x04X (value 0x%02X)", address, value);
+                        Log_WarningPrintf("Out-of-range write of OAM address 0x%04X (value 0x%02X)", address, value);
                         return;
                     }
 
