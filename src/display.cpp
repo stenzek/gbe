@@ -370,7 +370,7 @@ void Display::SetLCDCRegister(uint8 value)
             m_system->SetOAMLock(false);
 
             // Clear the framebuffer, and update display.
-            Log_DevPrintf("Display disabled.");
+            TRACE("Display disabled.");
             m_frameReady = true;
             ClearFrameBuffer();
             PushFrame();
@@ -378,7 +378,7 @@ void Display::SetLCDCRegister(uint8 value)
         else
         {
             // Reset back to original state (is this correct behavior?)
-            Log_DevPrintf("Display enabled.");
+            TRACE("Display enabled.");
             //m_currentScanLine = 0;
             //m_cyclesSinceVBlank = 0;
             //SetState(DISPLAY_STATE_OAM_READ);
@@ -965,12 +965,10 @@ void Display::RenderScanline_CGB(uint8 LINE)
 
             // check bg priority. if set, skip the obj (it's in front)
             bg_priority = ((flags >> 7) & 0x01) & BG_PRIORITY;
-            if (bg_priority != 0)
-                continue;
         }
 
         // sprites on?
-        if (SPRITE_ENABLE)
+        if (SPRITE_ENABLE && bg_priority == 0)
         {
             // find the first sprite with an x range including this pixel
             for (uint32 sprite_index = 0; sprite_index < num_active_sprites; sprite_index++)
@@ -1078,27 +1076,35 @@ void Display::DisplayTiles()
 
     Y_memzero(m_frameBuffer, sizeof(m_frameBuffer));
 
-    for (uint32 tile = 0; tile < 192; tile++)
+    for (uint32 bank = 0; bank < 2; bank++)
     {
-        for (uint8 y = 0; y < 8; y++)
+        for (uint32 tile = 0; tile < 192; tile++)
         {
-            for (uint8 x = 0; x < 8; x++)
+            for (uint8 y = 0; y < 8; y++)
             {
-                uint8 paletteidx;
-                if (tile <= 64)
-                    paletteidx = ReadTile(0, false, tile, x, y);
-                else
-                    paletteidx = ReadTile(0, true, -128 + (int32)(tile), x, y);
+                for (uint8 x = 0; x < 8; x++)
+                {
+                    uint8 paletteidx;
+                    if (tile <= 64)
+                        paletteidx = ReadTile(bank, false, tile, x, y);
+                    else
+                        paletteidx = ReadTile(bank, true, -128 + (int32)(tile), x, y);
 
-                PutPixel(draw_x + x, draw_y + y, grayscale_colors[paletteidx]);
+                    PutPixel(draw_x + x, draw_y + y, grayscale_colors[paletteidx]);
+                }
             }
-        }
-        
-        draw_x += 8;
-        if (draw_x == 160)
-        {
-            draw_x = 0;
-            draw_y += 8;
+
+            draw_x += 8;
+            if (draw_x == 160)
+            {
+                draw_x = 0;
+                draw_y += 8;
+                if (draw_y >= Display::SCREEN_HEIGHT)
+                {
+                    PushFrame();
+                    break;
+                }
+            }
         }
     }
         
