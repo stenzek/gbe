@@ -420,6 +420,8 @@ void Display::SetHDMA5Register(uint8 value)
             TRACE("Cancelling HBLANK HDMA transfer (remaining: 0x%03X/%u bytes)", remaining);
             if (old_remaining != remaining)
                 Log_WarningPrintf("HDMA Cancel - amounts differ (0x%03X vs 0x%03X)", old_remaining, remaining);
+
+            return;
         }
 
         // Copy the memory right now.
@@ -440,7 +442,7 @@ void Display::ExecuteHDMATransferBlock(uint32 bytes)
     // The Source Start Address may be located at 0000-7FF0 or A000-DFF0, the lower four bits of the address are ignored (treated as zero). 
     // The Destination Start Address may be located at 8000-9FF0, the lower four bits of the address are ignored (treated as zero), the upper 3 bits are ignored either (destination is always in VRAM).
     uint16 current_source_address = (source_address & 0xFFF0);
-    uint16 current_destination_address = (destination_address & 0x1FFF);
+    uint16 current_destination_address = (destination_address & 0x1FF0);
 
     // check address range
     TRACE("HDMA transfer 0x%04X -> 0x%04X 0x%03X (%u) bytes", source_address, destination_address, copy_length, copy_length);
@@ -457,9 +459,9 @@ void Display::ExecuteHDMATransferBlock(uint32 bytes)
     // update registers with addresses
     source_address += (uint16)copy_length;
     destination_address += (uint16)copy_length;
-    m_registers.HDMA1 = (source_address >> 8);
+    m_registers.HDMA1 = (source_address >> 8) & 0xFF;
     m_registers.HDMA2 = source_address & 0xFF;
-    m_registers.HDMA3 = (destination_address >> 8);
+    m_registers.HDMA3 = (destination_address >> 8) & 0xFF;
     m_registers.HDMA4 = destination_address & 0xFF;
 
     // update remaining bytes
