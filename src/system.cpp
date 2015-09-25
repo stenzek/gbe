@@ -744,7 +744,7 @@ uint8 System::CPURead(uint16 address) const
 
 void System::CPUWrite(uint16 address, uint8 value)
 {
-//     if (address == 0xc009)
+//     if (address == 0xd000)
 //         __debugbreak();
 
     // when DMA transfer is in progress, all memory except FF80-FFFE is inaccessible
@@ -1300,7 +1300,7 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                 switch (index & 0x0F)
                 {
                 case 0x00:      // FF70 - SVBK - CGB Mode Only - WRAM Bank
-                    m_high_wram_bank = value & 0x03;
+                    m_high_wram_bank = value & 0x07;
 
                     // Writing a value of 01h-07h will select Bank 1-7, writing a value of 00h will select Bank 1 either.
                     if (m_high_wram_bank == 0)

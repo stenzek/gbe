@@ -115,7 +115,7 @@ void CPU::RaiseInterrupt(uint8 index)
 
 void CPU::Disable(bool disabled)
 {
-    Log_DevPrintf("CPU disable: %s", (disabled) ? "enabled" : "disabled");
+    TRACE("CPU disable: %s", (disabled) ? "enabled" : "disabled");
     m_disabled = disabled;
 }
 
@@ -255,7 +255,7 @@ uint32 CPU::Step()
         return 4;
     }
 
-//     if (m_registers.PC == 0xc31a)
+//     if (m_registers.PC == 0x35e1)
 //         __debugbreak();
 
     // debug
