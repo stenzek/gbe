@@ -47,6 +47,7 @@ bool System::Init(CallbackInterface *callbacks, SYSTEM_MODE mode, const byte *bi
     m_audio = new Audio(this);
 
     m_clocks_since_reset = 0;
+    m_last_vblank_clocks = 0;
     m_speed_multiplier = 1.0f;
 
     m_frame_limiter = true;
@@ -80,6 +81,7 @@ void System::Reset()
         SetPostBootstrapState();
 
     m_clocks_since_reset = 0;
+    m_last_vblank_clocks = 0;
     m_reset_timer.Reset();
     m_frame_counter = 0;
 
@@ -108,6 +110,9 @@ void System::StepOtherClocks(uint32 clocks)
     uint32 slow_speed_shift = (m_cgb_speed_switch >> 7);
     uint32 slow_speed_clocks = clocks >> slow_speed_shift;
 
+    // update our counter [use the normal speed as a reference]
+    m_clocks_since_reset += slow_speed_clocks;
+
     // Handle memory locking for OAM transfers [affected by double speed]
     if (m_memory_locked_cycles > 0)
         m_memory_locked_cycles = (clocks > m_memory_locked_cycles) ? 0 : (m_memory_locked_cycles - clocks);
@@ -120,15 +125,17 @@ void System::StepOtherClocks(uint32 clocks)
 
     // Simulate timers [affected by double speed]
     UpdateTimer(clocks);
-
-    // update our counter [use the normal speed as a reference]
-    m_clocks_since_reset += slow_speed_clocks;
 }
 
 uint64 System::TimeToClocks(double time)
 {
     // cpu runs at 4,194,304hz
-    return (uint64)(time * 4194304.0);
+    return (uint64)(time * (4194304.0 * m_speed_multiplier));
+}
+
+double System::ClocksToTime(uint64 clocks)
+{
+    return (double)clocks / (4194304.0 * m_speed_multiplier);
 }
 
 double System::ExecuteFrame()
@@ -145,7 +152,6 @@ double System::ExecuteFrame()
             double frame_start_time = m_reset_timer.GetTimeSeconds();
             uint64 target_clocks = TimeToClocks(frame_start_time);
             uint64 current_clocks = m_clocks_since_reset;
-            TRACE("target_clocks = %u, current_clocks = %u", (uint32)target_clocks, (uint32)current_clocks);
             m_current_speed = 1.0f;
 
             // check that we're not ahead (is perfectly possible since each instruction takes a minimum of 4 clocks)
@@ -156,15 +162,16 @@ double System::ExecuteFrame()
                     Step();
             }
 
+            // find the number of clocks to next vblank
+            uint64 next_vblank_clocks = m_last_vblank_clocks + 65664;
+            uint64 sleep_clocks = (next_vblank_clocks > m_clocks_since_reset) ? (next_vblank_clocks - m_clocks_since_reset) : 0;
+            double sleep_time = ClocksToTime(sleep_clocks);
+
             // calculate the ideal time we want to hit the next frame
             double frame_end_time = m_reset_timer.GetTimeSeconds();
             double execution_time = frame_end_time - frame_start_time;
-
-            // vblank is every 16.6ms, so the time we want is the next multiple of this
-            double next_vblank_time = frame_start_time + (VBLANK_INTERVAL - std::fmod(frame_start_time, VBLANK_INTERVAL));
-            double sleep_time = Max(next_vblank_time - frame_end_time - execution_time, 0.0);
-            TRACE("frame_start_time = %f, execution_time = %f, next_vblank_time = %f, sleep time: %f", frame_start_time, execution_time, next_vblank_time, sleep_time);
-            return sleep_time;
+            TRACE("execution_time = %f, sleep time: %f", execution_time, sleep_time);
+            return Max(0.0, sleep_time - execution_time);
         }
         else
         {
@@ -257,6 +264,7 @@ void System::SetTargetSpeed(float multiplier)
     m_speed_multiplier = multiplier;
     m_reset_timer.Reset();
     m_clocks_since_reset = 0;
+    m_last_vblank_clocks = 0;
 }
 
 void System::SetAccurateTiming(bool on)
@@ -264,6 +272,7 @@ void System::SetAccurateTiming(bool on)
     m_accurate_timing = on;
     m_reset_timer.Reset();
     m_clocks_since_reset = 0;
+    m_last_vblank_clocks = 0;
 }
 
 bool System::GetAudioEnabled() const
@@ -784,6 +793,13 @@ void System::CPUWrite(uint16 address, uint8 value)
                 Log_WarningPrintf("CPU write of VRAM address 0x%04X (value 0x%02X) while locked.", address, value);
                 return;
             }
+
+//             if (address >= 0x9800 && m_vram_bank == 1)
+//             {
+//                 uint32 tx = (address - 0x9800) % 32;
+//                 uint32 ty = (address - 0x9800) / 32;
+//                 Log_DevPrintf("tile update: (%u, %u) -> %u", tx, ty, value);
+//             }
 
             m_memory_vram[m_vram_bank][address & 0x1FFF] = value;
             return;

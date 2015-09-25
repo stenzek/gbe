@@ -1059,6 +1059,7 @@ void Display::PushFrame()
         m_system->m_callbacks->PresentDisplayBuffer(m_frameBuffer, SCREEN_WIDTH * 4);
 
     m_system->m_frame_counter++;
+    m_system->m_last_vblank_clocks = m_system->m_clocks_since_reset;
     //Log_DevPrintf("SCX: %u, SCY: %u", m_registers.SCX, m_registers.SCY);
 
     //static Timer timer;
@@ -1105,7 +1106,12 @@ void Display::DisplayTiles()
 void Display::RenderFull()
 {
     for (uint32 y = 0; y < SCREEN_HEIGHT; y++)
-        RenderScanline((uint8)y);
+    {
+        if (m_system->InCGBMode())
+            RenderScanline_CGB((uint8)y);
+        else
+            RenderScanline((uint8)y);
+    }
 
     PushFrame();
 }
@@ -1130,9 +1136,10 @@ void Display::DumpTiles(uint8 tilemap)
             for (uint32 gx = 0; gx < 32; gx++)
             {
                 int8 id = (int8)VRAM[BGMAPBASE + gy * 32 + gx];
-                uint8 flags = VRAM1[BGMAPBASE + gy * 32 + gx];
-                uint8 palette = flags & 0x7;
-                msg.AppendFormattedString("%d (p%u), ", (int)id, (uint32)palette);
+                //uint8 flags = VRAM1[BGMAPBASE + gy * 32 + gx];
+                //uint8 palette = flags & 0x7;
+                //msg.AppendFormattedString("%d (p%u), ", (int)id, (uint32)palette);
+                msg.AppendFormattedString("%d, ", (int)id);
             }
             Log_DevPrint(msg);
         }

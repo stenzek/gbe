@@ -124,6 +124,7 @@ private:
     void UpdateTimer(uint32 clocks);
     void DisassembleCart(const char *outfile);
     uint64 TimeToClocks(double time);
+    double ClocksToTime(uint64 clocks);
 
     SYSTEM_MODE m_mode;
     CPU *m_cpu;
@@ -137,6 +138,7 @@ private:
     Timer m_reset_timer;
 
     uint64 m_clocks_since_reset;
+    uint64 m_last_vblank_clocks;
     float m_speed_multiplier;
     float m_current_speed;
     uint32 m_frame_counter;

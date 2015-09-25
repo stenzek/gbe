@@ -558,12 +558,11 @@ static int Run(State *state)
 
         // run a frame
         double sleep_time_seconds = state->system->ExecuteFrame();
-        if (sleep_time_seconds >= 0.01)
+        if (sleep_time_seconds >= 0.001)
         {
             // round down to the next millisecond (fix when usleep is implemented)
             uint32 sleep_time_ms = (uint32)std::floor(sleep_time_seconds * 1000.0);
-            DebugAssert(sleep_time_ms > 1);
-            Thread::Sleep(sleep_time_ms - 1);
+            Thread::Sleep(sleep_time_ms);
         }
 
         // report statistics
@@ -594,7 +593,7 @@ extern "C" int main(int argc, char *argv[])
     // set log flags
     //g_pLog->SetConsoleOutputParams(true, nullptr, LOGLEVEL_TRACE);
     g_pLog->SetConsoleOutputParams(true, nullptr, LOGLEVEL_PROFILE);
-    //g_pLog->SetConsoleOutputParams(true, "CPU System");
+    //g_pLog->SetConsoleOutputParams(true, "CPU Cartridge System");
     //g_pLog->SetDebugOutputParams(true);
 
 #if defined(__WIN32__)
