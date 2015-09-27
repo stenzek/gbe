@@ -451,7 +451,7 @@ bool Cartridge::LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error
     if (external_ram_size > 0)
         binaryReader.ReadBytes(m_external_ram, m_external_ram_size);
 
-    bool has_timer = false;// binaryReader.ReadBool();
+    bool has_timer = binaryReader.ReadBool();
     if (has_timer)
     {
         m_rtc_data.base_time = binaryReader.ReadUInt64();
