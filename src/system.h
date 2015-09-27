@@ -25,6 +25,9 @@ public:
     {
         // Display updated callback.
         virtual void PresentDisplayBuffer(const void *pPixels, uint32 row_stride) = 0;
+
+        // Cartridge external ram callbacks.
+        virtual void SaveCartridgeRAM(const void *pData, size_t data_size) = 0;
     };
 
 public:

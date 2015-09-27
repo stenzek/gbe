@@ -42,7 +42,7 @@ class Cartridge
     friend System;
 
 public:
-    Cartridge();
+    Cartridge(System *system);
     ~Cartridge();
 
     const String &GetName() const { return m_name; }
@@ -55,6 +55,7 @@ public:
     const uint32 GetROMBankCount() const { return m_num_rom_banks; }
 
     bool Load(ByteStream *pStream, Error *pError);
+    bool LoadRAM(ByteStream *pStream, Error *pError);
 
     // CPU Reads/Writes
     void Reset();
@@ -67,6 +68,9 @@ private:
     // state saving
     bool LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError);
     void SaveState(ByteStream *pStream, BinaryWriter &binaryWriter);
+    void SaveRAM();
+
+    System *m_system;
 
     String m_name;
     MBC m_mbc;
@@ -80,6 +84,7 @@ private:
 
     byte *m_external_ram;
     uint32 m_external_ram_size;
+    bool m_external_ram_modified;
 
     // MBC data
     union

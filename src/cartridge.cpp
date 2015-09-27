@@ -1,5 +1,6 @@
 #include "cartridge.h"
 #include "structures.h"
+#include "system.h"
 #include "YBaseLib/ByteStream.h"
 #include "YBaseLib/Error.h"
 #include "YBaseLib/String.h"
@@ -67,13 +68,15 @@ static const uint32 CART_ROM_BANK_COUNT[][2] =
     { 0x54, 96 },
 };
 
-Cartridge::Cartridge()
-    : m_mbc(NUM_MBC_TYPES)
+Cartridge::Cartridge(System *system)
+    : m_system(system)
+    , m_mbc(NUM_MBC_TYPES)
     , m_crc(0)
     , m_typeinfo(nullptr)
     , m_num_rom_banks(0)
     , m_external_ram(nullptr)
     , m_external_ram_size(0)
+    , m_external_ram_modified(false)
 {
     Y_memzero(m_rom_banks, sizeof(m_rom_banks));
     Y_memzero(&m_mbc_data, sizeof(m_mbc_data));
@@ -250,6 +253,33 @@ bool Cartridge::Load(ByteStream *pStream, Error *pError)
     }
 
     return true;
+}
+
+bool Cartridge::LoadRAM(ByteStream *pStream, Error *pError)
+{
+    BinaryReader binaryReader(pStream);
+    uint32 stream_size = (uint32)pStream->GetSize();
+    if (m_external_ram_size != (uint32)stream_size)
+    {
+        pError->SetErrorUserFormatted(1, "External ram size mismatch (expecting %u, got %u)", m_external_ram_size, stream_size);
+        return false;
+    }
+
+    if (m_external_ram_size > 0 && !binaryReader.SafeReadBytes(m_external_ram, m_external_ram_size))
+    {
+        pError->SetErrorUser(1, "Read error");
+        return false;
+    }
+
+    return true;
+}
+
+void Cartridge::SaveRAM()
+{
+    if (m_external_ram != nullptr)
+        m_system->m_callbacks->SaveCartridgeRAM(m_external_ram, m_external_ram_size);
+
+    m_external_ram_modified = false;
 }
 
 void Cartridge::Reset()
@@ -517,6 +547,9 @@ void Cartridge::MBC_MBC1_Write(uint16 address, uint8 value)
     case 0x1000:
         m_mbc_data.mbc1.ram_enable = (value == 0x0A);
         TRACE("MBC1 ram %s", m_mbc_data.mbc1.ram_enable ? "enable" : "disable");
+        if (!m_mbc_data.mbc1.ram_enable && m_external_ram_modified)
+            SaveRAM();
+
         return;
 
     case 0x2000:
@@ -544,7 +577,12 @@ void Cartridge::MBC_MBC1_Write(uint16 address, uint8 value)
         {
             uint16 eram_offset = (uint16)m_mbc_data.mbc1.active_ram_bank * (uint16)8192 + (address - 0xA000);
             if (eram_offset < m_external_ram_size)
+            {
+                if (m_external_ram[eram_offset] != value)
+                    m_external_ram_modified = true;
+
                 m_external_ram[eram_offset] = value;
+            }
         }
 
         return;
@@ -682,6 +720,9 @@ void Cartridge::MBC_MBC3_Write(uint16 address, uint8 value)
     case 0x1000:
         m_mbc_data.mbc3.ram_rtc_enable = (value == 0x0A);
         TRACE("MBC3 ram %s", m_mbc_data.mbc3.ram_rtc_enable ? "enable" : "disable");
+        if (!m_mbc_data.mbc3.ram_rtc_enable && m_external_ram_modified)
+            SaveRAM();
+
         return;
 
     case 0x2000:
@@ -710,7 +751,12 @@ void Cartridge::MBC_MBC3_Write(uint16 address, uint8 value)
             {
                 uint16 eram_offset = (uint16)m_mbc_data.mbc3.ram_bank_number * (uint16)8192 + (address - 0xA000);
                 if (eram_offset < m_external_ram_size)
+                {
+                    if (m_external_ram[eram_offset] != value)
+                        m_external_ram_modified = true;
+
                     m_external_ram[eram_offset] = value;
+                }
             }
             else
             {
@@ -830,6 +876,9 @@ void Cartridge::MBC_MBC5_Write(uint16 address, uint8 value)
     case 0x1000:
         m_mbc_data.mbc5.ram_enable = (value == 0x0A);
         TRACE("MBC5 ram %s", m_mbc_data.mbc5.ram_enable ? "enable" : "disable");
+        if (!m_mbc_data.mbc5.ram_enable && m_external_ram_modified)
+            SaveRAM();
+
         return;
 
     case 0x2000:
@@ -855,7 +904,12 @@ void Cartridge::MBC_MBC5_Write(uint16 address, uint8 value)
         {
             uint16 eram_offset = (uint16)m_mbc_data.mbc5.ram_bank_number * (uint16)8192 + (address - 0xA000);
             if (eram_offset < m_external_ram_size)
+            {
+                if (m_external_ram[eram_offset] != value)
+                    m_external_ram_modified = true;
+
                 m_external_ram[eram_offset] = value;
+            }
         }
 
         // ram not enabled

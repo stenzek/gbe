@@ -51,7 +51,7 @@ struct State : public System::CallbackInterface
             last_part = cartridge_file_name;
 
         SmallString savestate_prefix_filepart;
-        savestate_prefix_filepart.AppendString("savestates/");
+        savestate_prefix_filepart.AppendString("saves/");
         savestate_prefix_filepart.AppendString(last_part);
         if (savestate_prefix_filepart.RFind('.') > 0)
             savestate_prefix_filepart.Erase(savestate_prefix_filepart.RFind('.'));
@@ -146,6 +146,28 @@ struct State : public System::CallbackInterface
         return true;
     }
 
+    bool LoadRAM()
+    {
+        SmallString filename;
+        filename.Format("%s.sram", savestate_prefix.GetCharArray());
+        Log_DevPrintf("Cartridge SRAM filename: '%s'", filename.GetCharArray());
+
+        ByteStream *pStream = FileSystem::OpenFile(filename, BYTESTREAM_OPEN_READ | BYTESTREAM_OPEN_STREAMED);
+        if (pStream == nullptr)
+            return false;
+
+        Error error;
+        if (!cart->LoadRAM(pStream, &error))
+        {
+            Log_ErrorPrintf("Failed to load SRAM: %s", error.GetErrorCodeAndDescription().GetCharArray());
+            pStream->Release();
+            return false;
+        }
+
+        pStream->Release();
+        return true;
+    }
+
     // Callback to present a frame
     virtual void PresentDisplayBuffer(const void *pixels, uint32 row_stride) override final
     {
@@ -194,6 +216,31 @@ struct State : public System::CallbackInterface
 
         SDL_UpdateWindowSurface(window);
     }
+
+    virtual void SaveCartridgeRAM(const void *pData, size_t data_size) override final
+    {
+        SmallString filename;
+        filename.Format("%s.sram", savestate_prefix.GetCharArray());
+        Log_DevPrintf("Cartridge SRAM filename: '%s'", filename.GetCharArray());
+        
+        ByteStream *pStream = FileSystem::OpenFile(filename, BYTESTREAM_OPEN_CREATE | BYTESTREAM_OPEN_CREATE_PATH | BYTESTREAM_OPEN_WRITE | BYTESTREAM_OPEN_TRUNCATE | BYTESTREAM_OPEN_ATOMIC_UPDATE | BYTESTREAM_OPEN_STREAMED);
+        if (pStream == nullptr)
+        {
+            Log_ErrorPrint("Failed to write sram: Failed to open file");
+            return;
+        }
+
+        if (!pStream->Write2(pData, data_size) || 
+            !pStream->Commit())
+        {
+            Log_ErrorPrintf("Failed to write sram: Failed to write file");
+            pStream->Discard();
+            pStream->Release();
+            return;
+        }
+
+        pStream->Release();
+    }
 };
 
 static bool LoadBIOS(const char *filename, bool specified, State *state)
@@ -233,7 +280,7 @@ static bool LoadCart(const char *filename, State *state)
         return false;
     }
 
-    state->cart = new Cartridge();
+    state->cart = new Cartridge(state->system);
     Error error;
     if (!state->cart->Load(pStream, &error))
     {
@@ -316,8 +363,12 @@ static bool InitializeState(const ProgramArgs *args, State *state)
         return false;
 
     // load cart
+    state->system = new System();
     if (args->cart_filename != nullptr && !LoadCart(args->cart_filename, state))
+    {
+        delete state->system;
         return false;
+    }
 
     // create render window
     SmallString window_title;
@@ -326,13 +377,20 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     if (state->window == nullptr)
     {
         Log_ErrorPrintf("Failed to crate SDL window: %s", SDL_GetError());
+        delete state->cart;
+        delete state->system;
         return false;
     }
 
     // get surface to draw to
     state->surface = SDL_GetWindowSurface(state->window);
     if (state->surface == nullptr)
+    {
+        SDL_DestroyWindow(state->window);
+        delete state->cart;
+        delete state->system;
         return false;
+    }
 
     // create audio device
     SDL_AudioSpec audio_spec = { 44100, AUDIO_S16, 2, 0, 2048, 0, 0, &State::AudioCallback, (void *)state };
@@ -342,15 +400,19 @@ static bool InitializeState(const ProgramArgs *args, State *state)
         Log_WarningPrintf("Failed to open audio device (error: %s). No audio will be heard.", SDL_GetError());
 
     // init system
-    state->system = new System();
     if (!state->system->Init(state, NUM_SYSTEM_MODES, state->bios, state->cart))
     {
         Log_ErrorPrintf("Failed to initialize system");
         return false;
     }
 
+    // load sram
+    state->LoadRAM();
+
     // apply options
     state->system->SetPermissiveMemoryAccess(args->permissive_memory);
+    //state->system->SetAccurateTiming(false);
+    //state->system->SetAudioEnabled(false);
 
     // reset system
     state->system->Reset();
