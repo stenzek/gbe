@@ -2,6 +2,7 @@
 #include "YBaseLib/Common.h"
 #include "YBaseLib/Assert.h"
 #include "YBaseLib/String.h"
+#include "YBaseLib/Timestamp.h"
 #include "structures.h"
 
 class ByteStream;
@@ -55,7 +56,6 @@ public:
     const uint32 GetROMBankCount() const { return m_num_rom_banks; }
 
     bool Load(ByteStream *pStream, Error *pError);
-    bool LoadRAM(ByteStream *pStream, Error *pError);
 
     // CPU Reads/Writes
     void Reset();
@@ -68,7 +68,10 @@ private:
     // state saving
     bool LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError);
     void SaveState(ByteStream *pStream, BinaryWriter &binaryWriter);
+    void LoadRAM();
     void SaveRAM();
+    void LoadRTC();
+    void SaveRTC();
 
     System *m_system;
 
@@ -105,6 +108,9 @@ private:
             uint8 rom_bank_number;
             uint8 ram_bank_number;
             bool ram_rtc_enable;
+
+            uint8 rtc_latch;
+            uint8 rtc_latch_data[5];
         } mbc3;
 
         struct
@@ -114,6 +120,21 @@ private:
             bool ram_enable;
         } mbc5;
     } m_mbc_data;
+
+    // RTC calculator
+    struct RTCValue { uint32 seconds; uint32 minutes; uint32 hours; uint32 days; };
+    RTCValue GetCurrentRTCTime() const;
+
+    // RTC data
+    struct
+    {
+        Timestamp::UnixTimestampValue base_time;
+        uint8 offset_seconds;
+        uint8 offset_minutes;
+        uint8 offset_hours;
+        uint16 offset_days;
+        bool active;
+    } m_rtc_data;
 
     // MBC_NONE
     bool MBC_NONE_Init();

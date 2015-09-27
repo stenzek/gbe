@@ -8,8 +8,11 @@
 #include "YBaseLib/Log.h"
 #include "YBaseLib/ByteStream.h"
 #include "YBaseLib/BinaryReader.h"
+#include "YBaseLib/BinaryReadBuffer.h"
 #include "YBaseLib/BinaryWriter.h"
+#include "YBaseLib/BinaryWriteBuffer.h"
 #include "YBaseLib/Error.h"
+#include "YBaseLib/CRC32.h"
 Log_SetChannel(Cartridge);
 
 // http://bgb.bircd.org/pandocs.htm#thecartridgeheader
@@ -198,7 +201,17 @@ bool Cartridge::ParseHeader(ByteStream *pStream, Error *pError)
 
 bool Cartridge::Load(ByteStream *pStream, Error *pError)
 {
-    if (!ParseHeader(pStream, pError))
+    // seek to start, and hash the cart file
+    CRC32 crc32;
+    if (!pStream->SeekAbsolute(0) || !crc32.HashStream(pStream))
+    {
+        pError->SetErrorUser(1, "Failed to hash file");
+        return false;
+    }
+    m_crc = crc32.GetCRC();
+
+    // parse header
+    if (!pStream->SeekAbsolute(0) || !ParseHeader(pStream, pError))
         return false;
 
     // back to start - cart header is part of the first rom bank
@@ -252,34 +265,131 @@ bool Cartridge::Load(ByteStream *pStream, Error *pError)
         return false;
     }
 
+    // load sram/rtc
+    LoadRAM();
+    LoadRTC();
     return true;
 }
 
-bool Cartridge::LoadRAM(ByteStream *pStream, Error *pError)
+void Cartridge::LoadRAM()
 {
-    BinaryReader binaryReader(pStream);
-    uint32 stream_size = (uint32)pStream->GetSize();
-    if (m_external_ram_size != (uint32)stream_size)
-    {
-        pError->SetErrorUserFormatted(1, "External ram size mismatch (expecting %u, got %u)", m_external_ram_size, stream_size);
-        return false;
-    }
+    // if no battery, we assume the contents is lost at power-down
+    if (m_external_ram_size == 0 || !m_typeinfo->battery)
+        return;
 
-    if (m_external_ram_size > 0 && !binaryReader.SafeReadBytes(m_external_ram, m_external_ram_size))
+    if (!m_system->m_callbacks->LoadCartridgeRAM(m_external_ram, m_external_ram_size))
     {
-        pError->SetErrorUser(1, "Read error");
-        return false;
+        Log_WarningPrintf("Failed to load external SRAM, blanking.");
+        Y_memzero(m_external_ram, m_external_ram_size);
     }
-
-    return true;
 }
 
 void Cartridge::SaveRAM()
 {
-    if (m_external_ram != nullptr)
+    if (m_external_ram_size > 0 && m_typeinfo->battery)
         m_system->m_callbacks->SaveCartridgeRAM(m_external_ram, m_external_ram_size);
 
     m_external_ram_modified = false;
+}
+
+void Cartridge::LoadRTC()
+{
+    Y_memzero(&m_rtc_data, sizeof(m_rtc_data));
+    if (!m_typeinfo->timer)
+        return;
+
+    // set defaults
+    m_rtc_data.base_time = Timestamp::Now().AsUnixTimestamp();
+    m_rtc_data.active = false;
+
+    // load data
+    BinaryReadBuffer buffer(16);
+    if (m_system->m_callbacks->LoadCartridgeRTC(buffer.GetBufferPointer(), buffer.GetBufferSize()))
+    {
+        // read buffer
+        m_rtc_data.base_time = buffer.ReadUInt64();
+        m_rtc_data.offset_seconds = buffer.ReadUInt8();
+        m_rtc_data.offset_minutes = buffer.ReadUInt8();
+        m_rtc_data.offset_hours = buffer.ReadUInt8();
+        m_rtc_data.offset_days = buffer.ReadUInt16();
+        m_rtc_data.active = buffer.ReadBool();
+    }
+}
+
+void Cartridge::SaveRTC()
+{
+    if (!m_typeinfo->timer)
+        return;
+
+    // save offset
+    BinaryWriteBuffer buffer;
+    buffer.WriteUInt64(m_rtc_data.base_time);
+    buffer.WriteUInt16(m_rtc_data.offset_days);
+    buffer.WriteUInt8(m_rtc_data.offset_hours);
+    buffer.WriteUInt8(m_rtc_data.offset_minutes);
+    buffer.WriteUInt8(m_rtc_data.offset_seconds);
+    buffer.WriteUInt8(0);
+    buffer.WriteUInt8(0);
+    buffer.WriteUInt8(0);
+    m_system->m_callbacks->SaveCartridgeRTC(buffer.GetBufferPointer(), (size_t)buffer.GetStreamPosition());
+}
+
+Cartridge::RTCValue Cartridge::GetCurrentRTCTime() const
+{
+    Timestamp current_time = Timestamp::Now();
+    uint64 current_time_unix = current_time.AsUnixTimestamp();
+
+#if 0
+    // apply offset
+    (m_rtc_data.offset_seconds >= 0) ? (current_time_unix += uint64(m_rtc_data.offset_seconds)) : (current_time_unix -= uint64(-m_rtc_data.offset_seconds));
+    (m_rtc_data.offset_minutes >= 0) ? (current_time_unix += uint64(m_rtc_data.offset_minutes * 60)) : (current_time_unix -= uint64(-m_rtc_data.offset_minutes * 60));
+    (m_rtc_data.offset_hours >= 0) ? (current_time_unix += uint64(m_rtc_data.offset_hours * 3600)) : (current_time_unix -= uint64(-m_rtc_data.offset_hours * 3600));
+    (m_rtc_data.offset_days >= 0) ? (current_time_unix += uint64(m_rtc_data.offset_days * 86400)) : (current_time_unix -= uint64(-m_rtc_data.offset_days * 86400));
+
+    // apply offset
+    if (m_rtc_data.use_offset)
+    {
+        uint64 diff_time = current_time_unix - m_rtc_data.base_time;
+        diff_time += uint64(m_rtc_data.offset_seconds);
+        diff_time += uint64(m_rtc_data.offset_minutes * 60);
+        diff_time += uint64(m_rtc_data.offset_hours * 3600);
+        diff_time += uint64(m_rtc_data.offset_days * 86400);
+
+        // convert to format
+        out_value.seconds = uint32(diff_time % 60);
+        out_value.minutes = uint32((diff_time / 60) % 60);
+        out_value.hours = uint32((diff_time / 3600) % 24);
+        out_value.days = uint32((diff_time / 86400));
+    }
+    else
+    {
+        Timestamp::ExpandedTime base_time_expanded = Timestamp::FromUnixTimestamp(m_rtc_data.base_time).AsExpandedTime();
+        Timestamp::ExpandedTime current_time_expanded = current_time.AsExpandedTime();
+
+        // return the current time
+        out_value.seconds = current_time_expanded.Second;
+        out_value.minutes = current_time_expanded.Minute;
+        out_value.hours = current_time_expanded.Hour;
+        out_value.days = base_time_expanded.DayOfWeek + uint32((current_time_unix - m_rtc_data.base_time) / 86400);
+    }
+
+    return out_value;
+
+#endif
+
+    uint64 diff_time = current_time_unix - m_rtc_data.base_time;
+    diff_time += uint64(m_rtc_data.offset_seconds);
+    diff_time += uint64(m_rtc_data.offset_minutes * 60);
+    diff_time += uint64(m_rtc_data.offset_hours * 3600);
+    diff_time += uint64(m_rtc_data.offset_days * 86400);
+
+    // convert to format
+    RTCValue out_value;
+    out_value.seconds = uint32(diff_time % 60);
+    out_value.minutes = uint32((diff_time / 60) % 60);
+    out_value.hours = uint32((diff_time / 3600) % 24);
+    out_value.days = uint32((diff_time / 86400));
+    return out_value;
 }
 
 void Cartridge::Reset()
@@ -335,6 +445,17 @@ bool Cartridge::LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error
 
     if (external_ram_size > 0)
         binaryReader.ReadBytes(m_external_ram, m_external_ram_size);
+
+    bool has_timer = false;// binaryReader.ReadBool();
+    if (has_timer)
+    {
+        m_rtc_data.base_time = binaryReader.ReadUInt64();
+        m_rtc_data.offset_days = binaryReader.ReadUInt16();
+        m_rtc_data.offset_hours = binaryReader.ReadUInt8();
+        m_rtc_data.offset_minutes = binaryReader.ReadUInt8();
+        m_rtc_data.offset_seconds = binaryReader.ReadUInt8();
+        m_rtc_data.active = binaryReader.ReadBool();
+    }
     
     // MBC specific stuff follows
     uint32 ss_mbc = binaryReader.ReadUInt32();
@@ -372,8 +493,22 @@ void Cartridge::SaveState(ByteStream *pStream, BinaryWriter &binaryWriter)
 {
     binaryWriter.WriteUInt32(m_crc);
     binaryWriter.WriteUInt32(m_external_ram_size);
+
+    // sram
     if (m_external_ram_size > 0)
         binaryWriter.WriteBytes(m_external_ram, m_external_ram_size);
+
+    // timer
+    binaryWriter.WriteBool(m_typeinfo->timer);
+    if (m_typeinfo->timer)
+    {
+        binaryWriter.WriteUInt64(m_rtc_data.base_time);
+        binaryWriter.WriteUInt16(m_rtc_data.offset_days);
+        binaryWriter.WriteUInt8(m_rtc_data.offset_hours);
+        binaryWriter.WriteUInt8(m_rtc_data.offset_minutes);
+        binaryWriter.WriteUInt8(m_rtc_data.offset_seconds);
+        binaryWriter.WriteBool(m_rtc_data.active);
+    }
 
     // MBC specific stuff follows
     binaryWriter.WriteUInt32(m_mbc);
@@ -691,15 +826,16 @@ uint8 Cartridge::MBC_MBC3_Read(uint16 address)
         {
             if (m_mbc_data.mbc3.ram_rtc_enable)
             {
-                if (m_mbc_data.mbc3.ram_bank_number <= 3)
+                if (m_mbc_data.mbc3.ram_bank_number <= 0x07)
                 {
                     uint16 eram_offset = (uint16)m_mbc_data.mbc3.ram_bank_number * (uint16)8192 + (address - 0xA000);
                     if (eram_offset < m_external_ram_size)
                         return m_external_ram[eram_offset];
                 }
-                else
+                else if (m_mbc_data.mbc3.ram_bank_number >= 0x08 && m_mbc_data.mbc3.ram_bank_number <= 0x0C)
                 {
-                    // RTC: TODO
+                    uint8 rtc_register = m_mbc_data.mbc3.ram_bank_number - 0x08;
+                    return m_mbc_data.mbc3.rtc_latch_data[rtc_register];
                 }
             }
 
@@ -739,15 +875,31 @@ void Cartridge::MBC_MBC3_Write(uint16 address, uint8 value)
 
     case 0x6000:
     case 0x7000:
-        // Latch clock data
-        return;
+        {
+            // When writing 00h, and then 01h to this register, the current time becomes latched into the RTC registers.
+            if (m_mbc_data.mbc3.rtc_latch != 0x01 && value == 0x01)
+            {
+                // Latch the current time
+                RTCValue current_time(GetCurrentRTCTime());
+                m_mbc_data.mbc3.rtc_latch_data[0] = (uint8)current_time.seconds;        // 0x08
+                m_mbc_data.mbc3.rtc_latch_data[1] = (uint8)current_time.minutes;        // 0x09
+                m_mbc_data.mbc3.rtc_latch_data[2] = (uint8)current_time.hours;          // 0x0A
+                m_mbc_data.mbc3.rtc_latch_data[3] = (uint8)(current_time.days & 0xFF);  // 0x0B
+                m_mbc_data.mbc3.rtc_latch_data[4] = (uint8)((current_time.days >> 8) & 0x01);
+                m_mbc_data.mbc3.rtc_latch_data[4] |= ((uint8)(current_time.days >= 512) << 7);  // 0x0C
+            }
+
+            // Update value
+            m_mbc_data.mbc3.rtc_latch = value;
+            return;
+        }
     }
 
     if (address >= 0xA000 && address < 0xC000)
     {
         if (m_mbc_data.mbc3.ram_rtc_enable)
         {
-            if (m_mbc_data.mbc3.ram_bank_number <= 3)
+            if (m_mbc_data.mbc3.ram_bank_number <= 0x07)
             {
                 uint16 eram_offset = (uint16)m_mbc_data.mbc3.ram_bank_number * (uint16)8192 + (address - 0xA000);
                 if (eram_offset < m_external_ram_size)
@@ -758,9 +910,72 @@ void Cartridge::MBC_MBC3_Write(uint16 address, uint8 value)
                     m_external_ram[eram_offset] = value;
                 }
             }
-            else
+            else if (m_mbc_data.mbc3.ram_bank_number >= 0x08 && m_mbc_data.mbc3.ram_bank_number <= 0x0C)
             {
-                // RTC: TODO
+                // RTC
+                TRACE("RTC register write 0x%02X - 0x%02X (%u)", m_mbc_data.mbc3.ram_bank_number, value, value);
+                switch (m_mbc_data.mbc3.ram_bank_number)
+                {
+                case 0x08:
+                    {
+                        if (m_rtc_data.offset_seconds != value)
+                        {
+                            m_rtc_data.offset_seconds = value;
+                            SaveRTC();
+                        }
+
+                        return;
+                    }
+
+                case 0x09:
+                    {
+                        if (m_rtc_data.offset_minutes != value)
+                        {
+                            m_rtc_data.offset_minutes = value;
+                            SaveRTC();
+                        }
+
+                        return;
+                    }
+
+                case 0x0A:
+                    {
+                        if (m_rtc_data.offset_hours != value)
+                        {
+                            m_rtc_data.offset_hours = value;
+                            SaveRTC();
+                        }
+
+                        return;
+                    }
+
+                case 0x0B:
+                    {
+                        uint16 new_offset_days = (m_rtc_data.offset_days & 0x300) | (uint16)value;
+                        if (new_offset_days != m_rtc_data.offset_days)
+                        {
+                            m_rtc_data.offset_days = new_offset_days;
+                            SaveRTC();
+                        }
+
+                        return;
+                    }
+
+                case 0x0C:
+                    {
+                        uint16 new_offset_days = (m_rtc_data.offset_days & 0xFF) | (uint16(value & 0x01) << 8) | (uint16(value & 0x80) << 2);
+                        if (new_offset_days != m_rtc_data.offset_days)
+                        {
+                            m_rtc_data.offset_days = new_offset_days;
+                            SaveRTC();
+                        }
+
+                        // disabling of timer not currently implemented.
+                        bool new_active = !(value & (1 << 6));
+                        m_rtc_data.active = new_active;
+                        return;
+                    }
+                }
             }
         }
 

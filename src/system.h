@@ -27,11 +27,14 @@ public:
         virtual void PresentDisplayBuffer(const void *pPixels, uint32 row_stride) = 0;
 
         // Cartridge external ram callbacks.
+        virtual bool LoadCartridgeRAM(void *pData, size_t expected_data_size) = 0;
         virtual void SaveCartridgeRAM(const void *pData, size_t data_size) = 0;
+        virtual bool LoadCartridgeRTC(void *pData, size_t expected_data_size) = 0;
+        virtual void SaveCartridgeRTC(const void *pData, size_t data_size) = 0;
     };
 
 public:
-    System();
+    System(CallbackInterface *callbacks);
     ~System();
 
     bool InSGBMode() const { return (m_mode == SYSTEM_MODE_SGB); }
@@ -43,7 +46,7 @@ public:
 
     Cartridge *GetCartridge() const { return m_cartridge; }
 
-    bool Init(CallbackInterface *callbacks, SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge);
+    bool Init(SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge);
     void Reset();   
     void Step();
 

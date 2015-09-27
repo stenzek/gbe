@@ -11,6 +11,8 @@
 #include "YBaseLib/Thread.h"
 #include "YBaseLib/Math.h"
 #include "YBaseLib/Platform.h"
+#include "YBaseLib/BinaryReader.h"
+#include "YBaseLib/BinaryWriter.h"
 #include <SDL/SDL.h>
 #include <cstdio>
 Log_SetChannel(Main);
@@ -146,28 +148,6 @@ struct State : public System::CallbackInterface
         return true;
     }
 
-    bool LoadRAM()
-    {
-        SmallString filename;
-        filename.Format("%s.sram", savestate_prefix.GetCharArray());
-        Log_DevPrintf("Cartridge SRAM filename: '%s'", filename.GetCharArray());
-
-        ByteStream *pStream = FileSystem::OpenFile(filename, BYTESTREAM_OPEN_READ | BYTESTREAM_OPEN_STREAMED);
-        if (pStream == nullptr)
-            return false;
-
-        Error error;
-        if (!cart->LoadRAM(pStream, &error))
-        {
-            Log_ErrorPrintf("Failed to load SRAM: %s", error.GetErrorCodeAndDescription().GetCharArray());
-            pStream->Release();
-            return false;
-        }
-
-        pStream->Release();
-        return true;
-    }
-
     // Callback to present a frame
     virtual void PresentDisplayBuffer(const void *pixels, uint32 row_stride) override final
     {
@@ -217,6 +197,32 @@ struct State : public System::CallbackInterface
         SDL_UpdateWindowSurface(window);
     }
 
+    virtual bool LoadCartridgeRAM(void *pData, size_t expected_data_size) override final
+    {
+        SmallString filename;
+        filename.Format("%s.sram", savestate_prefix.GetCharArray());
+        Log_DevPrintf("Cartridge SRAM filename: '%s'", filename.GetCharArray());
+
+        AutoReleasePtr<ByteStream> pStream = FileSystem::OpenFile(filename, BYTESTREAM_OPEN_READ | BYTESTREAM_OPEN_STREAMED);
+        if (pStream == nullptr)
+            return false;
+
+        if (pStream->GetSize() != (uint64)expected_data_size)
+        {
+            Log_WarningPrintf("External ram size mismatch (expecting %u, got %u)", (uint32)expected_data_size, (uint32)pStream->GetSize());
+            return false;
+        }
+
+        BinaryReader binaryReader(pStream);
+        if (!binaryReader.SafeReadBytes(pData, expected_data_size))
+        {
+            Log_ErrorPrintf("Read error");
+            return false;
+        }
+
+        return true;
+    }
+
     virtual void SaveCartridgeRAM(const void *pData, size_t data_size) override final
     {
         SmallString filename;
@@ -234,6 +240,57 @@ struct State : public System::CallbackInterface
             !pStream->Commit())
         {
             Log_ErrorPrintf("Failed to write sram: Failed to write file");
+            pStream->Discard();
+            pStream->Release();
+            return;
+        }
+
+        pStream->Release();
+    }
+
+    virtual bool LoadCartridgeRTC(void *pData, size_t expected_data_size) override final
+    {
+        SmallString filename;
+        filename.Format("%s.rtc", savestate_prefix.GetCharArray());
+        Log_DevPrintf("Cartridge RTC filename: '%s'", filename.GetCharArray());
+
+        AutoReleasePtr<ByteStream> pStream = FileSystem::OpenFile(filename, BYTESTREAM_OPEN_READ | BYTESTREAM_OPEN_STREAMED);
+        if (pStream == nullptr)
+            return false;
+
+        if (pStream->GetSize() != (uint64)expected_data_size)
+        {
+            Log_WarningPrintf("RTC data size mismatch (expecting %u, got %u)", (uint32)expected_data_size, (uint32)pStream->GetSize());
+            return false;
+        }
+
+        BinaryReader binaryReader(pStream);
+        if (!binaryReader.SafeReadBytes(pData, expected_data_size))
+        {
+            Log_ErrorPrintf("Read error");
+            return false;
+        }
+
+        return true;
+    }
+
+    virtual void SaveCartridgeRTC(const void *pData, size_t data_size) override final
+    {
+        SmallString filename;
+        filename.Format("%s.rtc", savestate_prefix.GetCharArray());
+        Log_DevPrintf("Cartridge RTC filename: '%s'", filename.GetCharArray());
+
+        ByteStream *pStream = FileSystem::OpenFile(filename, BYTESTREAM_OPEN_CREATE | BYTESTREAM_OPEN_CREATE_PATH | BYTESTREAM_OPEN_WRITE | BYTESTREAM_OPEN_TRUNCATE | BYTESTREAM_OPEN_ATOMIC_UPDATE | BYTESTREAM_OPEN_STREAMED);
+        if (pStream == nullptr)
+        {
+            Log_ErrorPrint("Failed to write RTC data: Failed to open file");
+            return;
+        }
+
+        if (!pStream->Write2(pData, data_size) ||
+            !pStream->Commit())
+        {
+            Log_ErrorPrintf("Failed to write RTC data: Failed to write file");
             pStream->Discard();
             pStream->Release();
             return;
@@ -280,6 +337,7 @@ static bool LoadCart(const char *filename, State *state)
         return false;
     }
 
+    state->SetSaveStatePrefix(filename);
     state->cart = new Cartridge(state->system);
     Error error;
     if (!state->cart->Load(pStream, &error))
@@ -289,7 +347,6 @@ static bool LoadCart(const char *filename, State *state)
         return false;
     }
 
-    state->SetSaveStatePrefix(filename);
     return true;
 }
 
@@ -363,7 +420,7 @@ static bool InitializeState(const ProgramArgs *args, State *state)
         return false;
 
     // load cart
-    state->system = new System();
+    state->system = new System(state);
     if (args->cart_filename != nullptr && !LoadCart(args->cart_filename, state))
     {
         delete state->system;
@@ -400,14 +457,11 @@ static bool InitializeState(const ProgramArgs *args, State *state)
         Log_WarningPrintf("Failed to open audio device (error: %s). No audio will be heard.", SDL_GetError());
 
     // init system
-    if (!state->system->Init(state, NUM_SYSTEM_MODES, state->bios, state->cart))
+    if (!state->system->Init(NUM_SYSTEM_MODES, state->bios, state->cart))
     {
         Log_ErrorPrintf("Failed to initialize system");
         return false;
     }
-
-    // load sram
-    state->LoadRAM();
 
     // apply options
     state->system->SetPermissiveMemoryAccess(args->permissive_memory);

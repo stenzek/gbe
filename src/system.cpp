@@ -15,13 +15,13 @@
 #include <cmath>
 Log_SetChannel(System);
 
-System::System()
+System::System(CallbackInterface *callbacks)
 {
     m_cpu = nullptr;
     m_display = nullptr;
     m_audio = nullptr;
     m_cartridge = nullptr;
-    m_callbacks = nullptr;
+    m_callbacks = callbacks;
     m_bios = nullptr;
     m_biosLatch = false;
     m_vramLocked = false;
@@ -35,10 +35,9 @@ System::~System()
     delete m_cpu;
 }
 
-bool System::Init(CallbackInterface *callbacks, SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge)
+bool System::Init(SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge)
 {
     m_mode = (mode == NUM_SYSTEM_MODES) ? cartridge->GetSystemMode() : mode;
-    m_callbacks = callbacks;
     m_bios = bios;
     m_cartridge = cartridge;
 
@@ -292,9 +291,9 @@ bool System::LoadState(ByteStream *pStream, Error *pError)
     // Create stream, load header
     BinaryReader binaryReader(pStream);
     uint32 saveStateVersion = binaryReader.ReadUInt32();
-    if (saveStateVersion != SAVESTATE_VERSION)
+    if (saveStateVersion != SAVESTATE_LOAD_VERSION)
     {
-        pError->SetErrorUserFormatted(1, "Save state version mismatch, expected %u, got %u", (uint32)SAVESTATE_VERSION, saveStateVersion);
+        pError->SetErrorUserFormatted(1, "Save state version mismatch, expected %u, got %u", (uint32)SAVESTATE_LOAD_VERSION, saveStateVersion);
         return false;
     }
 
@@ -374,7 +373,7 @@ bool System::LoadState(ByteStream *pStream, Error *pError)
 
     // Done
     saveStateVersion = binaryReader.ReadUInt32();
-    if (saveStateVersion != ~(uint32)SAVESTATE_VERSION || pStream->InErrorState())
+    if (saveStateVersion != ~(uint32)SAVESTATE_LOAD_VERSION || pStream->InErrorState())
     {
         pError->SetErrorUserFormatted(1, "Error reading trailing signature.");
         return false;
@@ -392,7 +391,7 @@ bool System::SaveState(ByteStream *pStream)
 
     // Create stream, write header
     BinaryWriter binaryWriter(pStream);
-    binaryWriter.WriteUInt32(SAVESTATE_VERSION);
+    binaryWriter.WriteUInt32(SAVESTATE_SAVE_VERSION);
 
     // Write state
     binaryWriter.WriteUInt8((uint8)m_mode);
@@ -445,7 +444,7 @@ bool System::SaveState(ByteStream *pStream)
         return false;
 
     // Write trailing signature
-    binaryWriter.WriteUInt32(~(uint32)SAVESTATE_VERSION);
+    binaryWriter.WriteUInt32(~(uint32)SAVESTATE_SAVE_VERSION);
     if (binaryWriter.InErrorState())
         return false;
 
