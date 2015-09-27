@@ -18,5 +18,6 @@
     <ClCompile Include="src\cpu_instruction_table.cpp" />
     <ClCompile Include="src\structures.cpp" />
     <ClCompile Include="src\audio.cpp" />
+    <ClCompile Include="src\system_link.cpp" />
   </ItemGroup>
 </Project>

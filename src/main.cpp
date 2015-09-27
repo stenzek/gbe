@@ -680,6 +680,33 @@ static int Run(State *state)
                                 }
                                 break;
                             }
+
+                        case SDLK_HOME:
+                            {
+                                if (down && event->key.keysym.mod & (KMOD_LSHIFT | KMOD_RSHIFT))
+                                {
+                                    Log_DevPrintf("Hosting link server.");
+                                    if (!state->system->LinkHost(1337))
+                                        Log_ErrorPrint("  Failed");
+                                }
+
+                                break;
+                            }
+
+                        case SDLK_END:
+                            {
+                                if (down && event->key.keysym.mod & (KMOD_LSHIFT | KMOD_RSHIFT))
+                                {
+                                    Log_DevPrintf("Connecting to link server.");
+                                    state->system->SetPaused(true);
+                                    if (!state->system->LinkConnect("127.0.0.1", 1337))
+                                        Log_ErrorPrint("  Failed");
+
+                                    state->system->SetPaused(false);
+                                }
+
+                                break;
+                            }
                         }
 
                         break;

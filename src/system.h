@@ -92,6 +92,10 @@ public:
     bool LoadState(ByteStream *pStream, Error *pError);
     bool SaveState(ByteStream *pStream);
 
+    // temporary link connection api
+    bool LinkHost(uint32 port);
+    bool LinkConnect(const char *host, uint32 port);
+
 private:
     // cpu view of memory
     uint8 CPURead(uint16 address) const;
@@ -182,11 +186,34 @@ private:
     uint8 m_pad_direction_state;
     uint8 m_pad_button_state;
 
+    // serial
+    uint8 m_serial_data;
+    uint8 m_serial_control;
+
     // cgb speed switch
     uint8 m_cgb_speed_switch;
 
     bool m_biosLatch;
     bool m_vramLocked;
     bool m_oamLocked;
+
+    // link
+    uint32 GetLinkClockRate() const;
+    void LinkSetControl(uint8 value);
+    void LinkInit();
+    void LinkCleanup();
+    void LinkReset();
+    void LinkTick(uint32 clocks);
+    void LinkAccept();
+    void LinkRecv();
+    void LinkSend(uint8 value);
+    void LinkWait(uint32 clockrate);
+
+    // link
+    int m_linkListenSocket;
+    int m_linkClientSocket;
+    uint32 m_linkExternalClockRate;
+    uint32 m_linkWaitClocks;
+    uint32 m_linkSocketPollClocks;
 };
 

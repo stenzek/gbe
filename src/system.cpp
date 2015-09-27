@@ -15,6 +15,8 @@
 #include <cmath>
 Log_SetChannel(System);
 
+// TODO: Split to separate files
+
 System::System(CallbackInterface *callbacks)
 {
     m_cpu = nullptr;
@@ -30,6 +32,8 @@ System::System(CallbackInterface *callbacks)
 
 System::~System()
 {
+    LinkCleanup();
+
     delete m_audio;
     delete m_display;
     delete m_cpu;
@@ -61,6 +65,8 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge)
     m_vram_bank = 0;
     m_cgb_speed_switch = 0;
 
+    LinkInit();
+
     Log_InfoPrintf("Initialized system in mode %s.", NameTable_GetNameString(NameTables::SystemMode, m_mode));
     return true;
 }
@@ -73,6 +79,7 @@ void System::Reset()
     ResetMemory();
     ResetTimer();
     ResetPad();
+    LinkReset();
     if (m_cartridge != nullptr)
         m_cartridge->Reset();
 
@@ -139,6 +146,9 @@ void System::StepOtherClocks(uint32 clocks)
 
     // Simulate timers [affected by double speed]
     UpdateTimer(clocks);
+
+    // Simulate serial [affected by double speed]
+    LinkTick(clocks);
 }
 
 uint64 System::TimeToClocks(double time)
@@ -922,6 +932,14 @@ uint8 System::CPUReadIORegister(uint8 index) const
                     return m_pad_row_select | 0x0F;
                 }
 
+                // FF01 - SB serial data
+            case 0x01:
+                return m_serial_data;
+
+                // FF02 - SC serial control
+            case 0x02:
+                return m_serial_control;
+
                 // FF04 - DIV - Divider Register (R/W)
             case 0x04:
                 return m_timer_divider;
@@ -1132,10 +1150,12 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                 // FF01 - SB serial data
             case 0x01:
                 Log_DevPrintf("Serial data written: 0x%02X (%c)", value, value);
+                m_serial_data = value;
                 return;
 
                 // FF02 - SC serial control
             case 0x02:
+                LinkSetControl(value);
                 return;                
 
                 // FF04 - DIV - Divider Register (R/W)
