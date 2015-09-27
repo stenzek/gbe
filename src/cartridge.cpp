@@ -314,6 +314,11 @@ void Cartridge::LoadRTC()
         m_rtc_data.offset_days = buffer.ReadUInt16();
         m_rtc_data.active = buffer.ReadBool();
     }
+    else
+    {
+        // new file - save the rtc state
+        SaveRTC();
+    }
 }
 
 void Cartridge::SaveRTC()
