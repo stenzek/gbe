@@ -50,6 +50,10 @@ public:
     void Reset();   
     void Step();
 
+    // pause
+    bool GetPaused() const { return m_paused; }
+    void SetPaused(bool paused);
+
     // Returns the number of seconds to sleep for.
     double ExecuteFrame();
 
@@ -150,6 +154,7 @@ private:
     uint32 m_frame_counter;
     bool m_frame_limiter;
     bool m_accurate_timing;
+    bool m_paused;
 
     // bios, rom banks 0-1
     byte m_memory_vram[2][0x2000];

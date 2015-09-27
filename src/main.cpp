@@ -659,8 +659,24 @@ static int Run(State *state)
                             {
                                 if (!down)
                                 {
-                                    Log_DevPrintf("Resetting system.");
-                                    state->system->Reset();
+                                    if (event->key.keysym.mod & (KMOD_LSHIFT | KMOD_RSHIFT))
+                                    {
+                                        Log_DevPrintf("Resetting system.");
+                                        state->system->Reset();
+                                    }
+                                    else
+                                    {
+                                        if (state->system->GetPaused())
+                                        {
+                                            Log_DevPrintf("Resuming emulation.");
+                                            state->system->SetPaused(false);
+                                        }
+                                        else
+                                        {
+                                            Log_DevPrintf("Pausing emulation.");
+                                            state->system->SetPaused(true);
+                                        }
+                                    }
                                 }
                                 break;
                             }

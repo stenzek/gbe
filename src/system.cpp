@@ -52,6 +52,7 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge)
     m_frame_limiter = true;
     m_frame_counter = 0;
     m_accurate_timing = true;
+    m_paused = false;
 
     m_memory_locked_cycles = 0;
     m_memory_permissive = false;
@@ -89,6 +90,20 @@ void System::Reset()
     m_high_wram_bank = 1;
     m_vram_bank = 0;
     m_cgb_speed_switch = 0;
+}
+
+void System::SetPaused(bool paused)
+{
+    if (m_paused == paused)
+        return;
+
+    m_paused = paused;
+    if (!m_paused)
+    {
+        m_reset_timer.Reset();
+        m_clocks_since_reset = 0;
+        m_last_vblank_clocks = 0;
+    }
 }
 
 void System::Step()
@@ -140,6 +155,9 @@ double System::ClocksToTime(uint64 clocks)
 double System::ExecuteFrame()
 {
     static const float VBLANK_INTERVAL = 0.0166f;   //16.6ms
+
+    if (m_paused)
+        return VBLANK_INTERVAL;
 
     // framelimiter on?
     if (m_frame_limiter)
