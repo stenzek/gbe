@@ -34,11 +34,17 @@
     <ClInclude Include="YBaseLib\Include\YBaseLib\CallbackQueue.h" />
     <ClInclude Include="YBaseLib\Include\YBaseLib\CircularBuffer.h" />
     <ClInclude Include="YBaseLib\Include\YBaseLib\CIStringHashTable.h" />
-    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\DatagramSocket.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\BaseSocket.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\Generic\BaseSocket.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\Generic\ListenSocket.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\Generic\SocketMultiplexer.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\Generic\StreamSocket.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\ListenSocket.h" />
     <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\SocketAddress.h" />
     <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\SocketMultiplexer.h" />
     <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\StreamSocket.h" />
-    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\TCPSocket.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\Common.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\SystemHeaders.h" />
     <ClInclude Include="YBaseLib\Include\YBaseLib\TaskQueue.h" />
     <ClInclude Include="YBaseLib\Include\YBaseLib\Common.h" />
     <ClInclude Include="YBaseLib\Include\YBaseLib\ConditionVariable.h" />
@@ -115,7 +121,6 @@
     <ClInclude Include="YBaseLib\Include\YBaseLib\XMLWriter.h" />
     <ClInclude Include="YBaseLib\Include\YBaseLib\ZipArchive.h" />
     <ClInclude Include="YBaseLib\Include\YBaseLib\ZLibHelpers.h" />
-    <ClInclude Include="YBaseLib\Source\YBaseLib\Sockets\SystemHeaders.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="YBaseLib\Source\YBaseLib\Android\AndroidBarrier.cpp" />
@@ -134,8 +139,10 @@
     <ClCompile Include="YBaseLib\Source\YBaseLib\CircularBuffer.cpp" />
     <ClCompile Include="YBaseLib\Source\YBaseLib\ByteStream.cpp" />
     <ClCompile Include="YBaseLib\Source\YBaseLib\CallbackQueue.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Sockets\Generic\ListenSocket.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Sockets\Generic\SocketMultiplexer.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Sockets\Generic\StreamSocket.cpp" />
     <ClCompile Include="YBaseLib\Source\YBaseLib\Sockets\SocketAddress.cpp" />
-    <ClCompile Include="YBaseLib\Source\YBaseLib\Sockets\StreamSocket.cpp" />
     <ClCompile Include="YBaseLib\Source\YBaseLib\TaskQueue.cpp" />
     <ClCompile Include="YBaseLib\Source\YBaseLib\CPUID.cpp" />
     <ClCompile Include="YBaseLib\Source\YBaseLib\CRC32.cpp" />

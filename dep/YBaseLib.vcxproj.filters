@@ -16,6 +16,9 @@
     <Filter Include="Sockets">
       <UniqueIdentifier>{2b79817c-6e7d-4fb9-9fa5-090ccf086e4e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Sockets\Generic">
+      <UniqueIdentifier>{074d7f7d-bf65-4db4-8a5b-7637dfd5fc47}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="YBaseLib\Include\YBaseLib\Barrier.h" />
@@ -179,22 +182,37 @@
     <ClInclude Include="YBaseLib\Include\YBaseLib\Android\AndroidReadWriteLock.h">
       <Filter>Android</Filter>
     </ClInclude>
-    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\SocketMultiplexer.h">
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\BaseSocket.h">
       <Filter>Sockets</Filter>
     </ClInclude>
-    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\TCPSocket.h">
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\ListenSocket.h">
       <Filter>Sockets</Filter>
     </ClInclude>
     <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\SocketAddress.h">
       <Filter>Sockets</Filter>
     </ClInclude>
-    <ClInclude Include="YBaseLib\Source\YBaseLib\Sockets\SystemHeaders.h">
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\SocketMultiplexer.h">
       <Filter>Sockets</Filter>
     </ClInclude>
     <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\StreamSocket.h">
       <Filter>Sockets</Filter>
     </ClInclude>
-    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\DatagramSocket.h">
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\Generic\ListenSocket.h">
+      <Filter>Sockets\Generic</Filter>
+    </ClInclude>
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\Generic\SocketMultiplexer.h">
+      <Filter>Sockets\Generic</Filter>
+    </ClInclude>
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\Generic\StreamSocket.h">
+      <Filter>Sockets\Generic</Filter>
+    </ClInclude>
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\Generic\BaseSocket.h">
+      <Filter>Sockets\Generic</Filter>
+    </ClInclude>
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\Common.h">
+      <Filter>Sockets</Filter>
+    </ClInclude>
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\SystemHeaders.h">
       <Filter>Sockets</Filter>
     </ClInclude>
   </ItemGroup>
@@ -316,10 +334,16 @@
     <ClCompile Include="YBaseLib\Source\YBaseLib\Android\AndroidFileSystem.cpp">
       <Filter>Android</Filter>
     </ClCompile>
-    <ClCompile Include="YBaseLib\Source\YBaseLib\Sockets\SocketAddress.cpp">
-      <Filter>Sockets</Filter>
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Sockets\Generic\StreamSocket.cpp">
+      <Filter>Sockets\Generic</Filter>
     </ClCompile>
-    <ClCompile Include="YBaseLib\Source\YBaseLib\Sockets\StreamSocket.cpp">
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Sockets\Generic\ListenSocket.cpp">
+      <Filter>Sockets\Generic</Filter>
+    </ClCompile>
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Sockets\Generic\SocketMultiplexer.cpp">
+      <Filter>Sockets\Generic</Filter>
+    </ClCompile>
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Sockets\SocketAddress.cpp">
       <Filter>Sockets</Filter>
     </ClCompile>
   </ItemGroup>
