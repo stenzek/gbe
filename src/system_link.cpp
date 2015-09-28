@@ -426,7 +426,13 @@ uint32 System::GetLinkClockRate() const
 
 void System::LinkWait(uint32 clockrate)
 {
-    uint32 waitclocks = 4194304 / clockrate;
+    //uint32 waitclocks = 4194304 / clockrate;
+    uint32 waitclocks;
+    if (clockrate == 262144)
+        waitclocks = 128;
+    else
+        waitclocks = 4096;
+
     m_linkWaitClocks = waitclocks;
 }
 
@@ -555,8 +561,18 @@ void System::LinkWrite()
             packet << byte(m_serial_data);
             if (packet.Send(m_linkClientSocket))
             {
-                // send success, stay with transfer flag on until we get a response.
-                return;
+                // did the client already send to us (timing off, but only slightly)
+                if (m_linkHasBufferedReadData)
+                {
+                    // immediately queue this
+                    LinkWait(GetLinkClockRate());
+                    return;
+                }
+                else
+                {
+                    // send success, stay with transfer flag on until we get a response.
+                    return;
+                }
             }
             else
             {
