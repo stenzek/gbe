@@ -28,6 +28,7 @@ enum COMMAND
     COMMAND_HELLO,
     COMMAND_CLOCK_AND_DATA,
     COMMAND_DATA,
+    COMMAND_DATA_ACK,
 };
 
 // TODO: "Duplex buffer"
@@ -522,6 +523,11 @@ void System::LinkRecv()
                 // are we waiting for a transfer?
                 if (m_serial_control & (1 << 7))
                 {
+                    // send the acknowledgment
+                    WritePacket ack(COMMAND_DATA_ACK);
+                    if (!ack.Send(m_linkClientSocket))
+                        LinkClose();
+
                     // buffer the read, and flag it when done
                     m_linkHasBufferedReadData = true;
                     m_linkBufferedReadData = data;
@@ -530,7 +536,9 @@ void System::LinkRecv()
                 else
                 {
                     // we received a packet without actually clocking one out ourselves
-                    Log_WarningPrintf("Data recieved without clocking. Dropping packet.");
+                    Log_DevPrintf("Data recieved without clocking. Queueing packet.");
+                    m_linkBufferedReadData = true;
+                    m_linkBufferedReadData = true;
                 }
             }
             else
@@ -538,6 +546,13 @@ void System::LinkRecv()
                 Log_WarningPrintf("Serial data (without clock) received with external clock set, dropping");
             }
             
+            break;
+        }
+
+    case COMMAND_DATA_ACK:
+        {
+            // ok from the server to push through the pending data
+            LinkWait(m_linkExternalClockRate);
             break;
         }
     }
@@ -564,6 +579,11 @@ void System::LinkWrite()
                 // did the client already send to us (timing off, but only slightly)
                 if (m_linkHasBufferedReadData)
                 {
+                    // send the acknowledgment
+                    WritePacket ack(COMMAND_DATA_ACK);
+                    if (!packet.Send(m_linkClientSocket))
+                        LinkClose();
+
                     // immediately queue this
                     LinkWait(GetLinkClockRate());
                     return;
@@ -612,7 +632,8 @@ void System::LinkWrite()
                 }
 
                 // read the buffered data after clock cycles
-                LinkWait(m_linkExternalClockRate);
+                //LinkWait(m_linkExternalClockRate);
+                // wait for ack before passing data through
             }
         }
     }
