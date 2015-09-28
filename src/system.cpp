@@ -1149,7 +1149,6 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
 
                 // FF01 - SB serial data
             case 0x01:
-                Log_DevPrintf("Serial data written: 0x%02X (%c)", value, value);
                 m_serial_data = value;
                 return;
 

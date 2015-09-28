@@ -26,8 +26,8 @@ static const uint32 NW_VERSION = 1;
 enum COMMAND
 {
     COMMAND_HELLO,
-    COMMAND_CLOCKRATE,
-    COMMAND_DATA
+    COMMAND_CLOCK_AND_DATA,
+    COMMAND_DATA,
 };
 
 // TODO: "Duplex buffer"
@@ -138,9 +138,11 @@ void System::LinkInit()
     m_serial_data = 0xFF;
     m_linkClientSocket = -1;
     m_linkListenSocket = -1;
-    m_linkExternalClockRate = 8192;
     m_linkWaitClocks = 0;
     m_linkSocketPollClocks = 0;
+    m_linkExternalClockRate = 8192;
+    m_linkBufferedReadData = 0xFF;
+    m_linkHasBufferedReadData = false;
 }
 
 void System::LinkCleanup()
@@ -157,50 +159,80 @@ void System::LinkReset()
     m_serial_data = 0xFF;
     m_linkWaitClocks = 0;
     m_linkSocketPollClocks = 0;
+    m_linkBufferedReadData = 0xFF;
+    m_linkHasBufferedReadData = false;
 }
 
-bool System::LinkHost(uint32 port)
+bool System::LinkHost(uint32 port, Error *pError)
 {
-    if (!InitializeWinsock())
+    // already connected?
+    if (m_linkClientSocket >= 0)
+    {
+        pError->SetErrorUser(1, "Can't host when connected as client.");
         return false;
+    }
 
+    // initialize winsock
+    if (!InitializeWinsock())
+    {
+        pError->SetErrorUser(1, "Winsock initialization failed");
+        return false;
+    }
+
+    // set up bind address
     sockaddr_in listenaddr;
     Y_memzero(&listenaddr, sizeof(listenaddr));
     listenaddr.sin_family = AF_INET;
     listenaddr.sin_addr.s_addr = INADDR_ANY;
     listenaddr.sin_port = htons((uint16)port);
     
+    // create socket
     int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (fd < 0)
     {
-        Log_ErrorPrintf("socket() failed: %d", WSAGetLastError());
+        pError->SetErrorSocket(WSAGetLastError());
         return false;
     }
 
+    // bind to listen address
     if (bind(fd, (const sockaddr *)&listenaddr, sizeof(listenaddr)) != 0)
     {
-        Log_ErrorPrintf("bind() failed: %d", WSAGetLastError());
+        pError->SetErrorSocket(WSAGetLastError());
         closesocket(fd);
         return false;
     }
 
+    // accept connections
     if (listen(fd, 1) != 0)
     {
-        Log_ErrorPrintf("listen() failed: %d", WSAGetLastError());
+        pError->SetErrorSocket(WSAGetLastError());
         closesocket(fd);
         return false;
     }
 
+    // done
     Log_InfoPrintf("Link hosting.");
     m_linkListenSocket = fd;
     return true;
 }
 
-bool System::LinkConnect(const char *host, uint32 port)
+bool System::LinkConnect(const char *host, uint32 port, Error *pError)
 {
-    if (!InitializeWinsock())
+    // listening?
+    if (m_linkListenSocket >= 0)
+    {
+        pError->SetErrorUser(1, "Can't connect when hosting.");
         return false;
+    }
 
+    // initialize winsock
+    if (!InitializeWinsock())
+    {
+        pError->SetErrorUser(1, "Winsock initialization failed");
+        return false;
+    }
+
+    // set up target
     sockaddr_in sa;
     Y_memzero(&sa, sizeof(sa));
     sa.sin_family = AF_INET;
@@ -211,6 +243,7 @@ bool System::LinkConnect(const char *host, uint32 port)
         return false;
     }
     
+    // create socket
     int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (fd < 0)
     {
@@ -218,6 +251,7 @@ bool System::LinkConnect(const char *host, uint32 port)
         return false;
     }
 
+    // connect to server
     if (connect(fd, (const sockaddr *)&sa, sizeof(sa)) != 0)
     {
         Log_ErrorPrintf("connect() failed: %d", WSAGetLastError());
@@ -248,17 +282,6 @@ bool System::LinkConnect(const char *host, uint32 port)
         WritePacket hello(COMMAND_HELLO);
         hello.WriteUInt32(NW_VERSION);
         if (!hello.Send(fd))
-        {
-            closesocket(fd);
-            return false;
-        }
-    }
-
-    // send our clock rate
-    {
-        WritePacket clockrate(COMMAND_CLOCKRATE);
-        clockrate.WriteUInt32(GetLinkClockRate());
-        if (!clockrate.Send(fd))
         {
             closesocket(fd);
             return false;
@@ -320,17 +343,6 @@ void System::LinkAccept()
         }
     }
 
-    // send our clockrate
-    {
-        WritePacket packet(COMMAND_CLOCKRATE);
-        packet.WriteUInt32(GetLinkClockRate());
-        if (!packet.Send(client_fd))
-        {
-            closesocket(client_fd);
-            return;
-        }
-    }
-
     // ready to go
     m_linkClientSocket = client_fd;
     Log_InfoPrintf("Link connection established.");
@@ -338,16 +350,20 @@ void System::LinkAccept()
 
 void System::LinkTick(uint32 clocks)
 {
-    if (m_linkListenSocket < 0 && m_linkClientSocket < 0)
-        return;
-
     // handle waits
     if (m_linkWaitClocks > 0)
     {
-        if (clocks > m_linkWaitClocks)
+        if (clocks >= m_linkWaitClocks)
         {
             m_linkWaitClocks = 0;
             m_serial_control &= ~(1 << 7);
+            if (m_linkHasBufferedReadData)
+            {
+                m_serial_data = m_linkBufferedReadData;
+                m_linkHasBufferedReadData = false;
+            }
+
+            Log_DevPrintf("Serial interrupt fired.");
             CPUInterruptRequest(CPU_INT_SERIAL);
         }
         else
@@ -357,44 +373,47 @@ void System::LinkTick(uint32 clocks)
     }
 
     // can we poll?
-    if (clocks >= m_linkSocketPollClocks)
+    if (m_linkListenSocket >= 0 || m_linkClientSocket >= 0)
     {
-        fd_set fdset;
-        FD_ZERO(&fdset);
-
-        int nfds = 0;
-        if (m_linkListenSocket >= 0)
+        if (clocks >= m_linkSocketPollClocks)
         {
-            FD_SET((SOCKET)m_linkListenSocket, &fdset);
-            nfds = m_linkListenSocket;
-        }
-        if (m_linkClientSocket >= 0)
-        {
-            FD_SET((SOCKET)m_linkClientSocket, &fdset);
-            nfds = Max(m_linkListenSocket, nfds);
-        }
+            fd_set fdset;
+            FD_ZERO(&fdset);
 
-        timeval tv = { 0, 0 };
-        int active = select(nfds + 1, &fdset, nullptr, nullptr, &tv);
-        if (active > 0)
-        {
-            if (FD_ISSET(m_linkListenSocket, &fdset))
-                LinkAccept();
-            if (FD_ISSET(m_linkClientSocket, &fdset))
-                LinkRecv();
-        }
+            int nfds = 0;
+            if (m_linkListenSocket >= 0)
+            {
+                FD_SET((SOCKET)m_linkListenSocket, &fdset);
+                nfds = m_linkListenSocket;
+            }
+            if (m_linkClientSocket >= 0)
+            {
+                FD_SET((SOCKET)m_linkClientSocket, &fdset);
+                nfds = Max(m_linkListenSocket, nfds);
+            }
 
-        // find next interval
-        // TODO: Accuracy here
-        if ((m_serial_control & (1 << 0)))
-            m_linkSocketPollClocks = 4194304 / GetLinkClockRate();
+            timeval tv = { 0, 0 };
+            int active = select(nfds + 1, &fdset, nullptr, nullptr, &tv);
+            if (active > 0)
+            {
+                if (FD_ISSET(m_linkListenSocket, &fdset))
+                    LinkAccept();
+                if (FD_ISSET(m_linkClientSocket, &fdset))
+                    LinkRecv();
+            }
+
+            // find next interval
+            // TODO: Accuracy here
+            if ((m_serial_control & (1 << 0)))
+                m_linkSocketPollClocks = 4194304 / GetLinkClockRate();
+            else
+                m_linkSocketPollClocks = 4194304 / m_linkExternalClockRate;
+        }
         else
-            m_linkSocketPollClocks = 4194304 / m_linkExternalClockRate;
+        {
+            m_linkSocketPollClocks -= clocks;
+        }
     }
-    else
-    {
-        m_linkSocketPollClocks -= clocks;
-    }    
 }
 
 uint32 System::GetLinkClockRate() const
@@ -414,23 +433,24 @@ void System::LinkWait(uint32 clockrate)
 void System::LinkSetControl(uint8 value)
 {
     Log_DevPrintf("Serial control set to 0x%02X", value);
-
     m_serial_control = value;
+
+    // start transfer?
     if (value & (1 << 7))
+        LinkWrite();
+}
+
+void System::LinkClose()
+{
+    if (m_linkClientSocket >= 0)
     {
-        // start transfer
-        // are we the server?
-        if (value & (1 << 0))
-        {
-            Log_DevPrintf("Sending serial data: 0x%02X", m_serial_data);
-            LinkSend(m_serial_data);
-            LinkWait(GetLinkClockRate());
-        }
-        else
-        {
-            Log_DevPrintf("Receiving serial data.");
-        }
+        closesocket(m_linkClientSocket);
+        m_linkClientSocket = -1;
     }
+
+    m_linkExternalClockRate = 8192;
+    m_linkBufferedReadData = 0xFF;
+    m_linkHasBufferedReadData = false;
 }
 
 void System::LinkRecv()
@@ -439,39 +459,77 @@ void System::LinkRecv()
     if (packet == nullptr)
     {
         Log_ErrorPrintf("Read error. Closing link connection.");
-        closesocket(m_linkClientSocket);
-        m_linkClientSocket = -1;
+        LinkClose();
         return;
     }
 
     switch (packet->GetPacketCommand())
     {
-    case COMMAND_CLOCKRATE:
+    case COMMAND_CLOCK_AND_DATA:
         {
-            m_linkExternalClockRate = packet->ReadUInt32();
-            Log_DevPrintf("Link other-side clock rate: %u hz", m_linkExternalClockRate);
+            uint32 external_clock_rate = packet->ReadUInt32();
+            byte data = packet->ReadByte();
+            Log_DevPrintf("Receieved clock(%u hz) + data (0x%02X)", external_clock_rate, data);
+
+            // are we set to use an external clock?
+            if (!(m_serial_control & (1 << 0)))
+            {
+                // store buffered byte
+                m_linkHasBufferedReadData = true;
+                m_linkExternalClockRate = external_clock_rate;
+                m_linkBufferedReadData = data;
+
+                // are we waiting for a transfer?
+                if (m_serial_control & (1 << 7))
+                {
+                    Log_DevPrintf("Sending serial data (unbuffered): 0x%02X (external clock %u hz)", m_serial_data, m_linkExternalClockRate);
+
+                    // send our data immediately
+                    WritePacket send_packet(COMMAND_DATA);
+                    send_packet << byte(m_serial_data);
+                    if (!send_packet.Send(m_linkClientSocket))
+                    {
+                        Log_ErrorPrintf("Write error. Closing link connection.");
+                        LinkClose();
+                    }
+                    
+                    // queue move from buffer->register
+                    LinkWait(external_clock_rate);
+                }
+            }
+            else
+            {
+                Log_WarningPrintf("Clock+data recieved while using internal clock. Dropping packet.");
+            }
+
             break;
         }
 
     case COMMAND_DATA:
         {
             byte data = packet->ReadByte();
-            Log_DevPrintf("Link recieved data: 0x%02X", data);
-            if ((m_serial_control & (1 << 0)))
+            Log_DevPrintf("Link recieved data (0x%02X)", data);
+
+            // are we set to use an internal clock? (i.e. this is a response)
+            if (m_serial_control & (1 << 0))
             {
-                if ((m_serial_control & (1 << 7)))
+                // are we waiting for a transfer?
+                if (m_serial_control & (1 << 7))
                 {
-                    m_serial_data = data;
-                    LinkWait(m_linkExternalClockRate);
+                    // buffer the read, and flag it when done
+                    m_linkHasBufferedReadData = true;
+                    m_linkBufferedReadData = data;
+                    LinkWait(GetLinkClockRate());
                 }
                 else
                 {
-                    Log_WarningPrintf("Serial data recieved with transfer flag unset, dropping");
+                    // we received a packet without actually clocking one out ourselves
+                    Log_WarningPrintf("Data recieved without clocking. Dropping packet.");
                 }
             }
             else
             {
-                Log_WarningPrintf("Serial data received with internal clock set, dropping");
+                Log_WarningPrintf("Serial data (without clock) received with external clock set, dropping");
             }
             
             break;
@@ -481,21 +539,65 @@ void System::LinkRecv()
     delete packet;
 }
 
-void System::LinkSend(uint8 value)
+void System::LinkWrite()
 {
-    // wait clocks upfront, in case send fails
-    if ((m_serial_control & (1 << 0)))
-        LinkWait(GetLinkClockRate());
-    else
-        LinkWait(m_linkExternalClockRate);
-
-    // send packet
-    WritePacket packet(COMMAND_DATA);
-    packet << value;
-    if (!packet.Send(m_linkClientSocket))
+    // are we providing the clock?
+    if (m_serial_control & (1 << 0))
     {
-        Log_ErrorPrintf("Write error. Closing link connection.");
-        closesocket(m_linkClientSocket);
-        m_linkClientSocket = -1;
+        Log_DevPrintf("Sending serial data: 0x%02X (internal clock %u hz)", m_serial_data, GetLinkClockRate());
+
+        // do we have a connection?
+        if (m_linkClientSocket >= 0)
+        {
+            // send packet away
+            WritePacket packet(COMMAND_CLOCK_AND_DATA);
+            packet << uint32(GetLinkClockRate());
+            packet << byte(m_serial_data);
+            if (packet.Send(m_linkClientSocket))
+            {
+                // send success, stay with transfer flag on until we get a response.
+                return;
+            }
+            else
+            {
+                // send failed
+                Log_ErrorPrintf("Write error. Closing link connection.");
+                LinkClose();
+            }
+        }
+
+        // if we're here, it means the connection dropped or we didn't have one, so just complete the transfer
+        m_linkBufferedReadData = 0xFF;
+        m_linkHasBufferedReadData = true;
+        LinkWait(GetLinkClockRate());
+    }
+    else
+    {
+        Log_DevPrintf("Receiving serial data from external clock.");
+
+        // have we actually got a link connection?
+        // if not, just leave the game to time out
+        if (m_linkClientSocket >= 0)
+        {
+            // do we have any data pending?
+            // if not, means the external clock (the server) hasn't sent their data, so wait
+            if (m_linkHasBufferedReadData)
+            {
+                Log_DevPrintf("Sending serial data (buffered): 0x%02X (external clock %u hz)", m_serial_data, m_linkExternalClockRate);
+
+                // send our data across
+                WritePacket packet(COMMAND_DATA);
+                packet << byte(m_serial_data);
+                if (!packet.Send(m_linkClientSocket))
+                {
+                    // send failed
+                    Log_ErrorPrintf("Write error. Closing link connection.");
+                    LinkClose();
+                }
+
+                // read the buffered data after clock cycles
+                LinkWait(m_linkExternalClockRate);
+            }
+        }
     }
 }

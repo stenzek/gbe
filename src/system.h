@@ -93,8 +93,8 @@ public:
     bool SaveState(ByteStream *pStream);
 
     // temporary link connection api
-    bool LinkHost(uint32 port);
-    bool LinkConnect(const char *host, uint32 port);
+    bool LinkHost(uint32 port, Error *pError);
+    bool LinkConnect(const char *host, uint32 port, Error *pError);
 
 private:
     // cpu view of memory
@@ -206,14 +206,17 @@ private:
     void LinkTick(uint32 clocks);
     void LinkAccept();
     void LinkRecv();
-    void LinkSend(uint8 value);
+    void LinkClose();
+    void LinkWrite();
     void LinkWait(uint32 clockrate);
 
     // link
     int m_linkListenSocket;
     int m_linkClientSocket;
-    uint32 m_linkExternalClockRate;
     uint32 m_linkWaitClocks;
     uint32 m_linkSocketPollClocks;
+    uint32 m_linkExternalClockRate;
+    byte m_linkBufferedReadData;
+    bool m_linkHasBufferedReadData;
 };
 

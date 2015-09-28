@@ -686,8 +686,10 @@ static int Run(State *state)
                                 if (down && event->key.keysym.mod & (KMOD_LSHIFT | KMOD_RSHIFT))
                                 {
                                     Log_DevPrintf("Hosting link server.");
-                                    if (!state->system->LinkHost(1337))
-                                        Log_ErrorPrint("  Failed");
+                                    
+                                    Error error;
+                                    if (!state->system->LinkHost(1337, &error))
+                                        Log_ErrorPrintf("  Failed: %s", error.GetErrorCodeAndDescription().GetCharArray());
                                 }
 
                                 break;
@@ -699,8 +701,10 @@ static int Run(State *state)
                                 {
                                     Log_DevPrintf("Connecting to link server.");
                                     state->system->SetPaused(true);
-                                    if (!state->system->LinkConnect("127.0.0.1", 1337))
-                                        Log_ErrorPrint("  Failed");
+
+                                    Error error;
+                                    if (!state->system->LinkConnect("127.0.0.1", 1337, &error))
+                                        Log_ErrorPrintf("  Failed: %s", error.GetErrorCodeAndDescription().GetCharArray());
 
                                     state->system->SetPaused(false);
                                 }
