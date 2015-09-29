@@ -36,8 +36,11 @@ private:
 
     // clock sequence number
     uint32 m_sequence;
+    uint32 m_expected_sequence;
+    uint32 m_external_clocks;
 
     // pending data
     uint32 m_serial_wait_clocks;
     uint32 m_clocks_since_transfer_start;
+    bool m_clock_pending;
 };
