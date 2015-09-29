@@ -215,6 +215,12 @@
     <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\SystemHeaders.h">
       <Filter>Sockets</Filter>
     </ClInclude>
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\Generic\BufferedStreamSocket.h">
+      <Filter>Sockets\Generic</Filter>
+    </ClInclude>
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\BufferedStreamSocket.h">
+      <Filter>Sockets</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="YBaseLib\Source\YBaseLib\HTML5\HTML5FileSystem.cpp">
@@ -345,6 +351,9 @@
     </ClCompile>
     <ClCompile Include="YBaseLib\Source\YBaseLib\Sockets\SocketAddress.cpp">
       <Filter>Sockets</Filter>
+    </ClCompile>
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Sockets\Generic\BufferedStreamSocket.cpp">
+      <Filter>Sockets\Generic</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

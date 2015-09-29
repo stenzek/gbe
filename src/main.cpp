@@ -2,6 +2,7 @@
 #include "cartridge.h"
 #include "display.h"
 #include "audio.h"
+#include "link.h"
 #include "YBaseLib/ByteStream.h"
 #include "YBaseLib/AutoReleasePtr.h"
 #include "YBaseLib/Error.h"
@@ -465,8 +466,11 @@ static bool InitializeState(const ProgramArgs *args, State *state)
 
     // apply options
     state->system->SetPermissiveMemoryAccess(args->permissive_memory);
-    //state->system->SetAccurateTiming(false);
-    //state->system->SetAudioEnabled(false);
+    state->system->SetAccurateTiming(false);
+    state->system->SetAudioEnabled(false);
+
+    // bind to link manager
+    LinkConnectionManager::GetInstance().SetSystem(state->system);
 
     // reset system
     state->system->Reset();
@@ -475,6 +479,9 @@ static bool InitializeState(const ProgramArgs *args, State *state)
 
 static void CleanupState(State *state)
 {
+    // unbind from link manager
+    LinkConnectionManager::GetInstance().SetSystem(nullptr);
+
     delete[] state->bios;
     delete state->cart;
     delete state->system;
@@ -688,7 +695,7 @@ static int Run(State *state)
                                     Log_DevPrintf("Hosting link server.");
                                     
                                     Error error;
-                                    if (!state->system->LinkHost(1337, &error))
+                                    if (!LinkConnectionManager::GetInstance().Host("0.0.0.0", 1337, &error))
                                         Log_ErrorPrintf("  Failed: %s", error.GetErrorCodeAndDescription().GetCharArray());
                                 }
 
@@ -703,7 +710,7 @@ static int Run(State *state)
                                     state->system->SetPaused(true);
 
                                     Error error;
-                                    if (!state->system->LinkConnect("127.0.0.1", 1337, &error))
+                                    if (!LinkConnectionManager::GetInstance().Connect("127.0.0.1", 1337, &error))
                                         Log_ErrorPrintf("  Failed: %s", error.GetErrorCodeAndDescription().GetCharArray());
 
                                     state->system->SetPaused(false);
@@ -794,6 +801,7 @@ extern "C" int main(int argc, char *argv[])
 
     // cleanup
     CleanupState(&state);
+    LinkConnectionManager::GetInstance().Shutdown();
     SDL_Quit();
     return return_code;
 }

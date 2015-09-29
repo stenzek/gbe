@@ -1,3 +1,5 @@
+#if 0
+
 #include "system.h"
 #include "cartridge.h"
 #include "cpu.h"
@@ -14,6 +16,8 @@
 #include "YBaseLib/BinaryWriteBuffer.h"
 #include "YBaseLib/ByteStream.h"
 #include "YBaseLib/Error.h"
+#include "YBaseLib/Sockets/BufferedStreamSocket.h"
+#include "YBaseLib/Sockets/SocketMultiplexer.h"
 #include <sys/types.h>
 Log_SetChannel(System);
 
@@ -21,99 +25,8 @@ Log_SetChannel(System);
 #include <WS2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
 
-static const uint32 NW_VERSION = 1;
 
-enum COMMAND
-{
-    COMMAND_HELLO,
-    COMMAND_CLOCK_AND_DATA,
-    COMMAND_DATA,
-    COMMAND_DATA_ACK,
-};
 
-// TODO: "Duplex buffer"
-
-class ReadPacket : public BinaryReadBuffer
-{
-    ReadPacket() : BinaryReadBuffer(16) {}
-
-public:
-    virtual ~ReadPacket() {}
-
-    const COMMAND GetPacketCommand() const { return m_command; }
-    const uint32 GetPacketSize() const { return m_packetSize; }
-
-    static ReadPacket *From(int fd)
-    {
-        ReadPacket *packet = new ReadPacket();
-
-        int nbytes = 0;
-        for (;;)
-        {
-            int result = recv(fd, (char *)packet->GetBufferPointer() + nbytes, packet->GetBufferSize() - nbytes, 0);
-            if (result <= 0)
-            {
-                Log_ErrorPrintf("recv error: %d", WSAGetLastError());
-                delete packet;
-                return nullptr;
-            }
-
-            nbytes += result;
-            if (nbytes < 3)
-                continue;
-
-            packet->m_command = (COMMAND)packet->ReadUInt8();
-            packet->m_packetSize = (uint32)packet->ReadUInt16();
-            if (nbytes < int(packet->m_packetSize + 3))
-                continue;
-            else
-                break;
-        }
-
-        return packet;
-    }
-
-private:
-    COMMAND m_command;
-    uint32 m_packetSize;
-};
-
-class WritePacket : public BinaryWriteBuffer
-{
-public:
-    WritePacket(COMMAND command) : BinaryWriteBuffer() 
-    {
-        WriteUInt8((uint8)command);
-        WriteUInt16(0);
-    }
-
-    virtual ~WritePacket() {}
-
-    bool Send(int fd)
-    {
-        uint64 offset = GetStreamPosition();
-        SeekAbsolute(1);
-        WriteUInt16((uint16)m_pStream->GetSize() - 3);
-        SeekAbsolute(offset);
-
-        int nbytes = 0;
-        for (;;)
-        {
-            int result = send(fd, (const char *)GetBufferPointer() + nbytes, (int)m_pStream->GetSize() - nbytes, 0);
-            if (result < 0)
-            {
-                Log_ErrorPrintf("send error: %d", WSAGetLastError());
-                return false;
-            }
-
-            nbytes += result;
-            if (nbytes == (int)m_pStream->GetSize())
-                break;
-        }
-
-        return true;
-    }
-};
 
 static void CleanupWinsock()
 {
@@ -280,7 +193,7 @@ bool System::LinkConnect(const char *host, uint32 port, Error *pError)
 
     // send our hello
     {
-        WritePacket hello(COMMAND_HELLO);
+        WritePacket hello(LINK_COMMAND_HELLO);
         hello.WriteUInt32(NW_VERSION);
         if (!hello.Send(fd))
         {
@@ -317,7 +230,7 @@ void System::LinkAccept()
 
     // send hello
     {
-        WritePacket packet(COMMAND_HELLO);
+        WritePacket packet(LINK_COMMAND_HELLO);
         packet.WriteUInt32(NW_VERSION);
         if (!packet.Send(client_fd))
         {
@@ -472,7 +385,7 @@ void System::LinkRecv()
 
     switch (packet->GetPacketCommand())
     {
-    case COMMAND_CLOCK_AND_DATA:
+    case LINK_COMMAND_CLOCK_AND_DATA:
         {
             uint32 external_clock_rate = packet->ReadUInt32();
             byte data = packet->ReadByte();
@@ -492,7 +405,7 @@ void System::LinkRecv()
                     Log_DevPrintf("Sending serial data (unbuffered): 0x%02X (external clock %u hz)", m_serial_data, m_linkExternalClockRate);
 
                     // send our data immediately
-                    WritePacket send_packet(COMMAND_DATA);
+                    WritePacket send_packet(LINK_COMMAND_DATA);
                     send_packet << byte(m_serial_data);
                     if (!send_packet.Send(m_linkClientSocket))
                     {
@@ -512,7 +425,7 @@ void System::LinkRecv()
             break;
         }
 
-    case COMMAND_DATA:
+    case LINK_COMMAND_DATA:
         {
             byte data = packet->ReadByte();
             Log_DevPrintf("Link recieved data (0x%02X)", data);
@@ -524,7 +437,7 @@ void System::LinkRecv()
                 if (m_serial_control & (1 << 7))
                 {
                     // send the acknowledgment
-                    WritePacket ack(COMMAND_DATA_ACK);
+                    WritePacket ack(LINK_COMMAND_DATA_ACK);
                     if (!ack.Send(m_linkClientSocket))
                         LinkClose();
 
@@ -549,7 +462,7 @@ void System::LinkRecv()
             break;
         }
 
-    case COMMAND_DATA_ACK:
+    case LINK_COMMAND_DATA_ACK:
         {
             // ok from the server to push through the pending data
             LinkWait(m_linkExternalClockRate);
@@ -571,7 +484,7 @@ void System::LinkWrite()
         if (m_linkClientSocket >= 0)
         {
             // send packet away
-            WritePacket packet(COMMAND_CLOCK_AND_DATA);
+            WritePacket packet(LINK_COMMAND_CLOCK_AND_DATA);
             packet << uint32(GetLinkClockRate());
             packet << byte(m_serial_data);
             if (packet.Send(m_linkClientSocket))
@@ -580,7 +493,7 @@ void System::LinkWrite()
                 if (m_linkHasBufferedReadData)
                 {
                     // send the acknowledgment
-                    WritePacket ack(COMMAND_DATA_ACK);
+                    WritePacket ack(LINK_COMMAND_DATA_ACK);
                     if (!packet.Send(m_linkClientSocket))
                         LinkClose();
 
@@ -622,7 +535,7 @@ void System::LinkWrite()
                 Log_DevPrintf("Sending serial data (buffered): 0x%02X (external clock %u hz)", m_serial_data, m_linkExternalClockRate);
 
                 // send our data across
-                WritePacket packet(COMMAND_DATA);
+                WritePacket packet(LINK_COMMAND_DATA);
                 packet << byte(m_serial_data);
                 if (!packet.Send(m_linkClientSocket))
                 {
@@ -638,3 +551,6 @@ void System::LinkWrite()
         }
     }
 }
+
+#endif
+

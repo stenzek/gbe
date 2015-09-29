@@ -35,7 +35,9 @@
     <ClInclude Include="YBaseLib\Include\YBaseLib\CircularBuffer.h" />
     <ClInclude Include="YBaseLib\Include\YBaseLib\CIStringHashTable.h" />
     <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\BaseSocket.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\BufferedStreamSocket.h" />
     <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\Generic\BaseSocket.h" />
+    <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\Generic\BufferedStreamSocket.h" />
     <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\Generic\ListenSocket.h" />
     <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\Generic\SocketMultiplexer.h" />
     <ClInclude Include="YBaseLib\Include\YBaseLib\Sockets\Generic\StreamSocket.h" />
@@ -139,6 +141,7 @@
     <ClCompile Include="YBaseLib\Source\YBaseLib\CircularBuffer.cpp" />
     <ClCompile Include="YBaseLib\Source\YBaseLib\ByteStream.cpp" />
     <ClCompile Include="YBaseLib\Source\YBaseLib\CallbackQueue.cpp" />
+    <ClCompile Include="YBaseLib\Source\YBaseLib\Sockets\Generic\BufferedStreamSocket.cpp" />
     <ClCompile Include="YBaseLib\Source\YBaseLib\Sockets\Generic\ListenSocket.cpp" />
     <ClCompile Include="YBaseLib\Source\YBaseLib\Sockets\Generic\SocketMultiplexer.cpp" />
     <ClCompile Include="YBaseLib\Source\YBaseLib\Sockets\Generic\StreamSocket.cpp" />

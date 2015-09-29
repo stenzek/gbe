@@ -3,6 +3,7 @@
 #include "cpu.h"
 #include "display.h"
 #include "audio.h"
+#include "serial.h"
 #include "YBaseLib/Memory.h"
 #include "YBaseLib/Thread.h"
 #include "YBaseLib/Log.h"
@@ -22,6 +23,7 @@ System::System(CallbackInterface *callbacks)
     m_cpu = nullptr;
     m_display = nullptr;
     m_audio = nullptr;
+    m_serial = nullptr;
     m_cartridge = nullptr;
     m_callbacks = callbacks;
     m_bios = nullptr;
@@ -32,8 +34,7 @@ System::System(CallbackInterface *callbacks)
 
 System::~System()
 {
-    LinkCleanup();
-
+    delete m_serial;
     delete m_audio;
     delete m_display;
     delete m_cpu;
@@ -48,6 +49,7 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge)
     m_cpu = new CPU(this);
     m_display = new Display(this);
     m_audio = new Audio(this);
+    m_serial = new Serial(this);
 
     m_clocks_since_reset = 0;
     m_last_vblank_clocks = 0;
@@ -65,8 +67,6 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge)
     m_vram_bank = 0;
     m_cgb_speed_switch = 0;
 
-    LinkInit();
-
     Log_InfoPrintf("Initialized system in mode %s.", NameTable_GetNameString(NameTables::SystemMode, m_mode));
     return true;
 }
@@ -76,10 +76,10 @@ void System::Reset()
     m_cpu->Reset();
     m_display->Reset();
     m_audio->Reset();
+    m_serial->Reset();
     ResetMemory();
     ResetTimer();
     ResetPad();
-    LinkReset();
     if (m_cartridge != nullptr)
         m_cartridge->Reset();
 
@@ -144,11 +144,11 @@ void System::StepOtherClocks(uint32 clocks)
     // Simulate audio [not affected by double speed]
     m_audio->ExecuteFor(slow_speed_clocks);
 
+    // Simulate serial [affected by double speed]
+    m_serial->ExecuteFor(clocks);
+
     // Simulate timers [affected by double speed]
     UpdateTimer(clocks);
-
-    // Simulate serial [affected by double speed]
-    LinkTick(clocks);
 }
 
 uint64 System::TimeToClocks(double time)
@@ -934,11 +934,11 @@ uint8 System::CPUReadIORegister(uint8 index) const
 
                 // FF01 - SB serial data
             case 0x01:
-                return m_serial_data;
+                return m_serial->GetSerialData();
 
                 // FF02 - SC serial control
             case 0x02:
-                return m_serial_control;
+                return m_serial->GetSerialControl();
 
                 // FF04 - DIV - Divider Register (R/W)
             case 0x04:
@@ -1149,12 +1149,12 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
 
                 // FF01 - SB serial data
             case 0x01:
-                m_serial_data = value;
+                m_serial->SetSerialData(value);
                 return;
 
                 // FF02 - SC serial control
             case 0x02:
-                LinkSetControl(value);
+                m_serial->SetSerialControl(value);
                 return;                
 
                 // FF04 - DIV - Divider Register (R/W)
