@@ -59,6 +59,7 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge)
     m_frame_counter = 0;
     m_accurate_timing = true;
     m_paused = false;
+    m_serial_pause = false;
 
     m_memory_locked_cycles = 0;
     m_memory_permissive = false;
@@ -115,6 +116,13 @@ void System::SetPaused(bool paused)
 
 void System::Step()
 {
+    // handle serial pause
+    if (m_serial_pause)
+    {
+        m_serial->ExecuteFor(0);
+        return;
+    }
+
     uint32 clocks = m_cpu->Step();
 
     // This is possible to be zero in the case when the operation is done in registers.
@@ -151,6 +159,20 @@ void System::StepOtherClocks(uint32 clocks)
     UpdateTimer(clocks);
 }
 
+void System::SetSerialPause(bool enabled)
+{
+    if (m_serial_pause == enabled)
+        return;
+
+    m_serial_pause = enabled;
+    if (!m_serial_pause)
+    {
+        m_clocks_since_reset = 0;
+        m_last_vblank_clocks = 0;
+        m_reset_timer.Reset();
+    }
+}
+
 uint64 System::TimeToClocks(double time)
 {
     // cpu runs at 4,194,304hz
@@ -168,6 +190,11 @@ double System::ExecuteFrame()
 
     if (m_paused)
         return VBLANK_INTERVAL;
+    if (m_serial_pause)
+    {
+        m_serial->ExecuteFor(0);
+        return 0.001;
+    }
 
     // framelimiter on?
     if (m_frame_limiter)
@@ -185,7 +212,7 @@ double System::ExecuteFrame()
             if (target_clocks > current_clocks)
             {
                 // keep executing until we meet our target
-                while (m_clocks_since_reset < target_clocks)
+                while (m_clocks_since_reset < target_clocks && !m_serial_pause)
                     Step();
             }
 
@@ -211,7 +238,7 @@ double System::ExecuteFrame()
             uint64 target_clocks = TimeToClocks(time_diff * m_speed_multiplier);
 
             // attempt to execute this many cycles, bail out if we exceed vblank time
-            while (m_clocks_since_reset < target_clocks && m_reset_timer.GetTimeSeconds() < VBLANK_INTERVAL)
+            while (m_clocks_since_reset < target_clocks && m_reset_timer.GetTimeSeconds() < VBLANK_INTERVAL && !m_serial_pause)
                 Step();
 
             // calculate the speed we're at
@@ -226,7 +253,7 @@ double System::ExecuteFrame()
     {
         // framelimiter off, just execute as many as quickly as possible, say, 16ms worth at a time
         uint64 target_clocks = m_clocks_since_reset + TimeToClocks((double)VBLANK_INTERVAL);
-        while (m_clocks_since_reset < target_clocks)
+        while (m_clocks_since_reset < target_clocks && !m_serial_pause)
             Step();
 
         // update speed every 100ms

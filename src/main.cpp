@@ -732,7 +732,7 @@ static int Run(State *state)
         {
             // round down to the next millisecond (fix when usleep is implemented)
             uint32 sleep_time_ms = (uint32)std::floor(sleep_time_seconds * 1000.0);
-            Thread::Sleep(sleep_time_ms);
+            //Thread::Sleep(sleep_time_ms);
         }
 
         // report statistics

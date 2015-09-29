@@ -129,6 +129,9 @@ private:
     // execute other processors while the cpu is reading memory
     void StepOtherClocks(uint32 clocks);
 
+    // serial pause
+    void SetSerialPause(bool enabled);
+
 private:
     void ResetMemory();
     void ResetTimer();
@@ -159,6 +162,7 @@ private:
     bool m_frame_limiter;
     bool m_accurate_timing;
     bool m_paused;
+    bool m_serial_pause;
 
     // bios, rom banks 0-1
     byte m_memory_vram[2][0x2000];

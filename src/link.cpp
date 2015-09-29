@@ -288,11 +288,11 @@ void LinkConnectionManager::Shutdown()
         m_listen_socket = nullptr;
     }
 
+    // Calling Close() will cause the pointer to be set to null
     if (m_client_socket != nullptr)
     {
         m_client_socket->Close();
-        m_client_socket->Release();
-        m_client_socket = nullptr;
+        DebugAssert(m_client_socket == nullptr);
     }
 
     if (m_multiplexer != nullptr)
