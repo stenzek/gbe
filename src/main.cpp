@@ -467,7 +467,7 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     // apply options
     state->system->SetPermissiveMemoryAccess(args->permissive_memory);
     //state->system->SetAccurateTiming(false);
-    state->system->SetAudioEnabled(false);
+    //state->system->SetAudioEnabled(false);
 
     // reset system
     state->system->Reset();
@@ -726,13 +726,13 @@ static int Run(State *state)
         {
             // round down to the next millisecond (fix when usleep is implemented)
             uint32 sleep_time_ms = (uint32)std::floor(sleep_time_seconds * 1000.0);
-            //Thread::Sleep(sleep_time_ms);
+            Thread::Sleep(sleep_time_ms);
         }
 
         // report statistics
         if (time_since_last_report.GetTimeSeconds() > 1.0)
         {
-            //Log_DevPrintf("Current frame: %u, emulation speed: %.3f%%, target emulation speed: %.3f%%", state->system->GetFrameCounter() + 1, state->system->GetCurrentSpeed() * 100.0f, state->system->GetTargetSpeed() * 100.0f);
+            Log_DevPrintf("Current frame: %u, emulation speed: %.3f%%, target emulation speed: %.3f%%", state->system->GetFrameCounter() + 1, state->system->GetCurrentSpeed() * 100.0f, state->system->GetTargetSpeed() * 100.0f);
             time_since_last_report.Reset();
 
             // update window title

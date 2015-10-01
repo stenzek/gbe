@@ -74,7 +74,7 @@ void Serial::SetSerialControl(uint8 value)
             if (m_has_connection)
             {
                 // Increment sequence number
-                Log_DevPrintf("Serial send sequence %u, data 0x%02X, and clock %u. Pausing system until response.", m_sequence + 1, m_serial_write_data, GetTransferClocks());
+                TRACE("Serial send sequence %u, data 0x%02X, and clock %u. Pausing system until response.", m_sequence + 1, m_serial_write_data, GetTransferClocks());
                 m_sequence++;
 
                 // Send the byte to the client.
@@ -93,12 +93,12 @@ void Serial::SetSerialControl(uint8 value)
         }
         else
         {
-            Log_DevPrintf("Waiting for externally clocked data.");
+            TRACE("Waiting for externally clocked data.");
 
             // Has the other side clocked data out, and we're running late?
             if (m_nonready_clocks > 0)
             {
-                Log_DevPrintf("Sending delayed externally clocked data 0x%02X.", m_sequence, m_serial_write_data);
+                TRACE("Sending delayed externally clocked data 0x%02X.", m_sequence, m_serial_write_data);
 
                 // Send the response back immediately.
                 WritePacket response(LINK_COMMAND_DATA);
@@ -116,7 +116,7 @@ void Serial::SetSerialControl(uint8 value)
     {
         if ((old_value & 0x81) == 0x80)
         {
-            Log_DevPrintf("Cancelling wait for serial data. %u clocks elapsed.", m_clocks_since_transfer_start);
+            TRACE("Cancelling wait for serial data. %u clocks elapsed.", m_clocks_since_transfer_start);
             m_clocks_since_transfer_start = 0;
         }
     }
@@ -170,7 +170,7 @@ void Serial::EndTransfer(uint32 clocks)
 {
     if (m_clocks_since_transfer_start >= clocks)
     {
-        Log_DevPrintf("Late-firing serial interrupt.");
+        TRACE("Late-firing serial interrupt.");
 
         m_serial_control &= ~(1 << 7);
         m_serial_wait_clocks = 0;
@@ -196,7 +196,7 @@ void Serial::ExecuteFor(uint32 clocks)
         {
             if (clocks >= m_serial_wait_clocks)
             {
-                Log_DevPrintf("Firing serial interrupt.");
+                TRACE("Firing serial interrupt.");
                 m_serial_control &= ~(1 << 7);
                 m_serial_wait_clocks = 0;
                 m_clocks_since_transfer_start = 0;
@@ -213,7 +213,7 @@ void Serial::ExecuteFor(uint32 clocks)
         {
             if (clocks >= m_nonready_clocks)
             {
-                Log_DevPrintf("Sending delayed NOTREADY response.");
+                TRACE("Sending delayed NOTREADY response.");
                 SendNotReadyResponse();
             }
             else
@@ -274,7 +274,7 @@ void Serial::HandleRequests()
                 // Has our transfer been activated as well? (and with an external clock)
                 if ((m_serial_control & 0x81) == 0x80)
                 {
-                    Log_DevPrintf("Received sequence (%u), data (0x%02X) and clock (%u), sending response (0x%02X)", sequence, data, clocks, m_serial_write_data);
+                    TRACE("Received sequence (%u), data (0x%02X) and clock (%u), sending response (0x%02X)", sequence, data, clocks, m_serial_write_data);
 
                     // Send the response back immediately.
                     WritePacket response(LINK_COMMAND_DATA);
@@ -290,7 +290,7 @@ void Serial::HandleRequests()
                     // Wait clocks before sending NOTREADY. This is because the receiving gameboy immediately fires the interrupt upon receiving the clock,
                     // whereas the sender waits for clocks (as it was "paused"). This gives a bit of leeway when assuming latency is consistent, and the
                     // receivers/senders are being swapped with every packet.
-                    Log_DevPrintf("Received sequence (%u) and clock (%u), waiting for a while in case we send data", sequence, clocks);
+                    TRACE("Received sequence (%u) and clock (%u), waiting for a while in case we send data", sequence, clocks);
                     m_external_clocks = clocks;
                     m_nonready_clocks = clocks;
                     m_nonready_sequence = sequence;
@@ -307,7 +307,7 @@ void Serial::HandleRequests()
                 uint8 data = packet->ReadUInt8();
 
                 // Clear pause.
-                Log_DevPrintf("Serial pause CLEARED");
+                TRACE("Serial pause CLEARED");
                 m_system->m_serial_pause = false;
 
                 // Check control state.
@@ -317,7 +317,7 @@ void Serial::HandleRequests()
                     if (sequence == m_sequence)
                     {
                         // Set received data.
-                        Log_DevPrintf("Ending transfer sequence %u with clocked data 0x%02X", sequence, data);
+                        TRACE("Ending transfer sequence %u with clocked data 0x%02X", sequence, data);
                         m_serial_read_data = data;
                         EndTransfer(GetTransferClocks());
                     }
@@ -340,13 +340,13 @@ void Serial::HandleRequests()
                 uint32 sequence = packet->ReadUInt32();
 
                 // Unpause
-                Log_DevPrintf("Serial pause CLEARED");
+                TRACE("Serial pause CLEARED");
                 m_system->m_serial_pause = false;
 
                 // Check sequence
                 if (sequence == m_sequence)
                 {
-                    Log_DevPrintf("Ending transfer sequence %u with NOTREADY response.", sequence);
+                    TRACE("Ending transfer sequence %u with NOTREADY response.", sequence);
 
                     // Set data to 0xFF
                     m_serial_read_data = 0xFF;
