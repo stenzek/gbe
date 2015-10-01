@@ -133,8 +133,37 @@ void Serial::Reset()
     m_serial_read_data = 0xFF;
     m_serial_write_data = 0x00;
     m_sequence = 0;
+    m_expected_sequence = 0;
+    m_external_clocks = 0;
     m_serial_wait_clocks = 0;
     m_clocks_since_transfer_start = 0;
+    m_nonready_clocks = 0;
+    m_nonready_sequence = 0;
+}
+
+bool Serial::LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError)
+{
+    m_serial_control = binaryReader.ReadUInt8();
+    m_serial_read_data = binaryReader.ReadUInt8();
+    m_serial_write_data = binaryReader.ReadUInt8();
+
+    // reset transfer state when loading state
+    m_sequence = 0;
+    m_expected_sequence = 0;
+    m_external_clocks = 0;
+    m_serial_wait_clocks = 0;
+    m_clocks_since_transfer_start = 0;
+    m_nonready_clocks = 0;
+    m_nonready_sequence = 0;
+
+    return true;
+}
+
+void Serial::SaveState(ByteStream *pStream, BinaryWriter &binaryWriter)
+{
+    binaryWriter.WriteUInt8(m_serial_control);
+    binaryWriter.WriteUInt8(m_serial_read_data);
+    binaryWriter.WriteUInt8(m_serial_write_data);
 }
 
 void Serial::EndTransfer(uint32 clocks)
@@ -341,4 +370,3 @@ void Serial::HandleRequests()
         delete packet;
     }        
 }
-

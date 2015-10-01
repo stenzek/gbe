@@ -6,6 +6,8 @@ class LinkSocket;
 
 class Serial
 {
+    friend System;
+
 public:
     Serial(System *system);
     ~Serial();
@@ -27,6 +29,10 @@ private:
     void SendNotReadyResponse();
     void EndTransfer(uint32 clocks);
     void HandleRequests();
+
+    // state saving
+    bool LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError);
+    void SaveState(ByteStream *pStream, BinaryWriter &binaryWriter);
 
     System *m_system;
     bool m_has_connection;

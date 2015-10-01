@@ -367,7 +367,7 @@ bool System::LoadState(ByteStream *pStream, Error *pError)
     binaryReader.ReadBytes(m_memory_oam, sizeof(m_memory_oam));
     binaryReader.ReadBytes(m_memory_zram, sizeof(m_memory_zram));
 
-    // Write registers
+    // Read registers
     m_vram_bank = binaryReader.ReadUInt8();
     m_high_wram_bank = binaryReader.ReadUInt8();
     m_memory_locked_cycles = binaryReader.ReadUInt32();
@@ -390,7 +390,7 @@ bool System::LoadState(ByteStream *pStream, Error *pError)
         return false;
     }
 
-    // Write Cartridge state
+    // Read Cartridge state
     if (!m_cartridge->LoadState(pStream, binaryReader, pError))
         return false;
     if (pStream->InErrorState())
@@ -399,7 +399,7 @@ bool System::LoadState(ByteStream *pStream, Error *pError)
         return false;
     }
 
-    // Write CPU state
+    // Read CPU state
     if (!m_cpu->LoadState(pStream, binaryReader, pError))
         return false;
     if (pStream->InErrorState())
@@ -408,7 +408,7 @@ bool System::LoadState(ByteStream *pStream, Error *pError)
         return false;
     }
 
-    // Write Display state
+    // Read Display state
     if (!m_display->LoadState(pStream, binaryReader, pError))
         return false;
     if (pStream->InErrorState())
@@ -417,12 +417,21 @@ bool System::LoadState(ByteStream *pStream, Error *pError)
         return false;
     }
 
-    // Write Audio state
+    // Read Audio state
     if (!m_audio->LoadState(pStream, binaryReader, pError))
         return false;
     if (pStream->InErrorState())
     {
         pError->SetErrorUserFormatted(1, "Stream read error after restoring audio.");
+        return false;
+    }
+
+    // Read serial state
+    if (!m_serial->LoadState(pStream, binaryReader, pError))
+        return false;
+    if (pStream->InErrorState())
+    {
+        pError->SetErrorUserFormatted(1, "Stream read error after restoring serial.");
         return false;
     }
 
@@ -495,6 +504,11 @@ bool System::SaveState(ByteStream *pStream)
 
     // Write Audio state
     m_audio->SaveState(pStream, binaryWriter);
+    if (pStream->InErrorState())
+        return false;
+
+    // Write Serial state
+    m_serial->SaveState(pStream, binaryWriter);
     if (pStream->InErrorState())
         return false;
 
