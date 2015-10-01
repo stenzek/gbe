@@ -6,6 +6,7 @@
 #include "YBaseLib/BinaryWriter.h"
 #include "YBaseLib/BinaryWriteBuffer.h"
 #include "YBaseLib/Singleton.h"
+#include "YBaseLib/Timer.h"
 
 class System;
 
@@ -34,9 +35,12 @@ public:
     const LINK_COMMAND GetPacketCommand() const { return m_command; }
     const size_t GetPacketSize() const { return (size_t)m_packetSize; }
 
+    const double GetTimeSinceCreation() const { return m_timer.GetTimeMilliseconds(); }
+
 private:
     LINK_COMMAND m_command;
     uint16 m_packetSize;
+    Timer m_timer;
 };
 
 class WritePacket : public BinaryWriteBuffer

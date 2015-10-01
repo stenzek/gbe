@@ -44,8 +44,6 @@ void Serial::SetSerialControl(uint8 value)
     bool internal_clock = !!(value & (1 << 0));
     m_serial_control = value;
 
-    static Timer tmr;
-
     // Start transfer?
     if (start_transfer)
     {
@@ -62,16 +60,15 @@ void Serial::SetSerialControl(uint8 value)
             if (socket != nullptr)
             {
                 // Increment sequence number
-                Log_DevPrintf("Serial send sequence %u and clock %u", m_sequence + 1, GetTransferClocks());
+                Log_DevPrintf("Serial send sequence %u, data 0x%02X, and clock %u. Pausing system until response.", m_sequence + 1, m_serial_write_data, GetTransferClocks());
                 m_sequence++;
 
                 // Send the byte to the client.
                 WritePacket packet(LINK_COMMAND_CLOCK);
-                packet << uint32(m_sequence) << uint32(GetTransferClocks());
+                packet << uint32(m_sequence) << uint32(GetTransferClocks()) << uint8(m_serial_write_data);
                 if (socket->SendPacket(&packet))
                 {
                     // Wait for ACK (i.e. DATA) before simulating.
-                    Log_DevPrintf("Serial pause SET");
                     m_system->m_serial_pause = true;
                     return;
                 }
@@ -84,7 +81,6 @@ void Serial::SetSerialControl(uint8 value)
         else
         {
             Log_DevPrintf("Waiting for externally clocked data.");
-            tmr.Reset();
 
             // Has the other side clocked data out, and we're running late?
             if (m_nonready_clocks > 0)
@@ -99,12 +95,10 @@ void Serial::SetSerialControl(uint8 value)
                     response << uint32(m_nonready_sequence) << uint8(m_serial_write_data);
                     socket->SendPacket(&response);
 
-                    // Set expected sequence.
-                    m_expected_sequence = m_nonready_sequence;
-
-                    // Pause until we're acknowledged.
-                    m_system->m_serial_pause = true;
-                    Log_DevPrintf("Serial pause SET from delayed external clock");
+                    // Assuming incoming data has already been set.
+                    EndTransfer(m_external_clocks);
+                    m_nonready_clocks = 0;
+                    m_nonready_sequence = 0;
                 }
 
                 m_nonready_sequence = 0;
@@ -116,16 +110,9 @@ void Serial::SetSerialControl(uint8 value)
     {
         if ((old_value & 0x81) == 0x80)
         {
-            Log_DevPrintf("Wait time: %.4f ms", tmr.GetTimeMilliseconds());
+            Log_DevPrintf("Cancelling wait for serial data. %u clocks elapsed.", m_clocks_since_transfer_start);
+            m_clocks_since_transfer_start = 0;
         }
-//         // Transfer in progress?
-//         if (m_serial_wait_clocks > 0 || m_clocks_since_transfer_start > 0)
-//         {
-//             Log_DevPrintf("Cancelling wait for serial data.");
-//             m_serial_wait_clocks = 0;
-//             m_clocks_since_transfer_start = 0;
-//             m_clock_pending = false;
-//         }
     }
 }
 
@@ -178,6 +165,7 @@ void Serial::ExecuteFor(uint32 clocks)
                 m_serial_control &= ~(1 << 7);
                 m_serial_wait_clocks = 0;
                 m_clocks_since_transfer_start = 0;
+                m_system->CPUInterruptRequest(CPU_INT_SERIAL);
             }
             else
             {
@@ -197,12 +185,13 @@ void Serial::ExecuteFor(uint32 clocks)
                 if (socket != nullptr)
                 {
                     WritePacket response(LINK_COMMAND_NOT_READY);
-                    response << uint32(m_nonready_sequence);// << uint8(0xFF);
+                    response << uint32(m_nonready_sequence);
                     socket->SendPacket(&response);
                 }
 
                 m_nonready_clocks = 0;
                 m_nonready_sequence = 0;
+                m_serial_read_data = 0xFF;
             }
             else
             {
@@ -235,48 +224,39 @@ void Serial::PollSocket(LinkSocket *socket)
     ReadPacket *packet;
     while ((packet = socket->GetPacket()) != nullptr)
     {
+        Log_DevPrintf("Packet took %.4fms to get to processing", packet->GetTimeSinceCreation());
         switch (packet->GetPacketCommand())
         {
         case LINK_COMMAND_CLOCK:
             {
                 uint32 sequence = packet->ReadUInt32();
                 uint32 clocks = packet->ReadUInt32();
+                uint8 data = packet->ReadUInt8();
 
                 // Has our transfer been activated as well? (and with an external clock)
                 if ((m_serial_control & 0x81) == 0x80)
                 {
-                    Log_DevPrintf("Received sequence (%u) and clock (%u), sending response (0x%02X)", sequence, clocks, m_serial_write_data);
+                    Log_DevPrintf("Received sequence (%u), data (0x%02X) and clock (%u), sending response (0x%02X)", sequence, data, clocks, m_serial_write_data);
 
                     // Send the response back immediately.
                     WritePacket response(LINK_COMMAND_DATA);
                     response << uint32(sequence) << uint8(m_serial_write_data);
                     socket->SendPacket(&response);
 
-                    // Set expected sequence.
-                    m_expected_sequence = sequence;
-                    m_external_clocks = clocks;
-
-                    // Pause until we're acknowledged.
-                    m_system->m_serial_pause = true;
-                    Log_DevPrintf("Serial pause SET from external clock");
+                    // Set the data we received, and end the transfer.
+                    m_serial_read_data = data;
+                    EndTransfer(clocks);
                 }
                 else
                 {
-                    //Log_DevPrintf("Received sequence (%u) and clock (%u), waiting for a while in case we send data", sequence, clocks);
-                    //m_expected_sequence = sequence;
-                    //m_external_clocks = clocks;
-                    //m_clock_pending = true;
-
-                    Log_DevPrintf("Received sequence (%u) and clock (%u), sending NOTREADY response.", sequence, clocks);
-
-                    // Send the response back immediately.
-                    //WritePacket response(LINK_COMMAND_NOT_READY);
-                    //response << uint32(sequence);// << uint8(0xFF);
-                    //socket->SendPacket(&response);
-
+                    // Wait clocks before sending NOTREADY. This is because the receiving gameboy immediately fires the interrupt upon receiving the clock,
+                    // whereas the sender waits for clocks (as it was "paused"). This gives a bit of leeway when assuming latency is consistent, and the
+                    // receivers/senders are being swapped with every packet.
+                    Log_DevPrintf("Received sequence (%u) and clock (%u), waiting for a while in case we send data", sequence, clocks);
                     m_external_clocks = clocks;
                     m_nonready_clocks = clocks;
                     m_nonready_sequence = sequence;
+                    m_serial_read_data = data;
                 }
 
                 break;
@@ -287,39 +267,19 @@ void Serial::PollSocket(LinkSocket *socket)
                 // Got a response sent back to us for our clock
                 uint32 sequence = packet->ReadUInt32();
                 uint8 data = packet->ReadUInt8();
+
+                // Clear pause.
+                Log_DevPrintf("Serial pause CLEARED");
                 m_system->m_serial_pause = false;
-                Log_DevPrintf("Serial pause CLEARED passedClocks = %u", m_clocks_since_transfer_start);
 
-                // Is this a response with an external clock?
-                if ((m_serial_control & 0x81) == 0x80)
-                {
-                    // Check sequence number.
-                    if (sequence == m_expected_sequence)
-                    {
-                        Log_DevPrintf("Ending transfer sequence %u with externally clocked data 0x%02X", sequence, data);
-
-                        // Fire the interrupt.
-                        m_serial_read_data = data;
-                        EndTransfer(m_external_clocks);
-                    }
-                    else
-                    {
-                        Log_WarningPrintf("Received externally-clocked serial data (0x%02X) with incorrect sequence, ignoring.", data);
-                    }
-                }
-                else if ((m_serial_control & 0x81) == 0x81)
-                {
-                    // We have the internal clock. Check the sequence number to ensure this is a correct response.
+                // Check control state.
+                if ((m_serial_control & 0x81) == 0x81)
+                {                    
+                    // We have the internal clock. Check the sequence number to ensure this is the correct response.
                     if (sequence == m_sequence)
                     {
-                        Log_DevPrintf("Ending transfer sequence %u with clocked data 0x%02X", sequence, data);
-
-                        // Send our data.
-                        WritePacket response(LINK_COMMAND_DATA);
-                        response << uint32(sequence) << uint8(m_serial_write_data);
-                        socket->SendPacket(&response);
-
                         // Set received data.
+                        Log_DevPrintf("Ending transfer sequence %u with clocked data 0x%02X", sequence, data);
                         m_serial_read_data = data;
                         EndTransfer(GetTransferClocks());
                     }
@@ -341,9 +301,9 @@ void Serial::PollSocket(LinkSocket *socket)
                 // we clocked out and the other side isn't set to transfer
                 uint32 sequence = packet->ReadUInt32();
 
-                // De-pause
+                // Unpause
+                Log_DevPrintf("Serial pause CLEARED");
                 m_system->m_serial_pause = false;
-                Log_DevPrintf("Serial pause CLEARED passedClocks = %u", m_clocks_since_transfer_start);
 
                 // Check sequence
                 if (sequence == m_sequence)
