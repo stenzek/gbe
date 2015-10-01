@@ -24,6 +24,7 @@ public:
 
 private:
     uint32 GetTransferClocks() const;
+    void SendNotReadyResponse();
     void EndTransfer(uint32 clocks);
     void HandleRequests();
 

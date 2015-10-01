@@ -36,6 +36,19 @@ uint32 Serial::GetTransferClocks() const
         return 4096;
 }
 
+void Serial::SendNotReadyResponse()
+{
+    // Send the response back immediately.
+    WritePacket response(LINK_COMMAND_NOT_READY);
+    response << uint32(m_nonready_sequence);
+    LinkConnectionManager::GetInstance().SendPacket(&response);
+
+    // Clear state.
+    m_nonready_clocks = 0;
+    m_nonready_sequence = 0;
+    m_serial_read_data = 0xFF;
+}
+
 void Serial::SetSerialControl(uint8 value)
 {
     uint8 old_value = m_serial_control;
@@ -51,8 +64,11 @@ void Serial::SetSerialControl(uint8 value)
         if (internal_clock)
         {
             // Forget about anything clocked to us
-            m_nonready_clocks = 0;
-            m_nonready_sequence = 0;
+            if (m_nonready_clocks > 0)
+            {
+                Log_DevPrintf("Sending delayed NOTREADY response due to our own clocking.");
+                SendNotReadyResponse();
+            }
 
             // Do we have a client?
             if (m_has_connection)
@@ -169,16 +185,7 @@ void Serial::ExecuteFor(uint32 clocks)
             if (clocks >= m_nonready_clocks)
             {
                 Log_DevPrintf("Sending delayed NOTREADY response.");
-
-                // Send the response back immediately.
-                WritePacket response(LINK_COMMAND_NOT_READY);
-                response << uint32(m_nonready_sequence);
-                LinkConnectionManager::GetInstance().SendPacket(&response);
-
-                // Clear state.
-                m_nonready_clocks = 0;
-                m_nonready_sequence = 0;
-                m_serial_read_data = 0xFF;
+                SendNotReadyResponse();
             }
             else
             {
