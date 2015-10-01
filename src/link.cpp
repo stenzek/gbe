@@ -36,14 +36,14 @@ WritePacket::~WritePacket()
 
 LinkSocket::LinkSocket() 
     : BufferedStreamSocket()
-    , m_hasActivity(false)
+    , m_active(false)
 {
 
 }
 
 LinkSocket::~LinkSocket()
 {
-
+    DebugAssert(!m_active);
 }
 
 ReadPacket *LinkSocket::GetPacket()
@@ -95,18 +95,7 @@ bool LinkSocket::SendPacket(LINK_COMMAND command, const void *pData, size_t data
 
 void LinkSocket::OnConnected()
 {
-    // Do we already have a connection?
-    if (LinkConnectionManager::GetInstance().GetClientSocket() != nullptr)
-    {
-        // Close this connection
-        Close();
-        return;
-    }
-
-    // Set client socket
-    LinkConnectionManager::GetInstance().SetClientSocket(this);
-
-    // Send hello packet
+    // Send hello packet.
     WritePacket packet(LINK_COMMAND_HELLO);
     packet << uint32(NW_VERSION);
     SendPacket(&packet);
@@ -114,58 +103,53 @@ void LinkSocket::OnConnected()
 
 void LinkSocket::OnDisconnected(Error *pError)
 {
-    if (LinkConnectionManager::GetInstance().GetClientSocket() == this)
-        LinkConnectionManager::GetInstance().SetClientSocket(nullptr);
-
     Log_ErrorPrintf("Link socket disconnected: %s", pError->GetErrorCodeAndDescription().GetCharArray());
-    m_hasActivity = true;
+    if (m_active)
+    {
+        LinkConnectionManager::GetInstance().SetClientSocket(nullptr);
+        m_active = false;
+    }
 }
 
 void LinkSocket::OnRead()
 {
-    // Get the read buffer size.
-    const void *pBuffer;
-    size_t bytesAvailable;
-    if (!AcquireReadBuffer(&pBuffer, &bytesAvailable))
+    // Read a packet in.
+    ReadPacket *packet = GetPacket();
+    if (packet == nullptr)
         return;
-
-    // Check we have the entire packet.
-    const LINK_PACKET_HEADER *pPacketHeader = (const LINK_PACKET_HEADER *)pBuffer;
-    if (bytesAvailable < ((size_t)pPacketHeader->length + sizeof(LINK_PACKET_HEADER)))
-    {
-        ReleaseReadBuffer(0);
-        return;
-    }
-
-    // Get the command index.
-    LINK_COMMAND command = (LINK_COMMAND)pPacketHeader->command;
-    ReleaseReadBuffer(0);
 
     // Examine the header for packets we handle internally.
-    switch (command)
+    switch (packet->GetPacketCommand())
     {
     case LINK_COMMAND_HELLO:
         {
-            ReadPacket *pPacket = GetPacket();
-            if (pPacket != nullptr)
+            uint32 version = packet->ReadUInt32();
+            Log_DevPrintf("Link socket received hello: version %u", version);
+            if (version != NW_VERSION)
             {
-                uint32 version = pPacket->ReadUInt32();
-                Log_DevPrintf("Link socket received hello: version %u", version);
-                if (version != NW_VERSION)
-                {
-                    Log_ErrorPrintf("Network version mismatch (client: %u, us: %u)", version, NW_VERSION);
-                    Close();
-                    return;
-                }
+                Log_ErrorPrintf("Network version mismatch (client: %u, us: %u)", version, NW_VERSION);
+                Close();
+                return;
             }
 
+            // Do we already have a connection?
+            m_active = LinkConnectionManager::GetInstance().SetClientSocket(this);
+            if (!m_active)
+            {
+                Log_ErrorPrintf("Rejecting client connection, already have a client.");
+                Close();
+                return;
+            }
+
+            // Cleanup memory since we're not queueing this packet.
+            delete packet;
             break;
         }
 
     default:
         {
             // let main thread handle it
-            m_hasActivity = true;
+            LinkConnectionManager::GetInstance().QueuePacket(packet);
             break;
         }
     }
@@ -180,24 +164,7 @@ LinkConnectionManager::LinkConnectionManager()
 
 LinkConnectionManager::~LinkConnectionManager()
 {
-    // delete multiplexer on shutdown
-    SAFE_RELEASE(m_listen_socket);
-    SAFE_RELEASE(m_client_socket);
-    delete m_multiplexer;
-}
-
-LinkSocket *LinkConnectionManager::GetClientSocket() const
-{
-    LinkSocket *socket = m_client_socket;
-    if (socket != nullptr)
-        socket->AddRef();
-
-    return socket;
-}
-
-System *LinkConnectionManager::GetSystem() const
-{
-    return m_system;
+    Shutdown();
 }
 
 bool LinkConnectionManager::Host(const char *address, uint32 port, Error *pError)
@@ -245,22 +212,51 @@ bool LinkConnectionManager::Connect(const char *address, uint32 port, Error *pEr
     if (m_multiplexer->ConnectStreamSocket<LinkSocket>(&bind, pError) == nullptr)
         return false;
 
-    DebugAssert(m_client_socket != nullptr);
+    // Connection in progress.
     return true;
 }
 
-void LinkConnectionManager::SetSystem(System *system)
+bool LinkConnectionManager::SetClientSocket(LinkSocket *socket)
 {
-    m_system = system;
-}
+    m_lock.Lock();
 
-void LinkConnectionManager::SetClientSocket(LinkSocket *socket)
-{
-    if (m_client_socket != nullptr)
-        m_client_socket->Release();
+    // Is this a new connection?
+    if (socket != nullptr)
+    {
+        // Already has a connection?
+        if (m_client_socket != nullptr)
+        {
+            m_lock.Unlock();
+            return false;
+        }
 
-    if ((m_client_socket = socket) != nullptr)
+        // State change.
+        DebugAssert(m_state != LinkState_Connected);
+        m_state = LinkState_Connected;
+        m_client_socket = socket;
         m_client_socket->AddRef();
+    }
+    else
+    {
+        // Disconnecting?
+        if (m_client_socket != nullptr)
+        {
+            // State change.
+            DebugAssert(m_state == LinkState_Connected);
+            m_state = LinkState_Disconnected;
+
+            // Remove all packets from the queue.
+            while (m_packet_queue.GetSize() > 0)
+                delete m_packet_queue.PopBack();
+
+            // Release reference.
+            m_client_socket->Release();
+            m_client_socket = nullptr;
+        }
+    }
+
+    m_lock.Unlock();
+    return true;
 }
 
 bool LinkConnectionManager::CreateMultiplexer(Error *pError)
@@ -281,25 +277,74 @@ bool LinkConnectionManager::CreateMultiplexer(Error *pError)
 
 void LinkConnectionManager::Shutdown()
 {
+    // Stop network thread first.
+    if (m_multiplexer != nullptr)
+        m_multiplexer->StopWorkerThreads();
+
+    // Close sockets.
     if (m_listen_socket != nullptr)
     {
         m_listen_socket->Close();
         m_listen_socket->Release();
         m_listen_socket = nullptr;
     }
-
-    // Calling Close() will cause the pointer to be set to null
     if (m_client_socket != nullptr)
     {
+        // Calling Close() will cause the pointer to be set to null
         m_client_socket->Close();
         DebugAssert(m_client_socket == nullptr);
     }
 
-    if (m_multiplexer != nullptr)
+    // Cleanup multiplexer.
+    delete m_multiplexer;
+    m_multiplexer = nullptr;
+}
+
+void LinkConnectionManager::QueuePacket(ReadPacket *packet)
+{
+    m_lock.Lock();
+    m_packet_queue.Add(packet);
+    m_lock.Unlock();
+}
+
+void LinkConnectionManager::SendPacket(WritePacket *packet)
+{
+    // This mess is necessary because of the locking order (read below)
+    LinkSocket *socket;
+    m_lock.Lock();
+    if ((socket = m_client_socket) != nullptr)
+        socket->AddRef();
+    m_lock.Unlock();
+
+    if (socket != nullptr)
+        socket->SendPacket(packet);
+}
+
+LinkConnectionManager::LinkState LinkConnectionManager::MainThreadPull(ReadPacket **out_packet)
+{
+    m_lock.Lock();
+
+    // Pull state.
+    LinkState state = m_state;
+    if (state != LinkState_Connected)
     {
-        m_multiplexer->CloseAll();
-        m_multiplexer->StopWorkerThreads();
-        delete m_multiplexer;
-        m_multiplexer = nullptr;
+        // If set to disconnected state, reset after returning it once.
+        if (state == LinkState_Disconnected)
+            m_state = LinkState_NotConnected;
+
+        m_lock.Unlock();
+        return state;
     }
+
+    // Pull a packet whilst locked.
+    // We can only do one at a time since if a packet is sent in response, that will result in
+    // reversed locking order compared to receiving, which will deadlock.
+    if (m_packet_queue.GetSize() > 0)
+        *out_packet = m_packet_queue.PopFront();
+    else
+        *out_packet = nullptr;
+
+    // Return state
+    m_lock.Unlock();
+    return state;
 }

@@ -8,19 +8,18 @@ Log_SetChannel(Serial);
 
 Serial::Serial(System *system)
     : m_system(system)
+    , m_has_connection(false)
     , m_serial_control(0x00)
     , m_serial_read_data(0xFF)
     , m_serial_write_data(0xFF)
-    , m_serial_wait_clocks(0)
     , m_sequence(0)
     , m_expected_sequence(Y_UINT32_MAX)
     , m_external_clocks(0)
     , m_clocks_since_transfer_start(0)
+    , m_serial_wait_clocks(0)
     , m_nonready_clocks(0)
     , m_nonready_sequence(0)
 {
-    // FIXME - randomize starting sequence
-    m_sequence = (uint32)GetCurrentProcessId();
 }
 
 Serial::~Serial()
@@ -56,8 +55,7 @@ void Serial::SetSerialControl(uint8 value)
             m_nonready_sequence = 0;
 
             // Do we have a client?
-            AutoReleasePtr<LinkSocket> socket = LinkConnectionManager::GetInstance().GetClientSocket();
-            if (socket != nullptr)
+            if (m_has_connection)
             {
                 // Increment sequence number
                 Log_DevPrintf("Serial send sequence %u, data 0x%02X, and clock %u. Pausing system until response.", m_sequence + 1, m_serial_write_data, GetTransferClocks());
@@ -66,12 +64,11 @@ void Serial::SetSerialControl(uint8 value)
                 // Send the byte to the client.
                 WritePacket packet(LINK_COMMAND_CLOCK);
                 packet << uint32(m_sequence) << uint32(GetTransferClocks()) << uint8(m_serial_write_data);
-                if (socket->SendPacket(&packet))
-                {
-                    // Wait for ACK (i.e. DATA) before simulating.
-                    m_system->m_serial_pause = true;
-                    return;
-                }
+                LinkConnectionManager::GetInstance().SendPacket(&packet);
+
+                // Wait for ACK (i.e. DATA) before simulating.
+                m_system->m_serial_pause = true;
+                return;
             }
 
             // No client, or a send error. so just "clock out" nothing
@@ -85,24 +82,17 @@ void Serial::SetSerialControl(uint8 value)
             // Has the other side clocked data out, and we're running late?
             if (m_nonready_clocks > 0)
             {
-                AutoReleasePtr<LinkSocket> socket = LinkConnectionManager::GetInstance().GetClientSocket();
-                if (socket != nullptr)
-                {
-                    Log_DevPrintf("Sending delayed externally clocked data 0x%02X.", m_sequence, m_serial_write_data);
+                Log_DevPrintf("Sending delayed externally clocked data 0x%02X.", m_sequence, m_serial_write_data);
 
-                    // Send the response back immediately.
-                    WritePacket response(LINK_COMMAND_DATA);
-                    response << uint32(m_nonready_sequence) << uint8(m_serial_write_data);
-                    socket->SendPacket(&response);
+                // Send the response back immediately.
+                WritePacket response(LINK_COMMAND_DATA);
+                response << uint32(m_nonready_sequence) << uint8(m_serial_write_data);
+                LinkConnectionManager::GetInstance().SendPacket(&response);
 
-                    // Assuming incoming data has already been set.
-                    EndTransfer(m_external_clocks);
-                    m_nonready_clocks = 0;
-                    m_nonready_sequence = 0;
-                }
-
-                m_nonready_sequence = 0;
+                // Assuming incoming data has already been set.
+                EndTransfer(m_external_clocks);
                 m_nonready_clocks = 0;
+                m_nonready_sequence = 0;
             }
         }
     }
@@ -181,14 +171,11 @@ void Serial::ExecuteFor(uint32 clocks)
                 Log_DevPrintf("Sending delayed NOTREADY response.");
 
                 // Send the response back immediately.
-                AutoReleasePtr<LinkSocket> socket = LinkConnectionManager::GetInstance().GetClientSocket();
-                if (socket != nullptr)
-                {
-                    WritePacket response(LINK_COMMAND_NOT_READY);
-                    response << uint32(m_nonready_sequence);
-                    socket->SendPacket(&response);
-                }
+                WritePacket response(LINK_COMMAND_NOT_READY);
+                response << uint32(m_nonready_sequence);
+                LinkConnectionManager::GetInstance().SendPacket(&response);
 
+                // Clear state.
                 m_nonready_clocks = 0;
                 m_nonready_sequence = 0;
                 m_serial_read_data = 0xFF;
@@ -201,30 +188,45 @@ void Serial::ExecuteFor(uint32 clocks)
     }
 
     // link socket activity
-    // really need a packet queue here..
-    AutoReleasePtr<LinkSocket> socket = LinkConnectionManager::GetInstance().GetClientSocket();
-    if (socket != nullptr && socket->HasActivity())
-        PollSocket(socket);
+    HandleRequests();
 }
 
-void Serial::PollSocket(LinkSocket *socket)
+void Serial::HandleRequests()
 {
-    // handle disconnections
-    if (!socket->IsConnected())
+    // Drain the network thread queue.
+    for (;;)
     {
-        m_serial_read_data = 0xFF;
-        m_serial_write_data = 0x00;
-        m_sequence = 0;
-        m_serial_wait_clocks = 0;
-        m_clocks_since_transfer_start = 0;
-        return;
-    }
+        ReadPacket *packet;
+        LinkConnectionManager::LinkState state = LinkConnectionManager::GetInstance().MainThreadPull(&packet);
+        if (state == LinkConnectionManager::LinkState_NotConnected)
+        {
+            // Not connected in the first place.
+            m_has_connection = false;
+            return;
+        }
+        else if (state == LinkConnectionManager::LinkState_Disconnected)
+        {
+            // The link connection was terminated. Restore our state so we continue.
+            Log_WarningPrintf("Link connection termination detected.");
+            m_has_connection = false;
+            m_serial_read_data = 0xFF;
+            m_sequence = 0;
+            m_expected_sequence = 0;
+            m_external_clocks = 0;
+            m_serial_wait_clocks = 0;
+            m_clocks_since_transfer_start = 0;
+            m_nonready_clocks = 0;
+            m_nonready_sequence = 0;
+            m_system->m_serial_pause = false;
+            return;
+        }
 
-    // read packets
-    ReadPacket *packet;
-    while ((packet = socket->GetPacket()) != nullptr)
-    {
-        Log_DevPrintf("Packet took %.4fms to get to processing", packet->GetTimeSinceCreation());
+        // Connected state. Did we get a packet?
+        m_has_connection = true;
+        if (packet == nullptr)
+            return;
+
+        // Handle packet
         switch (packet->GetPacketCommand())
         {
         case LINK_COMMAND_CLOCK:
@@ -241,7 +243,7 @@ void Serial::PollSocket(LinkSocket *socket)
                     // Send the response back immediately.
                     WritePacket response(LINK_COMMAND_DATA);
                     response << uint32(sequence) << uint8(m_serial_write_data);
-                    socket->SendPacket(&response);
+                    LinkConnectionManager::GetInstance().SendPacket(&response);
 
                     // Set the data we received, and end the transfer.
                     m_serial_read_data = data;

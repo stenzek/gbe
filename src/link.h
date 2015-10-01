@@ -35,12 +35,9 @@ public:
     const LINK_COMMAND GetPacketCommand() const { return m_command; }
     const size_t GetPacketSize() const { return (size_t)m_packetSize; }
 
-    const double GetTimeSinceCreation() const { return m_timer.GetTimeMilliseconds(); }
-
 private:
     LINK_COMMAND m_command;
     uint16 m_packetSize;
-    Timer m_timer;
 };
 
 class WritePacket : public BinaryWriteBuffer
@@ -63,8 +60,6 @@ public:
     LinkSocket();
     virtual ~LinkSocket();
 
-    const bool HasActivity() const { return m_hasActivity; }
-
     ReadPacket *GetPacket();
 
     bool SendPacket(LINK_COMMAND command, const void *pData, size_t dataLength);
@@ -75,26 +70,38 @@ protected:
     virtual void OnDisconnected(Error *pError);
     virtual void OnRead();
 
-    volatile bool m_hasActivity;
+    bool m_active;
 };
 
 class LinkConnectionManager : public Singleton<LinkConnectionManager>
 {
     friend LinkSocket;
+public:
+    enum LinkState
+    {
+        LinkState_NotConnected,
+        LinkState_Connected,
+        LinkState_Disconnected
+    };
 
 public:
     LinkConnectionManager();
     ~LinkConnectionManager();
 
-    LinkSocket *GetClientSocket() const;
-    System *GetSystem() const;
-
     bool Host(const char *address, uint32 port, Error *pError);
     bool Connect(const char *address, uint32 port, Error *pError);
 
-    void SetSystem(System *system);
-    void SetClientSocket(LinkSocket *socket);
+    bool SetClientSocket(LinkSocket *socket);
     void Shutdown();
+
+    // Queues a packet for later pickup by main thread.
+    void QueuePacket(ReadPacket *packet);
+
+    // Send a packet from the main thread.
+    void SendPacket(WritePacket *packet);
+
+    // Pull data from network thread to main thread.
+    LinkState MainThreadPull(ReadPacket **out_packet);
 
 private:
     bool CreateMultiplexer(Error *pError);
@@ -102,6 +109,9 @@ private:
     SocketMultiplexer *m_multiplexer;
     ListenSocket *m_listen_socket;
     LinkSocket *m_client_socket;
-    System *m_system;
+
+    PODArray<ReadPacket *> m_packet_queue;
+    LinkState m_state;
+    Mutex m_lock;
 };
 

@@ -469,9 +469,6 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     //state->system->SetAccurateTiming(false);
     state->system->SetAudioEnabled(false);
 
-    // bind to link manager
-    LinkConnectionManager::GetInstance().SetSystem(state->system);
-
     // reset system
     state->system->Reset();
     return true;
@@ -479,9 +476,6 @@ static bool InitializeState(const ProgramArgs *args, State *state)
 
 static void CleanupState(State *state)
 {
-    // unbind from link manager
-    LinkConnectionManager::GetInstance().SetSystem(nullptr);
-
     delete[] state->bios;
     delete state->cart;
     delete state->system;

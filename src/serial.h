@@ -24,10 +24,11 @@ public:
 
 private:
     uint32 GetTransferClocks() const;
-    void PollSocket(LinkSocket *socket);
     void EndTransfer(uint32 clocks);
+    void HandleRequests();
 
     System *m_system;
+    bool m_has_connection;
 
     // serial
     uint8 m_serial_control;
