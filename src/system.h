@@ -124,7 +124,7 @@ private:
     void DMATransfer(uint16 source_address, uint16 destination_address, uint32 bytes);
 
     // CGB Speed Switch
-    void SwitchCGBSpeed();
+    bool SwitchCGBSpeed();
 
     // execute other processors while the cpu is reading memory
     void StepOtherClocks(uint32 clocks);

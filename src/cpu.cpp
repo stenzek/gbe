@@ -1438,10 +1438,10 @@ uint32 CPU::Step()
 
     case Instruction::Type_STOP:
         {
-            m_halted = true;
-            Log_DevPrintf("CPU Stop");
-            if (m_system->InCGBMode())
-                m_system->SwitchCGBSpeed();
+            if (!m_system->InCGBMode() || !m_system->SwitchCGBSpeed())
+                m_halted = true;
+
+            //Log_DevPrintf("CPU Stop");
 
 #ifdef ACCURATE_MEMORY_TIMING
             // For some reason, the parameter isn't actually read?

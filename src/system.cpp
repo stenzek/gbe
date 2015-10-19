@@ -544,10 +544,10 @@ void System::DMATransfer(uint16 source_address, uint16 destination_address, uint
     m_memory_locked_cycles = 640;
 }
 
-void System::SwitchCGBSpeed()
+bool System::SwitchCGBSpeed()
 {
     if (!(m_cgb_speed_switch & (1 << 0)))
-        return;
+        return false;
 
     // Flips the switch bit off at the same time.
     m_cgb_speed_switch ^= 0x81;
@@ -559,6 +559,7 @@ void System::SwitchCGBSpeed()
     // reset timing - so that accurate timing doesn't break
     //m_clocks_since_reset = 0;
     //m_reset_timer.Reset();
+    return true;
 }
 
 void System::ResetMemory()
