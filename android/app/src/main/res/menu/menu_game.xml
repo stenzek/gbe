@@ -1,0 +1,20 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools" tools:context=".GameActivity">
+
+    <group>
+        <item android:id="@+id/load_state" android:title="Load State" />
+        <item android:id="@+id/save_state" android:title="Save State" />
+        <item android:id="@+id/select_save_state" android:title="Select Save State" />
+    </group>
+    <group>
+        <item android:id="@+id/enable_sound" android:checkable="true" android:title="Enable Sound" />
+        <item android:id="@+id/change_speed" android:title="Change Speed" />
+    </group>
+    <group>
+        <item android:id="@+id/settings" android:title="Settings" />
+    </group>
+    <group>
+        <item android:id="@+id/exit" android:title="Exit" />
+    </group>
+</menu>
