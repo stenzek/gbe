@@ -10,12 +10,39 @@ android {
         targetSdkVersion 23
         versionCode 1
         versionName "1.0"
+
+        ndk {
+            moduleName "gbe"
+        }
     }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+    }
+    sourceSets.main {
+        jniLibs.srcDir 'src/main/jni'
+        jni.srcDirs = []
+    }
+
+    // Call regular ndk-build (.cmd) script from the app directory
+    task ndkBuild(type: Exec, description: 'Compile JNI source via NDK') {
+        //noinspection GroovyAssignabilityCheck
+        def ndkDir = android.ndkDirectory.getAbsolutePath()
+        commandLine ndkDir + '/ndk-build', '-C', file('src/main/').absolutePath
+    }
+
+    task ndkLibsToJar(type: Zip, dependsOn: 'ndkBuild', description: 'Create a JAR of the native libs') {
+        destinationDir new File(buildDir, '../src/main/libs')
+        baseName 'ndk-libs'
+        extension 'jar'
+        from(new File(buildDir, '../src/main/libs')) { include '**/*.so' }
+        into 'lib/'
+    }
+
+    tasks.withType(JavaCompile) {
+        compileTask -> compileTask.dependsOn ndkLibsToJar
     }
 }
 
@@ -25,4 +52,6 @@ dependencies {
     compile 'com.android.support:appcompat-v7:23.1.0'
     compile 'com.android.support:design:23.1.0'
     compile 'com.android.support:support-v4:23.1.0'
+
+    compile fileTree(dir: new File(buildDir, '../src/main/libs'), include: 'ndk-libs.jar')
 }

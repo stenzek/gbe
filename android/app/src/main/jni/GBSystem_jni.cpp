@@ -83,12 +83,12 @@ public:
         if (env == nullptr)
             return;
 
-        jbyteArray *pixelsArray = (*env)->NewByteArray(row_stride * Display::SCREEN_HEIGHT);
-        jbyte *localPixelsArray = (*env)->GetByteArrayElements(env, pixelsArray, nullptr);
+        jbyteArray pixelsArray = env->NewByteArray(row_stride * Display::SCREEN_HEIGHT);
+        jbyte *localPixelsArray = env->GetByteArrayElements(pixelsArray, nullptr);
         Y_memcpy(localPixelsArray, pPixels, row_stride * Display::SCREEN_HEIGHT);
-        (*env)->ReleaseByteArrayElements(env, pixelsArray, localPixelsArray, JNI_COMMIT);
+        env->ReleaseByteArrayElements(pixelsArray, localPixelsArray, JNI_COMMIT);
 
-        (*env)->CallVoidMethod(env, m_jobject, GBSystem_Method_PresentDisplayBuffer, pixelsArray, (int)row_stride);
+        env->CallVoidMethod(m_jobject, GBSystem_Method_PresentDisplayBuffer, pixelsArray, (int)row_stride);
     }
 
     virtual bool LoadCartridgeRAM(void *pData, size_t expected_data_size) override final
@@ -97,17 +97,17 @@ public:
         if (env == nullptr)
             return false;
 
-        jbyteArray resultData = (*env)->CallObjectMethod(env, m_jobject, GBSystem_Method_LoadCartridgeRAM, (int)expected_data_size);
+        jbyteArray resultData = (jbyteArray)env->CallObjectMethod(m_jobject, GBSystem_Method_LoadCartridgeRAM, (int)expected_data_size);
         if (resultData == nullptr)
             return false;
 
-        size_t localDataSize = (*env)->GetArrayLength(env, resultData);
+        size_t localDataSize = env->GetArrayLength(resultData);
         if (localDataSize != expected_data_size)
             return false;
 
-        jbyte *localData = (*env)->GetByteArrayElements(env, resultData, nullptr);
+        jbyte *localData = env->GetByteArrayElements(resultData, nullptr);
         Y_memcpy(pData, localData, expected_data_size);
-        (*env)->ReleaseByteArrayElements(env, resultData, localData, JNI_ABORT);
+        env->ReleaseByteArrayElements(resultData, localData, JNI_ABORT);
         return true;
     }
 
@@ -117,12 +117,12 @@ public:
         if (env == nullptr)
             return;
 
-        jbyteArray *dataArray = (*env)->NewByteArray(data_size);
-        jbyte *localDataArray = (*env)->GetByteArrayElements(env, dataArray, nullptr);
+        jbyteArray dataArray = env->NewByteArray(data_size);
+        jbyte *localDataArray = env->GetByteArrayElements(dataArray, nullptr);
         Y_memcpy(localDataArray, pData, data_size);
-        (*env)->ReleaseByteArrayElements(env, dataArray, localDataArray, JNI_COMMIT);
+        env->ReleaseByteArrayElements(dataArray, localDataArray, JNI_COMMIT);
 
-        (*env)->CallVoidMethod(env, m_jobject, GBSystem_Method_SaveCartridgeRAM, dataArray, (int)row_stride);
+        env->CallVoidMethod(m_jobject, GBSystem_Method_SaveCartridgeRAM, dataArray, (int)data_size);
     }
 
     virtual bool LoadCartridgeRTC(void *pData, size_t expected_data_size) override final
@@ -131,17 +131,17 @@ public:
         if (env == nullptr)
             return false;
 
-        jbyteArray resultData = (*env)->CallObjectMethod(env, m_jobject, GBSystem_Method_LoadCartridgeRTC, (int)expected_data_size);
+        jbyteArray resultData = (jbyteArray)env->CallObjectMethod(m_jobject, GBSystem_Method_LoadCartridgeRTC, (int)expected_data_size);
         if (resultData == nullptr)
             return false;
 
-        size_t localDataSize = (*env)->GetArrayLength(env, resultData);
+        size_t localDataSize = env->GetArrayLength(resultData);
         if (localDataSize != expected_data_size)
             return false;
 
-        jbyte *localData = (*env)->GetByteArrayElements(env, resultData, nullptr);
+        jbyte *localData = env->GetByteArrayElements(resultData, nullptr);
         Y_memcpy(pData, localData, expected_data_size);
-        (*env)->ReleaseByteArrayElements(env, resultData, localData, JNI_ABORT);
+        env->ReleaseByteArrayElements(resultData, localData, JNI_ABORT);
         return true;
     }
 
@@ -151,12 +151,12 @@ public:
         if (env == nullptr)
             return;
 
-        jbyteArray *dataArray = (*env)->NewByteArray(data_size);
-        jbyte *localDataArray = (*env)->GetByteArrayElements(env, dataArray, nullptr);
+        jbyteArray dataArray = env->NewByteArray(data_size);
+        jbyte *localDataArray = env->GetByteArrayElements(dataArray, nullptr);
         Y_memcpy(localDataArray, pData, data_size);
-        (*env)->ReleaseByteArrayElements(env, dataArray, localDataArray, JNI_COMMIT);
+        env->ReleaseByteArrayElements(dataArray, localDataArray, JNI_COMMIT);
 
-        (*env)->CallVoidMethod(env, m_jobject, GBSystem_Method_SaveCartridgeRTC, dataArray, (int)row_stride);
+        env->CallVoidMethod(m_jobject, GBSystem_Method_SaveCartridgeRTC, dataArray, (int)data_size);
     }
 
 private:
@@ -173,25 +173,25 @@ static void ThrowGBSystemException(JNIEnv *env, const char *format, ...)
     message.FormatVA(format, ap);
     va_end(ap);
 
-    (*env)->ThrowNew(env, GBSystemException_Class, message);
+    env->ThrowNew(GBSystemException_Class, message);
 }
 
-jint JNI_OnLoad(JavaVM *vm, void *reserved)
+extern "C" jint JNI_OnLoad(JavaVM *vm, void *reserved)
 {
     JNIEnv *env;
     if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK)
         return -1;
 
-    GBSystem_Class = (*env)->FindClass(env, "com/example/user/gbe/GBSystem");
+    GBSystem_Class = env->FindClass("com/example/user/gbe/GBSystem");
     if (GBSystem_Class == nullptr)
         return -1;
 
-    if (GBSystem_Field_NativePointer = (*env)->GetFieldID(env, GBSystem_Class, "nativePointer", "J") == nullptr ||
-        GBSystem_Method_PresentDisplayBuffer = (*env)->GetMethodID(env, GBSystem_Class, "onPresentDisplayBuffer", "([BI)V") ||
-        GBSystem_Method_LoadCartridgeRAM = (*env)->GetMethodID(env, GBSystem_Class, "onLoadCartridgeRAM", "([BI)Z") ||
-        GBSystem_Method_SaveCartridgeRAM = (*env)->GetMethodID(env, GBSystem_Class, "onSaveCartridgeRAM", "([BI)V") ||
-        GBSystem_Method_LoadCartridgeRTC = (*env)->GetMethodID(env, GBSystem_Class, "onLoadCartridgeRTC", "([BI)Z") ||
-        GBSystem_Method_SaveCartridgeRTC = (*env)->GetMethodID(env, GBSystem_Class, "onSaveCartridgeRTC", "([BI)V"))
+    if ((GBSystem_Field_NativePointer = env->GetFieldID(GBSystem_Class, "nativePointer", "J")) == nullptr ||
+        (GBSystem_Method_PresentDisplayBuffer = env->GetMethodID(GBSystem_Class, "onPresentDisplayBuffer", "([BI)V")) == nullptr ||
+        (GBSystem_Method_LoadCartridgeRAM = env->GetMethodID(GBSystem_Class, "onLoadCartridgeRAM", "([BI)Z")) == nullptr ||
+        (GBSystem_Method_SaveCartridgeRAM = env->GetMethodID(GBSystem_Class, "onSaveCartridgeRAM", "([BI)V")) == nullptr ||
+        (GBSystem_Method_LoadCartridgeRTC = env->GetMethodID(GBSystem_Class, "onLoadCartridgeRTC", "([BI)Z")) == nullptr ||
+        (GBSystem_Method_SaveCartridgeRTC = env->GetMethodID(GBSystem_Class, "onSaveCartridgeRTC", "([BI)V")) == nullptr)
     {
         return -1;
     }
@@ -200,36 +200,35 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved)
     return JNI_VERSION_1_6;
 }
 
-JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeInit(JNIEnv *env, jobject obj)
+extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeInit(JNIEnv *env, jobject obj)
 {
     // allocate/set pointer
     GBSystemNative *native = new GBSystemNative(obj);
-    (*env)->SetLongField(env, obj, GBSystem_Field_NativePointer, (jlong)native);
-    return true;
+    env->SetLongField(obj, GBSystem_Field_NativePointer, (jlong)(uintptr_t)native);
 }
 
-JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeDestroy(JNIEnv *env, jobject obj)
+extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeDestroy(JNIEnv *env, jobject obj)
 {
-    GBSystemNative *native = (GBSystemNative *)(uintptr_t)(*env)->GetLongField(env, obj, GBSystem_Field_NativePointer);
+    GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
     delete native;
 }
 
-JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_loadCartridge(JNIEnv *env, jobject obj, jbyteArray cartData)
+extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_loadCartridge(JNIEnv *env, jobject obj, jbyteArray cartData)
 {
-    GBSystemNative *native = (GBSystemNative *)(uintptr_t)(*env)->GetLongField(env, obj, GBSystem_Field_NativePointer);
-    jbyte *localCartData = (*env)->GetByteArrayElements(env, cartData, nullptr);
-    size_t localCartDataLength = (*env)->GetArrayLength(env, cartData);
+    GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
+    jbyte *localCartData = env->GetByteArrayElements(cartData, nullptr);
+    size_t localCartDataLength = env->GetArrayLength(cartData);
 
     Error error;
-    bool result = native->LoadCartridge(localCartData, localCartDataLength, &error);
-    (*env)->ReleaseByteArrayElements(env, cartData, localCartData, JNI_ABORT);
+    bool result = native->LoadCartridge((byte *)localCartData, localCartDataLength, &error);
+    env->ReleaseByteArrayElements(cartData, localCartData, JNI_ABORT);
     if (!result)
         ThrowGBSystemException(env, "Cartridge load failed: %s", error.GetErrorCodeAndDescription().GetCharArray());
 }
 
-JNIEXPORT jint JNICALL Java_com_example_user_gbe_GBSystem_getCartridgeMode(JNIEnv *env, jobject obj)
+extern "C" JNIEXPORT jint JNICALL Java_com_example_user_gbe_GBSystem_getCartridgeMode(JNIEnv *env, jobject obj)
 {
-    GBSystemNative *native = (GBSystemNative *)(uintptr_t)(*env)->GetLongField(env, obj, GBSystem_Field_NativePointer);
+    GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
     Cartridge *cart = native->GetCartridge();
     if (cart == nullptr)
     {
@@ -240,9 +239,9 @@ JNIEXPORT jint JNICALL Java_com_example_user_gbe_GBSystem_getCartridgeMode(JNIEn
     return (jint)cart->GetSystemMode();
 }
 
-JNIEXPORT jstring JNICALL Java_com_example_user_gbe_GBSystem_getCartridgeName(JNIEnv *env, jobject obj)
+extern "C" JNIEXPORT jstring JNICALL Java_com_example_user_gbe_GBSystem_getCartridgeName(JNIEnv *env, jobject obj)
 {
-    GBSystemNative *native = (GBSystemNative *)(uintptr_t)(*env)->GetLongField(env, obj, GBSystem_Field_NativePointer);
+    GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
     Cartridge *cart = native->GetCartridge();
     if (cart == nullptr)
     {
@@ -250,12 +249,12 @@ JNIEXPORT jstring JNICALL Java_com_example_user_gbe_GBSystem_getCartridgeName(JN
         return nullptr;
     }
 
-    return (*env)->NewStringUTF(cart->GetName());
+    return env->NewStringUTF(cart->GetName());
 }
 
-JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_bootSystem(JNIEnv *env, jobject obj, jint systemMode)
+extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_bootSystem(JNIEnv *env, jobject obj, jint systemMode)
 {
-    GBSystemNative *native = (GBSystemNative *)(uintptr_t)(*env)->GetLongField(env, obj, GBSystem_Field_NativePointer);
+    GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
     if (systemMode < 0 || systemMode >= NUM_SYSTEM_MODES)
     {
         ThrowGBSystemException(env, "Invalid system mode: %d", systemMode);
@@ -270,21 +269,21 @@ JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_bootSystem(JNIEnv *env
     }
 }
 
-JNIEXPORT jboolean JNICALL Java_com_example_user_gbe_GBSystem_isPaused(JNIEnv *env, jobject obj)
+extern "C" JNIEXPORT jboolean JNICALL Java_com_example_user_gbe_GBSystem_isPaused(JNIEnv *env, jobject obj)
 {
-    GBSystemNative *native = (GBSystemNative *)(uintptr_t)(*env)->GetLongField(env, obj, GBSystem_Field_NativePointer);
+    GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
     return native->GetSystem()->GetPaused();
 }
 
-JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_setPaused(JNIEnv *env, jobject obj, jboolean paused)
+extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_setPaused(JNIEnv *env, jobject obj, jboolean paused)
 {
-    GBSystemNative *native = (GBSystemNative *)(uintptr_t)(*env)->GetLongField(env, obj, GBSystem_Field_NativePointer);
+    GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
     native->GetSystem()->SetPaused((bool)paused);
 }
 
-JNIEXPORT jdouble JNICALL Java_com_example_user_gbe_GBSystem_executeFrame(JNIEnv *env, jobject obj)
+extern "C" JNIEXPORT jdouble JNICALL Java_com_example_user_gbe_GBSystem_executeFrame(JNIEnv *env, jobject obj)
 {
-    GBSystemNative *native = (GBSystemNative *)(uintptr_t)(*env)->GetLongField(env, obj, GBSystem_Field_NativePointer);
+    GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
     return native->GetSystem()->ExecuteFrame();
 }
 

@@ -1,17 +1,19 @@
 package com.example.user.gbe;
 
-import android.annotation.SuppressLint;
 import android.content.Intent;
-import android.graphics.Canvas;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.os.Handler;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Toast;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 
 /**
  * An example full-screen activity that shows and hides the system UI (i.e.
@@ -38,6 +40,7 @@ public class GameActivity extends AppCompatActivity {
 
     private View mContentView;
     private boolean mToolbarVisible;
+    private GBSystem gbSystem;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,7 +68,11 @@ public class GameActivity extends AppCompatActivity {
             // incomplete launch
             Toast.makeText(GameActivity.this, "Invalid launch parameters.", Toast.LENGTH_SHORT).show();
             finish();
+            return;
         }
+
+        // Load rom->boot
+        loadRomAndBoot(romPath);
     }
 
     @Override
@@ -176,6 +183,49 @@ public class GameActivity extends AppCompatActivity {
         ActionBar actionBar = getSupportActionBar();
         if (actionBar != null) {
             actionBar.show();
+        }
+    }
+
+    private void loadRomAndBoot(String romPath)
+    {
+        // Read rom
+        byte[] cartData = null;
+        if (romPath != null) {
+            try {
+                File file = new File(romPath);
+                FileInputStream inputStream = new FileInputStream(file);
+                cartData = new byte[(int) file.length()];
+                inputStream.read(cartData, 0, cartData.length);
+                inputStream.close();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+                Toast.makeText(GameActivity.this, "File open failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            } catch (IOException e) {
+                e.printStackTrace();
+                Toast.makeText(GameActivity.this, "File read failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        }
+
+        // Boot system with rom
+        try {
+            gbSystem = new GBSystem();
+
+            int systemBootMode = GBSystem.SYSTEM_MODE_DMG;
+            if (cartData != null) {
+                Log.d("loadRomAndBoot", "Parsing cartridge at " + romPath);
+                gbSystem.loadCartridge(cartData);
+
+                int cartridgeMode = gbSystem.getCartridgeMode();
+                Log.i("loadRomAndBoot", String.format("Cartridge name: '%s' (mode %d)", gbSystem.getCartridgeName(), cartridgeMode));
+                systemBootMode = cartridgeMode;
+            }
+
+            Log.i("loadRomAndBoot", "Booting system mode: " + systemBootMode);
+            gbSystem.bootSystem(systemBootMode);
+
+        } catch (GBSystemException e) {
+            e.printStackTrace();
+            Toast.makeText(GameActivity.this, "Booting failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 }
