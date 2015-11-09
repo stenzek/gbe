@@ -137,7 +137,7 @@ public class GameActivity extends AppCompatActivity {
 
             // Exit
             case R.id.exit: {
-                finish();
+                endEmulation();
                 return true;
             }
         }
@@ -200,9 +200,13 @@ public class GameActivity extends AppCompatActivity {
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
                 Toast.makeText(GameActivity.this, "File open failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                endEmulation();
+                return;
             } catch (IOException e) {
                 e.printStackTrace();
                 Toast.makeText(GameActivity.this, "File read failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                endEmulation();
+                return;
             }
         }
 
@@ -226,6 +230,17 @@ public class GameActivity extends AppCompatActivity {
         } catch (GBSystemException e) {
             e.printStackTrace();
             Toast.makeText(GameActivity.this, "Booting failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            endEmulation();
+            return;
         }
+    }
+
+    public void endEmulation() {
+        if (gbSystem != null) {
+            gbSystem.close();
+            gbSystem = null;
+        }
+
+        finish();
     }
 }

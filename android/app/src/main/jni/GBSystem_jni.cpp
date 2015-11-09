@@ -54,6 +54,11 @@ public:
         delete m_system;
     }
 
+    jobject GetJObject()
+    {
+        return m_jobject;
+    }
+
     System *GetSystem()
     {
         return m_system;
@@ -97,18 +102,16 @@ public:
         if (env == nullptr)
             return false;
 
-        jbyteArray resultData = (jbyteArray)env->CallObjectMethod(m_jobject, GBSystem_Method_LoadCartridgeRAM, (int)expected_data_size);
-        if (resultData == nullptr)
-            return false;
+        jbyteArray dataArray = env->NewByteArray(expected_data_size);
+        jboolean result = env->CallBooleanMethod(m_jobject, GBSystem_Method_LoadCartridgeRAM, dataArray, (int)expected_data_size);
+        if (result)
+        {
+            jbyte *localData = env->GetByteArrayElements(dataArray, nullptr);
+            Y_memcpy(pData, localData, expected_data_size);
+            env->ReleaseByteArrayElements(dataArray, localData, JNI_ABORT);
+        }
 
-        size_t localDataSize = env->GetArrayLength(resultData);
-        if (localDataSize != expected_data_size)
-            return false;
-
-        jbyte *localData = env->GetByteArrayElements(resultData, nullptr);
-        Y_memcpy(pData, localData, expected_data_size);
-        env->ReleaseByteArrayElements(resultData, localData, JNI_ABORT);
-        return true;
+        return result;
     }
 
     virtual void SaveCartridgeRAM(const void *pData, size_t data_size) override final
@@ -131,18 +134,16 @@ public:
         if (env == nullptr)
             return false;
 
-        jbyteArray resultData = (jbyteArray)env->CallObjectMethod(m_jobject, GBSystem_Method_LoadCartridgeRTC, (int)expected_data_size);
-        if (resultData == nullptr)
-            return false;
+        jbyteArray dataArray = env->NewByteArray(expected_data_size);
+        jboolean result = env->CallBooleanMethod(m_jobject, GBSystem_Method_LoadCartridgeRTC, dataArray, (int)expected_data_size);
+        if (result)
+        {
+            jbyte *localData = env->GetByteArrayElements(dataArray, nullptr);
+            Y_memcpy(pData, localData, expected_data_size);
+            env->ReleaseByteArrayElements(dataArray, localData, JNI_ABORT);
+        }
 
-        size_t localDataSize = env->GetArrayLength(resultData);
-        if (localDataSize != expected_data_size)
-            return false;
-
-        jbyte *localData = env->GetByteArrayElements(resultData, nullptr);
-        Y_memcpy(pData, localData, expected_data_size);
-        env->ReleaseByteArrayElements(resultData, localData, JNI_ABORT);
-        return true;
+        return result;
     }
 
     virtual void SaveCartridgeRTC(const void *pData, size_t data_size) override final
@@ -186,6 +187,11 @@ extern "C" jint JNI_OnLoad(JavaVM *vm, void *reserved)
     if (GBSystem_Class == nullptr)
         return -1;
 
+    // Create global reference to class.
+    GBSystem_Class = static_cast<jclass>(env->NewGlobalRef(GBSystem_Class));
+    if (GBSystem_Class == nullptr)
+        return -1;
+
     if ((GBSystem_Field_NativePointer = env->GetFieldID(GBSystem_Class, "nativePointer", "J")) == nullptr ||
         (GBSystem_Method_PresentDisplayBuffer = env->GetMethodID(GBSystem_Class, "onPresentDisplayBuffer", "([BI)V")) == nullptr ||
         (GBSystem_Method_LoadCartridgeRAM = env->GetMethodID(GBSystem_Class, "onLoadCartridgeRAM", "([BI)Z")) == nullptr ||
@@ -193,6 +199,7 @@ extern "C" jint JNI_OnLoad(JavaVM *vm, void *reserved)
         (GBSystem_Method_LoadCartridgeRTC = env->GetMethodID(GBSystem_Class, "onLoadCartridgeRTC", "([BI)Z")) == nullptr ||
         (GBSystem_Method_SaveCartridgeRTC = env->GetMethodID(GBSystem_Class, "onSaveCartridgeRTC", "([BI)V")) == nullptr)
     {
+        env->DeleteGlobalRef(GBSystem_Class);
         return -1;
     }
 
@@ -200,16 +207,40 @@ extern "C" jint JNI_OnLoad(JavaVM *vm, void *reserved)
     return JNI_VERSION_1_6;
 }
 
+extern "C" void JNI_OnUnload(JavaVM *vm, void *reserved)
+{
+    JNIEnv *env;
+    if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK)
+        return;
+
+    if (GBSystem_Class != nullptr)
+    {
+        env->DeleteGlobalRef(GBSystem_Class);
+        GBSystem_Class = nullptr;
+    }
+
+    jvm = nullptr;
+}
+
 extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeInit(JNIEnv *env, jobject obj)
 {
+    // Create reference to java object.
+    jobject objRef = env->NewGlobalRef(obj);
+
     // allocate/set pointer
-    GBSystemNative *native = new GBSystemNative(obj);
+    GBSystemNative *native = new GBSystemNative(objRef);
     env->SetLongField(obj, GBSystem_Field_NativePointer, (jlong)(uintptr_t)native);
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeDestroy(JNIEnv *env, jobject obj)
 {
     GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
+
+    // Release reference to java object.
+    jobject objRef = native->GetJObject();
+    Assert(env->IsSameObject(obj, objRef));
+    env->DeleteGlobalRef(objRef);
+
     delete native;
 }
 

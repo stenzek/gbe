@@ -14,21 +14,16 @@ public class GBSystem {
 		nativeInit();
 	}
 
-	@Override
-	protected void finalize() {
-        try {
-            nativeDestroy();
-        } catch (GBSystemException e) {
-
-        }
-	}
+    public void close() {
+        nativeDestroy();
+    }
 
 	/* Native data */
 	private long nativePointer;
 
 	/* Native methods */
     private native void nativeInit() throws GBSystemException;
-    private native void nativeDestroy() throws GBSystemException;
+    private native void nativeDestroy();
 	public native void loadCartridge(byte[] cartData) throws GBSystemException;
 	public native int getCartridgeMode() throws GBSystemException;
 	public native String getCartridgeName() throws GBSystemException;
@@ -40,13 +35,13 @@ public class GBSystem {
 	/* Native callbacks */
 	private void onPresentDisplayBuffer(byte[] pixels, int rowPitch) {
 	}
-	private byte[] onLoadCartridgeRAM(int expectedDataSize) {
-        return null;
+	private boolean onLoadCartridgeRAM(byte[] data, int expectedDataSize) {
+		return false;
 	}
 	private void onSaveCartridgeRAM(byte[] data, int dataSize) {
 	}
-	private byte[] onLoadCartridgeRTC(int expectedDataSize) {
-        return null;
+	private boolean onLoadCartridgeRTC(byte[] data, int expectedDataSize) {
+        return false;
 	}
 	private void onSaveCartridgeRTC(byte[] data, int dataSize) {
 	}	

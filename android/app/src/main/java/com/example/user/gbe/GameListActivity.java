@@ -1,7 +1,9 @@
 package com.example.user.gbe;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
@@ -14,7 +16,15 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import java.io.File;
+import java.io.FilenameFilter;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+
 public class GameListActivity extends AppCompatActivity {
+
+    static final int ACTIVITY_RESULT_UPDATE_SEARCH_PATHS = 1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -22,16 +32,6 @@ public class GameListActivity extends AppCompatActivity {
         setContentView(R.layout.activity_game_list);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-
-        /*FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
-            }
-        });*/
-
         populateGameList();
     }
 
@@ -48,11 +48,17 @@ public class GameListActivity extends AppCompatActivity {
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
+        switch (id)
+        {
+            case R.id.action_settings: {
+                startActivity(new Intent(this, SettingsActivity.class));
+                return true;
+            }
 
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            startActivity(new Intent(this, SettingsActivity.class));
-            return true;
+            case R.id.edit_rom_paths: {
+                startActivityForResult(new Intent(GameListActivity.this, EditGameSearchDirectoriesActivity.class), ACTIVITY_RESULT_UPDATE_SEARCH_PATHS);
+                return true;
+            }
         }
 
         return super.onOptionsItemSelected(item);
@@ -60,24 +66,53 @@ public class GameListActivity extends AppCompatActivity {
 
     private void populateGameList()
     {
+        // Get current list of paths, split into an array.
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        Set<String> searchDirectories = preferences.getStringSet("romSearchDirectories", new HashSet<String>());
+
+        // Populate the list.
         ListView listView = (ListView)findViewById(R.id.listView);
-
-        // find games
-        if (false)
+        if (searchDirectories.size() > 0)
         {
+            // Iterate through directories.
+            ArrayList<String> romPaths = new ArrayList<String>();
+            for (String path : searchDirectories) {
+                // Iterate through this directory's files.
+                File dir = new File(path);
+                File files[] = dir.listFiles(new FilenameFilter() {
+                    @Override
+                    public boolean accept(File dir, String filename) {
+                        //return (filename.toLowerCase().endsWith(".gb") || filename.toLowerCase().endsWith(".gbc"));
+                        return true;
+                    }
+                });
+                for (File currentFile : files) {
+                    romPaths.add(currentFile.getAbsolutePath());
+                }
+            }
 
+            // TODO: Extract names.
+            final String[] listContents = new String[romPaths.size()];
+            romPaths.toArray(listContents);
+            ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, listContents);
+            listView.setAdapter(adapter);
+            listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                @Override
+                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                    launchGame(listContents[position]);
+                }
+            });
         }
         else
         {
             // no games
-            String[] emptyListContents = new String[] { "No games added." };
+            String[] emptyListContents = new String[] { "No search directories specified." };
             ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, emptyListContents);
             listView.setAdapter(adapter);
             listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
                 @Override
                 public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                    //Toast.makeText(GameListActivity.this, "Add a game first.", Toast.LENGTH_SHORT).show();
-                    launchGame("Hello");
+                startActivity(new Intent(GameListActivity.this, EditGameSearchDirectoriesActivity.class));
                 }
             });
         }
