@@ -23,7 +23,7 @@ Display::Display(System *memory)
     : m_system(memory)
     , m_frameReady(false)
 {
-    Reset();
+    
 }
 
 Display::~Display()
@@ -174,7 +174,18 @@ void Display::CPUWriteRegister(uint8 index, uint8 value)
     Log_WarningPrintf("Unhandled LCD register write: %02X (value %02X)", index, value);
 }
 
+void Display::Init()
+{
+    ResetState();
+}
+
 void Display::Reset()
+{
+    ResetState();
+    PushFrame();
+}
+
+void Display::ResetState()
 {
     ClearFrameBuffer();
     m_frameReady = false;
@@ -190,7 +201,6 @@ void Display::Reset()
     m_currentScanLine = 0;
     SetState(DISPLAY_STATE_OAM_READ);
     SetLYRegister(0);
-    PushFrame();
 }
 
 bool Display::LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError)

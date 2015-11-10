@@ -51,6 +51,9 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge)
     m_audio = new Audio(this);
     m_serial = new Serial(this);
 
+    // init modules
+    m_display->Init();
+
     m_clocks_since_reset = 0;
     m_last_vblank_clocks = 0;
     m_speed_multiplier = 1.0f;
