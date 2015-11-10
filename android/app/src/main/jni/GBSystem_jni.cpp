@@ -91,7 +91,12 @@ public:
 
     bool BootSystem(SYSTEM_MODE mode, const byte *bios, uint32 bios_length)
     {
-        return m_system->Init(mode, nullptr, m_cart);
+        if (!m_system->Init(mode, nullptr, m_cart))
+            return false;
+
+        m_system->SetAccurateTiming(false);
+        //m_system->SetFrameLimiter(false);
+        return true;
     }
 
     virtual void PresentDisplayBuffer(const void *pPixels, uint32 row_stride) override final
@@ -360,3 +365,14 @@ extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeCopyS
     res = AndroidBitmap_unlockPixels(env, destinationBitmap);
     Assert(res == 0);
 }
+
+extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeSetPadDirectionState(JNIEnv *env, jobject obj, jint state) {
+    GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
+    native->GetSystem()->SetPadDirectionState((uint32)state);
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeSetPadButtonState(JNIEnv *env, jobject obj, jint state) {
+    GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
+    native->GetSystem()->SetPadButtonState((uint32)state);
+}
+

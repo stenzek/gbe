@@ -7,8 +7,8 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
-import android.widget.ImageView;
 import android.widget.Toast;
 
 import java.io.File;
@@ -74,6 +74,16 @@ public class GameActivity extends AppCompatActivity {
 
         // Load rom->boot
         loadRomAndBoot(romPath);
+
+        // Hook pad buttons
+        findViewById(R.id.button_pad_left).setOnTouchListener(mPadTouchListener);
+        findViewById(R.id.button_pad_right).setOnTouchListener(mPadTouchListener);
+        findViewById(R.id.button_pad_up).setOnTouchListener(mPadTouchListener);
+        findViewById(R.id.button_pad_down).setOnTouchListener(mPadTouchListener);
+        findViewById(R.id.button_pad_a).setOnTouchListener(mPadTouchListener);
+        findViewById(R.id.button_pad_b).setOnTouchListener(mPadTouchListener);
+        findViewById(R.id.button_pad_select).setOnTouchListener(mPadTouchListener);
+        findViewById(R.id.button_pad_select).setOnTouchListener(mPadTouchListener);
     }
 
     @Override
@@ -251,4 +261,38 @@ public class GameActivity extends AppCompatActivity {
 
         finish();
     }
+
+    private View.OnTouchListener mPadTouchListener = new View.OnTouchListener() {
+        @Override
+        public boolean onTouch(View view, MotionEvent motionEvent) {
+            boolean isDown = (motionEvent.getAction() == MotionEvent.ACTION_DOWN);
+            switch (view.getId()) {
+                case R.id.button_pad_left:
+                    gbSystem.setPadDirection(GBSystem.PAD_DIRECTION_LEFT, isDown);
+                    return true;
+                case R.id.button_pad_right:
+                    gbSystem.setPadDirection(GBSystem.PAD_DIRECTION_RIGHT, isDown);
+                    return true;
+                case R.id.button_pad_up:
+                    gbSystem.setPadDirection(GBSystem.PAD_DIRECTION_UP, isDown);
+                    return true;
+                case R.id.button_pad_down:
+                    gbSystem.setPadDirection(GBSystem.PAD_DIRECTION_DOWN, isDown);
+                    return true;
+                case R.id.button_pad_a:
+                    gbSystem.setPadButton(GBSystem.PAD_BUTTON_A, isDown);
+                    return true;
+                case R.id.button_pad_b:
+                    gbSystem.setPadButton(GBSystem.PAD_BUTTON_B, isDown);
+                    return true;
+                case R.id.button_pad_start:
+                    gbSystem.setPadButton(GBSystem.PAD_BUTTON_START, isDown);
+                    return true;
+                case R.id.button_pad_select:
+                    gbSystem.setPadButton(GBSystem.PAD_BUTTON_SELECT, isDown);
+                    return true;
+            }
+            return false;
+        }
+    };
 }

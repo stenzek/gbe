@@ -63,7 +63,9 @@ public:
     // Pad direction
     void SetPadDirection(PAD_DIRECTION direction);
     void SetPadDirection(PAD_DIRECTION direction, bool state);
+    void SetPadDirectionState(uint32 state);
     void SetPadButton(PAD_BUTTON button, bool state);
+    void SetPadButtonState(uint32 state);
 
     // frame number
     uint32 GetFrameCounter() const { return m_frame_counter; }

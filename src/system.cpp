@@ -314,6 +314,17 @@ void System::SetPadDirection(PAD_DIRECTION direction, bool state)
     }
 }
 
+void System::SetPadDirectionState(uint32 state)
+{
+    // flip on bits to off (which is what the gb expects)
+    state = (state & PAD_DIRECTION_MASK) ^ PAD_DIRECTION_MASK;
+    if (m_pad_direction_state == state)
+        return;
+
+    m_pad_direction_state = state;
+    CPUInterruptRequest(CPU_INT_JOYPAD);
+}
+
 void System::SetPadButton(PAD_BUTTON button, bool state)
 {
     uint8 old_button_state = m_pad_button_state;
@@ -328,6 +339,17 @@ void System::SetPadButton(PAD_BUTTON button, bool state)
         TRACE("Pad button 0x%02X set %s", button, state ? "on" : "off");
         CPUInterruptRequest(CPU_INT_JOYPAD);
     }
+}
+
+void System::SetPadButtonState(uint32 state)
+{
+    // flip on bits to off (which is what the gb expects)
+    state = (state & PAD_BUTTON_MASK) ^ PAD_BUTTON_MASK;
+    if (m_pad_button_state == state)
+        return;
+
+    m_pad_button_state = state;
+    CPUInterruptRequest(CPU_INT_JOYPAD);
 }
 
 void System::SetTargetSpeed(float multiplier)

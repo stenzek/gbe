@@ -1,6 +1,6 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
-    android:layout_height="match_parent" android:background="#0099cc"
+    xmlns:tools="http://schemas.android.com/tools" android:layout_width="fill_parent"
+    android:layout_height="fill_parent" android:background="#0099cc"
     tools:context="com.example.user.gbe.GameActivity">
 
     <!-- The primary full-screen view. This can be replaced with whatever view
@@ -11,8 +11,96 @@
          android:fitsSystemWindows. -->
 
     <com.example.user.gbe.GBDisplayView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
         android:id="@+id/gbDisplayView"
-        android:layout_gravity="left|top" />
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent" />
+
+    <RelativeLayout
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent">
+
+        <Button
+            style="?android:attr/buttonStyleSmall"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="D"
+            android:id="@+id/button_pad_down"
+            android:layout_above="@+id/button_pad_select"
+            android:layout_toRightOf="@+id/button_pad_left"
+            android:layout_toEndOf="@+id/button_pad_left" />
+
+        <Button
+            style="?android:attr/buttonStyleSmall"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="U"
+            android:id="@+id/button_pad_up"
+            android:layout_alignBaseline="@+id/button_pad_b"
+            android:layout_alignBottom="@+id/button_pad_b"
+            android:layout_toRightOf="@+id/button_pad_left"
+            android:layout_toEndOf="@+id/button_pad_left" />
+
+        <Button
+            style="?android:attr/buttonStyleSmall"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="R"
+            android:id="@+id/button_pad_right"
+            android:layout_above="@+id/button_pad_down"
+            android:layout_toRightOf="@+id/button_pad_down"
+            android:layout_toEndOf="@+id/button_pad_down" />
+
+        <Button
+            style="?android:attr/buttonStyleSmall"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="L"
+            android:id="@+id/button_pad_left"
+            android:layout_alignTop="@+id/button_pad_right"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentStart="true" />
+
+        <Button
+            style="?android:attr/buttonStyleSmall"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="A"
+            android:id="@+id/button_pad_a"
+            android:layout_above="@+id/button_pad_right"
+            android:layout_alignParentRight="true"
+            android:layout_alignParentEnd="true" />
+
+        <Button
+            style="?android:attr/buttonStyleSmall"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="B"
+            android:id="@+id/button_pad_b"
+            android:layout_alignTop="@+id/button_pad_a"
+            android:layout_toLeftOf="@+id/button_pad_a"
+            android:layout_toStartOf="@+id/button_pad_a" />
+
+        <Button
+            style="?android:attr/buttonStyleSmall"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Select"
+            android:id="@+id/button_pad_select"
+            android:layout_alignParentBottom="true"
+            android:layout_toRightOf="@+id/button_pad_down"
+            android:layout_toEndOf="@+id/button_pad_down"
+            android:layout_marginLeft="25dp"
+            android:layout_marginStart="25dp" />
+
+        <Button
+            style="?android:attr/buttonStyleSmall"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Start"
+            android:id="@+id/button_pad_start"
+            android:layout_alignTop="@+id/button_pad_select"
+            android:layout_toRightOf="@+id/button_pad_select"
+            android:layout_toEndOf="@+id/button_pad_select" />
+    </RelativeLayout>
+
 </FrameLayout>

@@ -42,7 +42,7 @@ android {
             def taskName = "ndk${debugMode ? "Debug" : "Release"}Build"
             def packageTaskName = "ndk${debugMode ? "Debug" : "Release"}Package"
 
-            def extraParameter = debugMode ? "NDK_DEBUG=1" : "" // other possibility for debug build:
+            def extraParameter = debugMode ? "NDK_DEBUG=1" : "NDK_DEBUG=0" // other possibility for debug build:
             // referencing an other Application.mk that contains APP_OPTIM:=debug and other options
             // -> "NDK_APPLICATION_MK=" + file('src/main/jni/Application-debug.mk').absolutePath
 

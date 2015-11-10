@@ -2,7 +2,8 @@ package com.example.user.gbe;
 
 import android.graphics.Bitmap;
 import android.util.Log;
-import android.widget.ImageView;
+import android.view.MotionEvent;
+import android.view.View;
 
 public class GBSystem {
 	/* System modes */
@@ -11,6 +12,14 @@ public class GBSystem {
 	public static final int SYSTEM_MODE_CGB = 2;
 	public static final int SCREEN_WIDTH = 160;
 	public static final int SCREEN_HEIGHT = 144;
+	public static final int PAD_DIRECTION_RIGHT = 0x01;
+	public static final int PAD_DIRECTION_LEFT = 0x02;
+	public static final int PAD_DIRECTION_UP = 0x04;
+	public static final int PAD_DIRECTION_DOWN = 0x08;
+	public static final int PAD_BUTTON_A = 0x01;
+	public static final int PAD_BUTTON_B = 0x02;
+	public static final int PAD_BUTTON_SELECT = 0x04;
+	public static final int PAD_BUTTON_START = 0x08;
 
     static {
         System.loadLibrary("gbe");
@@ -41,6 +50,8 @@ public class GBSystem {
 	private native double nativeExecuteFrame();
 	private native void nativeCopyScreenBuffer(Bitmap destinationBitmap);
 	private native void nativeSetPaused(boolean paused);
+	private native void nativeSetPadDirectionState(int state);
+	private native void nativeSetPadButtonState(int state);
 
 	/* Native callbacks */
 	private void onScreenBufferReady() {
@@ -85,6 +96,8 @@ public class GBSystem {
 		currentPresentingBuffer = Bitmap.createBitmap(SCREEN_WIDTH, SCREEN_HEIGHT, Bitmap.Config.ARGB_8888);
 		currentPendingBuffer = Bitmap.createBitmap(SCREEN_WIDTH, SCREEN_HEIGHT, Bitmap.Config.ARGB_8888);
 		this.displayView = displayView;
+
+		// hook buttons
 	}
 
 	private void startWorkerThread() {
@@ -146,11 +159,24 @@ public class GBSystem {
 
 	private void workerThreadEntryPoint() {
 		Log.d("WorkerThread", "Starting");
+
+		int lastPadDirectionState = mPadDirectionState;
+		int lastPadButtonState = mPadButtonState;
 		while (workerThreadRunning)
 		{
+			if (lastPadDirectionState != mPadDirectionState) {
+				nativeSetPadDirectionState(mPadDirectionState);
+				lastPadDirectionState = mPadDirectionState;
+			}
+			if (lastPadButtonState != mPadButtonState) {
+				nativeSetPadButtonState(mPadButtonState);
+				lastPadButtonState = mPadButtonState;
+			}
+
 			double sleepTime = nativeExecuteFrame();
-			if (sleepTime > 0.01) {
+			if (sleepTime > 0.001) {
 				int millis = (int) Math.floor(sleepTime * 1000);
+				//Log.d("GBSystem", String.format("sleepTime: %f, millis: %d", sleepTime, millis));
 				try {
 					Thread.sleep(millis);
 				}
@@ -161,4 +187,51 @@ public class GBSystem {
 		}
 		Log.d("WorkerThread", "Exiting");
 	}
+
+	private volatile int mPadDirectionState = 0;
+	private volatile int mPadButtonState = 0;
+
+	public void setPadDirection(int direction, boolean down) {
+		Log.d("GBSystem", String.format("setPadDirection(%d, %s)", direction, down ? "true" : "false"));
+		mPadDirectionState = (down) ? (mPadDirectionState | direction) : (mPadDirectionState & ~direction);
+	}
+	public void setPadButton(int button, boolean down) {
+		Log.d("GBSystem", String.format("setPadButton(%d, %s)", button, down ? "true" : "false"));
+		mPadButtonState = (down) ? (mPadButtonState | button) : (mPadButtonState & ~button);
+	}
+
+	/*private View.OnTouchListener mTouchListener = new View.OnTouchListener() {
+		@Override
+		public boolean onTouch(View view, MotionEvent motionEvent) {
+			Log.d("ontouch", "ontouch");
+			boolean isDown = (motionEvent.getAction() == MotionEvent.ACTION_DOWN);
+			switch (view.getId()) {
+				case R.id.button_pad_left:
+					mPadDirectionState = (isDown) ? (mPadDirectionState | PAD_DIRECTION_LEFT) : (mPadDirectionState & ~PAD_DIRECTION_LEFT);
+					return true;
+				case R.id.button_pad_right:
+					mPadDirectionState = (isDown) ? (mPadDirectionState | PAD_DIRECTION_RIGHT) : (mPadDirectionState & ~PAD_DIRECTION_RIGHT);
+					return true;
+				case R.id.button_pad_up:
+					mPadDirectionState = (isDown) ? (mPadDirectionState | PAD_DIRECTION_UP) : (mPadDirectionState & ~PAD_DIRECTION_UP);
+					return true;
+				case R.id.button_pad_down:
+					mPadDirectionState = (isDown) ? (mPadDirectionState | PAD_DIRECTION_DOWN) : (mPadDirectionState & ~PAD_DIRECTION_DOWN);
+					return true;
+				case R.id.button_pad_a:
+					mPadButtonState = (isDown) ? (mPadButtonState | PAD_BUTTON_A) : (mPadButtonState & ~PAD_BUTTON_A);
+					return true;
+				case R.id.button_pad_b:
+					mPadButtonState = (isDown) ? (mPadButtonState | PAD_BUTTON_B) : (mPadButtonState & ~PAD_BUTTON_B);
+					return true;
+				case R.id.button_pad_start:
+					mPadButtonState = (isDown) ? (mPadButtonState | PAD_BUTTON_START) : (mPadButtonState & ~PAD_BUTTON_START);
+					return true;
+				case R.id.button_select:
+					mPadButtonState = (isDown) ? (mPadButtonState | PAD_BUTTON_SELECT) : (mPadButtonState & ~PAD_BUTTON_SELECT);
+					return true;
+			}
+			return false;
+		}
+	}*/
 }
