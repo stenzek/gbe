@@ -15,14 +15,14 @@
 #include "YBaseLib/BinaryReader.h"
 #include "YBaseLib/BinaryWriter.h"
 #include <jni.h>
+#include <android/bitmap.h>
 Log_SetChannel(GBESystemNative);
 
 // method ids for callbacks
 static JavaVM *jvm;
 static jclass GBSystem_Class;
-static jclass GBSystemException_Class;
 static jfieldID GBSystem_Field_NativePointer;
-static jmethodID GBSystem_Method_PresentDisplayBuffer;
+static jmethodID GBSystem_Method_OnScreenBufferReady;
 static jmethodID GBSystem_Method_LoadCartridgeRAM;
 static jmethodID GBSystem_Method_SaveCartridgeRAM;
 static jmethodID GBSystem_Method_LoadCartridgeRTC;
@@ -44,8 +44,10 @@ class GBSystemNative : public System::CallbackInterface
 public:
     GBSystemNative(jobject jobj)
         : m_jobject(jobj)
+        , m_cart(nullptr)
+        , m_system(new System(this))
     {
-        m_system = new System(this);
+
     }
 
     ~GBSystemNative()
@@ -73,8 +75,18 @@ public:
     {
         delete m_cart;
         m_cart = new Cartridge(m_system);
-        //if (!m_cart->Load())
-        return false;
+
+        ByteStream *pStream = ByteStream_CreateReadOnlyMemoryStream(cart, cart_length);
+        if (!m_cart->Load(pStream, error))
+        {
+            pStream->Release();
+            delete m_cart;
+            m_cart = nullptr;
+            return false;
+        }
+
+        pStream->Release();
+        return true;
     }
 
     bool BootSystem(SYSTEM_MODE mode, const byte *bios, uint32 bios_length)
@@ -88,12 +100,15 @@ public:
         if (env == nullptr)
             return;
 
+#if 0
         jbyteArray pixelsArray = env->NewByteArray(row_stride * Display::SCREEN_HEIGHT);
         jbyte *localPixelsArray = env->GetByteArrayElements(pixelsArray, nullptr);
         Y_memcpy(localPixelsArray, pPixels, row_stride * Display::SCREEN_HEIGHT);
         env->ReleaseByteArrayElements(pixelsArray, localPixelsArray, JNI_COMMIT);
 
-        env->CallVoidMethod(m_jobject, GBSystem_Method_PresentDisplayBuffer, pixelsArray, (int)row_stride);
+        env->CallVoidMethod(m_jobject, GBSystem_Method_OnScreenBufferReady, pixelsArray, (int)row_stride);
+#endif
+        env->CallVoidMethod(m_jobject, GBSystem_Method_OnScreenBufferReady);
     }
 
     virtual bool LoadCartridgeRAM(void *pData, size_t expected_data_size) override final
@@ -174,7 +189,9 @@ static void ThrowGBSystemException(JNIEnv *env, const char *format, ...)
     message.FormatVA(format, ap);
     va_end(ap);
 
-    env->ThrowNew(GBSystemException_Class, message);
+    // Get exception class, and throw the exception in javaland.
+    jclass exceptionClass = env->FindClass("com/example/user/gbe/GBSystemException");
+    env->ThrowNew(exceptionClass, message);
 }
 
 extern "C" jint JNI_OnLoad(JavaVM *vm, void *reserved)
@@ -193,7 +210,7 @@ extern "C" jint JNI_OnLoad(JavaVM *vm, void *reserved)
         return -1;
 
     if ((GBSystem_Field_NativePointer = env->GetFieldID(GBSystem_Class, "nativePointer", "J")) == nullptr ||
-        (GBSystem_Method_PresentDisplayBuffer = env->GetMethodID(GBSystem_Class, "onPresentDisplayBuffer", "([BI)V")) == nullptr ||
+        (GBSystem_Method_OnScreenBufferReady = env->GetMethodID(GBSystem_Class, "onScreenBufferReady", "()V")) == nullptr ||
         (GBSystem_Method_LoadCartridgeRAM = env->GetMethodID(GBSystem_Class, "onLoadCartridgeRAM", "([BI)Z")) == nullptr ||
         (GBSystem_Method_SaveCartridgeRAM = env->GetMethodID(GBSystem_Class, "onSaveCartridgeRAM", "([BI)V")) == nullptr ||
         (GBSystem_Method_LoadCartridgeRTC = env->GetMethodID(GBSystem_Class, "onLoadCartridgeRTC", "([BI)Z")) == nullptr ||
@@ -202,6 +219,13 @@ extern "C" jint JNI_OnLoad(JavaVM *vm, void *reserved)
         env->DeleteGlobalRef(GBSystem_Class);
         return -1;
     }
+
+    // Enable logging.
+#ifdef NDEBUG
+    g_pLog->SetDebugOutputParams(true, nullptr, LOGLEVEL_INFO);
+#else
+    g_pLog->SetDebugOutputParams(true, nullptr, LOGLEVEL_PROFILE);
+#endif
 
     jvm = vm;
     return JNI_VERSION_1_6;
@@ -244,7 +268,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeDestr
     delete native;
 }
 
-extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_loadCartridge(JNIEnv *env, jobject obj, jbyteArray cartData)
+extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeLoadCartridge(JNIEnv *env, jobject obj, jbyteArray cartData)
 {
     GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
     jbyte *localCartData = env->GetByteArrayElements(cartData, nullptr);
@@ -257,7 +281,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_loadCartrid
         ThrowGBSystemException(env, "Cartridge load failed: %s", error.GetErrorCodeAndDescription().GetCharArray());
 }
 
-extern "C" JNIEXPORT jint JNICALL Java_com_example_user_gbe_GBSystem_getCartridgeMode(JNIEnv *env, jobject obj)
+extern "C" JNIEXPORT jint JNICALL Java_com_example_user_gbe_GBSystem_nativeGetCartridgeMode(JNIEnv *env, jobject obj)
 {
     GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
     Cartridge *cart = native->GetCartridge();
@@ -270,7 +294,7 @@ extern "C" JNIEXPORT jint JNICALL Java_com_example_user_gbe_GBSystem_getCartridg
     return (jint)cart->GetSystemMode();
 }
 
-extern "C" JNIEXPORT jstring JNICALL Java_com_example_user_gbe_GBSystem_getCartridgeName(JNIEnv *env, jobject obj)
+extern "C" JNIEXPORT jstring JNICALL Java_com_example_user_gbe_GBSystem_nativeGetCartridgeName(JNIEnv *env, jobject obj)
 {
     GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
     Cartridge *cart = native->GetCartridge();
@@ -283,7 +307,7 @@ extern "C" JNIEXPORT jstring JNICALL Java_com_example_user_gbe_GBSystem_getCartr
     return env->NewStringUTF(cart->GetName());
 }
 
-extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_bootSystem(JNIEnv *env, jobject obj, jint systemMode)
+extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeBootSystem(JNIEnv *env, jobject obj, jint systemMode)
 {
     GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
     if (systemMode < 0 || systemMode >= NUM_SYSTEM_MODES)
@@ -300,21 +324,39 @@ extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_bootSystem(
     }
 }
 
-extern "C" JNIEXPORT jboolean JNICALL Java_com_example_user_gbe_GBSystem_isPaused(JNIEnv *env, jobject obj)
-{
-    GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
-    return native->GetSystem()->GetPaused();
-}
-
-extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_setPaused(JNIEnv *env, jobject obj, jboolean paused)
+extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeSetPaused(JNIEnv *env, jobject obj, jboolean paused)
 {
     GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
     native->GetSystem()->SetPaused((bool)paused);
 }
 
-extern "C" JNIEXPORT jdouble JNICALL Java_com_example_user_gbe_GBSystem_executeFrame(JNIEnv *env, jobject obj)
+extern "C" JNIEXPORT jdouble JNICALL Java_com_example_user_gbe_GBSystem_nativeExecuteFrame(JNIEnv *env, jobject obj)
 {
     GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
     return native->GetSystem()->ExecuteFrame();
 }
 
+extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeCopyScreenBuffer(JNIEnv *env, jobject obj, jobject destinationBitmap)
+{
+    GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
+    int res;
+
+    AndroidBitmapInfo info;
+    res = AndroidBitmap_getInfo(env, destinationBitmap, &info);
+    Assert(res == 0);
+    Assert(info.format == ANDROID_BITMAP_FORMAT_RGBA_8888);
+    Assert(info.width == Display::SCREEN_WIDTH && info.height == Display::SCREEN_HEIGHT);
+
+    void *bitmapPixels;
+    res = AndroidBitmap_lockPixels(env, destinationBitmap, &bitmapPixels);
+    Assert(res == 0);
+
+    uint32 ourStride = Display::SCREEN_WIDTH * 4;
+    if (info.stride == ourStride)
+        Y_memcpy(bitmapPixels, native->GetSystem()->GetDisplay()->GetFrameBuffer(), ourStride * Display::SCREEN_HEIGHT);
+    else
+        Y_memcpy_stride(bitmapPixels, info.stride, native->GetSystem()->GetDisplay()->GetFrameBuffer(), ourStride, sizeof(uint32) * Display::SCREEN_WIDTH, Display::SCREEN_HEIGHT);
+
+    res = AndroidBitmap_unlockPixels(env, destinationBitmap);
+    Assert(res == 0);
+}

@@ -64,6 +64,20 @@ public class GameListActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        switch (requestCode)
+        {
+            case ACTIVITY_RESULT_UPDATE_SEARCH_PATHS: {
+                if (resultCode == RESULT_OK) {
+                    // Refresh the game list.
+                    populateGameList();
+                }
+                break;
+            }
+        }
+    }
+
     private void populateGameList()
     {
         // Get current list of paths, split into an array.

@@ -8,6 +8,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import java.io.File;
@@ -38,7 +39,7 @@ public class GameActivity extends AppCompatActivity {
      */
     private static final int UI_ANIMATION_DELAY = 300;
 
-    private View mContentView;
+    private GBDisplayView mDisplayView;
     private boolean mToolbarVisible;
     private GBSystem gbSystem;
 
@@ -49,10 +50,10 @@ public class GameActivity extends AppCompatActivity {
         setContentView(R.layout.activity_game);
 
         mToolbarVisible = true;
-        mContentView = findViewById(R.id.fullscreen_content);
+        mDisplayView = (GBDisplayView)findViewById(R.id.gbDisplayView);
 
         // Set up the user interaction to manually showToolbar or hideToolbar the system UI.
-        mContentView.setOnClickListener(new View.OnClickListener() {
+        mDisplayView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 // re-hideToolbar the controls
@@ -151,7 +152,24 @@ public class GameActivity extends AppCompatActivity {
         if (!mToolbarVisible)
             showToolbar();
         else
-            finish();
+            endEmulation();
+    }
+
+    @Override
+    public void onPause() {
+        if (gbSystem != null && gbSystem.isRunning())
+            gbSystem.pause();
+
+        super.onPause();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+
+        assert(gbSystem != null);
+        if (!gbSystem.isRunning())
+            gbSystem.resume();
     }
 
     private void hideToolbar() {
@@ -165,7 +183,7 @@ public class GameActivity extends AppCompatActivity {
         // Note that some of these constants are new as of API 16 (Jelly Bean)
         // and API 19 (KitKat). It is safe to use them, as they are inlined
         // at compile-time and do nothing on earlier devices.
-        mContentView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE
+        mDisplayView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE
                 | View.SYSTEM_UI_FLAG_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                 | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
@@ -175,7 +193,7 @@ public class GameActivity extends AppCompatActivity {
 
     private void showToolbar() {
         // Show the system bar
-        mContentView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+        mDisplayView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
 
         mToolbarVisible = true;
@@ -192,6 +210,8 @@ public class GameActivity extends AppCompatActivity {
         byte[] cartData = null;
         if (romPath != null) {
             try {
+                Log.d("loadRomAndBoot", "Loading cartridge at " + romPath);
+
                 File file = new File(romPath);
                 FileInputStream inputStream = new FileInputStream(file);
                 cartData = new byte[(int) file.length()];
@@ -212,21 +232,8 @@ public class GameActivity extends AppCompatActivity {
 
         // Boot system with rom
         try {
-            gbSystem = new GBSystem();
-
-            int systemBootMode = GBSystem.SYSTEM_MODE_DMG;
-            if (cartData != null) {
-                Log.d("loadRomAndBoot", "Parsing cartridge at " + romPath);
-                gbSystem.loadCartridge(cartData);
-
-                int cartridgeMode = gbSystem.getCartridgeMode();
-                Log.i("loadRomAndBoot", String.format("Cartridge name: '%s' (mode %d)", gbSystem.getCartridgeName(), cartridgeMode));
-                systemBootMode = cartridgeMode;
-            }
-
-            Log.i("loadRomAndBoot", "Booting system mode: " + systemBootMode);
-            gbSystem.bootSystem(systemBootMode);
-
+            gbSystem = new GBSystem(mDisplayView);
+            gbSystem.start(cartData);
         } catch (GBSystemException e) {
             e.printStackTrace();
             Toast.makeText(GameActivity.this, "Booting failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -236,6 +243,7 @@ public class GameActivity extends AppCompatActivity {
     }
 
     public void endEmulation() {
+        Log.i("GameActivity", "Ending emulation.");
         if (gbSystem != null) {
             gbSystem.close();
             gbSystem = null;

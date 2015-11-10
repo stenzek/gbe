@@ -9,7 +9,11 @@ import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
+import android.view.ContextMenu;
+import android.view.MenuItem;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.Toast;
@@ -27,6 +31,7 @@ import java.util.Set;
 
 public class EditGameSearchDirectoriesActivity extends AppCompatActivity {
     static final int GET_DIR_CODE = 1;
+    private String[] currentPathArray = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,6 +39,8 @@ public class EditGameSearchDirectoriesActivity extends AppCompatActivity {
         setContentView(R.layout.activity_edit_game_search_directories);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        getSupportActionBar().setDisplayShowHomeEnabled(true);
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -49,6 +56,42 @@ public class EditGameSearchDirectoriesActivity extends AppCompatActivity {
 
         // Fill list.
         populateList();
+
+        ListView listView = (ListView)findViewById(R.id.listView);
+        registerForContextMenu(listView);
+        //listView.setLongClickable(true);
+        /*listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+                Log.d("asdf", "asdf");
+                return true;
+            }
+        });*/
+    }
+
+    @Override
+    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
+        if (v.getId() == R.id.listView) {
+            AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) menuInfo;
+            String path = currentPathArray[info.position];
+            getMenuInflater().inflate(R.menu.menu_editsearchpath_context, menu);
+            menu.setHeaderTitle(path);
+            return;
+        }
+
+        super.onCreateContextMenu(menu, v, menuInfo);
+    }
+
+    @Override
+    public boolean onContextItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.remove) {
+            AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo)item.getMenuInfo();
+            String path = currentPathArray[info.position];
+            removePath(path);
+            return true;
+        }
+
+        return super.onContextItemSelected(item);
     }
 
     @Override
@@ -56,41 +99,22 @@ public class EditGameSearchDirectoriesActivity extends AppCompatActivity {
         if (requestCode == GET_DIR_CODE && resultCode == Activity.RESULT_OK) {
             String path = data.getData().getPath();
             addPath(path);
+            return;
+        }
+
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+
+        Intent intent = getIntent();
+        if (intent != null) {
+            setResult(RESULT_OK);
         }
     }
 
-    /*
-    private String getSearchDirectoriesString() {
-        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
-        return preferences.getString("romSearchDirectories", "");
-    }
-
-    private Set<String> getSearchDirectoriesSet() {
-        // Get current list of paths, split into an array.
-        String[] directoriesArray = getSearchDirectoriesString().split(":");
-        HashSet<String> directoriesSet = new HashSet<String>();
-        Collections.addAll(directoriesSet, directoriesArray);
-        return directoriesSet;
-    }
-
-    private void setSearchDirectories(String dirs) {
-        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
-        SharedPreferences.Editor editor = preferences.edit();
-        editor.putString("romSearchDirectories", dirs);
-        editor.commit();
-    }
-
-    private void setSearchDirectories(Collection<String> dirs) {
-        StringBuilder sb = new StringBuilder();
-        Iterator<String> iter = dirs.iterator();
-        if (iter.hasNext())
-            sb.append(iter.next());
-        while (iter.hasNext()) {
-            sb.append(":");
-            sb.append(iter.next());
-        }
-        setSearchDirectories(sb.toString());
-    }*/
     private Set<String> getSearchDirectories() {
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
         return preferences.getStringSet("romSearchDirectories", new HashSet<String>());
@@ -98,7 +122,9 @@ public class EditGameSearchDirectoriesActivity extends AppCompatActivity {
     private void setSearchDirectories(Set<String> directories) {
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
         SharedPreferences.Editor editor = preferences.edit();
+        editor.clear();
         editor.putStringSet("romSearchDirectories", directories);
+        editor.commit();
     }
 
     private void populateList()
@@ -107,6 +133,7 @@ public class EditGameSearchDirectoriesActivity extends AppCompatActivity {
         Set<String> searchDirectories = getSearchDirectories();
         String[] searchDirectoriesArray = new String[searchDirectories.size()];
         searchDirectories.toArray(searchDirectoriesArray);
+        currentPathArray = searchDirectoriesArray;
 
         // Switch list adapter out.
         ListView listView = (ListView)findViewById(R.id.listView);

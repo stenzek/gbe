@@ -1,3 +1,5 @@
+import org.apache.tools.ant.taskdefs.condition.Os
+
 apply plugin: 'com.android.application'
 
 android {
@@ -16,6 +18,10 @@ android {
         }
     }
     buildTypes {
+        debug {
+            jniDebuggable true
+            debuggable true
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
@@ -26,23 +32,53 @@ android {
         jni.srcDirs = []
     }
 
-    // Call regular ndk-build (.cmd) script from the app directory
-    task ndkBuild(type: Exec, description: 'Compile JNI source via NDK') {
-        //noinspection GroovyAssignabilityCheck
-        def ndkDir = android.ndkDirectory.getAbsolutePath()
-        commandLine ndkDir + '/ndk-build', '-C', file('src/main/').absolutePath
-    }
-
-    task ndkLibsToJar(type: Zip, dependsOn: 'ndkBuild', description: 'Create a JAR of the native libs') {
-        destinationDir new File(buildDir, '../src/main/libs')
-        baseName 'ndk-libs'
-        extension 'jar'
-        from(new File(buildDir, '../src/main/libs')) { include '**/*.so' }
-        into 'lib/'
-    }
-
+    // call regular ndk-build(.cmd) script from app directory, in either debug or release mode
     tasks.withType(JavaCompile) {
-        compileTask -> compileTask.dependsOn ndkLibsToJar
+        compileTask ->
+            def tmpFile = file('src/main/jni/.debugbuild.tmp') //used to persist the last build type, to avoid triggering rebuilds all the time.
+            def ndkBuildExt = Os.isFamily(Os.FAMILY_WINDOWS) ? ".cmd" : ""
+
+            def debugMode = compileTask.name.contains("Debug")
+            def taskName = "ndk${debugMode ? "Debug" : "Release"}Build"
+            def packageTaskName = "ndk${debugMode ? "Debug" : "Release"}Package"
+
+            def extraParameter = debugMode ? "NDK_DEBUG=1" : "" // other possibility for debug build:
+            // referencing an other Application.mk that contains APP_OPTIM:=debug and other options
+            // -> "NDK_APPLICATION_MK=" + file('src/main/jni/Application-debug.mk').absolutePath
+
+            def task = tasks.findByPath(taskName);
+            if (task == null) {
+                //create ndkReleaseBuild and ndkDebugBuild tasks
+                task = tasks.create(name: taskName) {
+                    doLast {
+                        exec {
+                            //execute all this block when the task is executed. (A Build task gets only the commandLine to be executed, so here we're using doLast.exec instead)
+                            if (!tmpFile.exists()) tmpFile.createNewFile()
+
+                            def ndkDir = android.ndkDirectory.getAbsolutePath()
+                            if (tmpFile.text != String.valueOf(debugMode)) {
+                                commandLine ndkDir + "/ndk-build${ndkBuildExt}", '-B', '-C', file('src/main').absolutePath, extraParameter, '-j8'
+                            } else {
+                                commandLine ndkDir + "/ndk-build${ndkBuildExt}", '-C', file('src/main').absolutePath, extraParameter, '-j8'
+                            }
+
+                            tmpFile.write(String.valueOf(debugMode))
+                        }
+                    }
+                }
+            }
+            def packageTask = tasks.findByPath(packageTaskName);
+            if (packageTask == null) {
+                packageTask = tasks.create(name: packageTaskName, type: Zip, dependsOn: taskName, description: 'Create a JAR of the native libs') {
+                    destinationDir new File(buildDir, '../src/main/libs')
+                    baseName 'ndk-libs'
+                    extension 'jar'
+                    from(new File(buildDir, '../src/main/obj/local')) { include '**/*.so' }
+                    into 'lib/'
+                }
+                packageTask.dependsOn task
+            }
+            compileTask.dependsOn packageTask
     }
 }
 
