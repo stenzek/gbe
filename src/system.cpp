@@ -51,9 +51,6 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge)
     m_audio = new Audio(this);
     m_serial = new Serial(this);
 
-    // init modules
-    m_display->Init();
-
     m_clocks_since_reset = 0;
     m_last_vblank_clocks = 0;
     m_speed_multiplier = 1.0f;
@@ -71,12 +68,40 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge)
     m_vram_bank = 0;
     m_cgb_speed_switch = 0;
 
+    // init modules
+    m_cpu->Reset();
+    m_display->Reset();
+    m_audio->Reset();
+    m_serial->Reset();
+
+    // clear our memory
+    ResetMemory();
+    ResetTimer();
+    ResetPad();
+    if (m_cartridge != nullptr)
+        m_cartridge->Reset();
+
+    // if bios not provided, emulate post-bootstrap state
+    if (m_bios == nullptr || m_mode != SYSTEM_MODE_DMG)
+        SetPostBootstrapState();
+
     Log_InfoPrintf("Initialized system in mode %s.", NameTable_GetNameString(NameTables::SystemMode, m_mode));
     return true;
 }
 
 void System::Reset()
 {
+    m_clocks_since_reset = 0;
+    m_last_vblank_clocks = 0;
+    m_reset_timer.Reset();
+    m_frame_counter = 0;
+
+    m_memory_locked_cycles = 0;
+
+    m_high_wram_bank = 1;
+    m_vram_bank = 0;
+    m_cgb_speed_switch = 0;
+
     m_cpu->Reset();
     m_display->Reset();
     m_audio->Reset();
@@ -90,17 +115,6 @@ void System::Reset()
     // if bios not provided, emulate post-bootstrap state
     if (m_bios == nullptr || m_mode != SYSTEM_MODE_DMG)
         SetPostBootstrapState();
-
-    m_clocks_since_reset = 0;
-    m_last_vblank_clocks = 0;
-    m_reset_timer.Reset();
-    m_frame_counter = 0;
-
-    m_memory_locked_cycles = 0;
-
-    m_high_wram_bank = 1;
-    m_vram_bank = 0;
-    m_cgb_speed_switch = 0;
 }
 
 void System::SetPaused(bool paused)

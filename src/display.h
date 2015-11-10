@@ -56,14 +56,12 @@ public:
     void CPUWriteRegister(uint8 index, uint8 value);
 
     // reset
-    void Init();
     void Reset();
 
     // step
     void ExecuteFor(uint32 cpuCycles);
 
 private:
-    void ResetState();
     void RenderScanline(uint8 LINE);
     void RenderScanline_CGB(uint8 LINE);
     void RenderFull();

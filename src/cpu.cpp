@@ -12,7 +12,7 @@ Log_SetChannel(CPU);
 CPU::CPU(System *system)
     : m_system(system)
 {
-    Reset();
+
 }
 
 CPU::~CPU()

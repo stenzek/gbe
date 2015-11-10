@@ -468,9 +468,6 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     state->system->SetPermissiveMemoryAccess(args->permissive_memory);
     //state->system->SetAccurateTiming(false);
     //state->system->SetAudioEnabled(false);
-
-    // reset system
-    state->system->Reset();
     return true;
 }
 
