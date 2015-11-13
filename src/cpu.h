@@ -166,7 +166,7 @@ public:
     void Reset();
 
     // step
-    uint32 Step();
+    void ExecuteInstruction();
 
     // disassemble an instruction
     static bool Disassemble(String *pDestination, System *memory, uint16 address);
@@ -174,18 +174,12 @@ public:
 
 private:
     // memory read/writes
-#ifdef ACCURATE_MEMORY_TIMING
-    void DelayForMemoryReadWrite(uint32 &cycles);
-    inline uint8 MemReadByte(uint16 address) { DelayForMemoryReadWrite(m_clock); return m_system->CPURead(address); }
-    inline void MemWriteByte(uint16 address, uint8 value) { DelayForMemoryReadWrite(m_clock); m_system->CPUWrite(address, value); }
+    inline void DelayCycle() { m_system->AddCPUCycles(4); }
+    inline void DelayCycles(uint32 count) { m_system->AddCPUCycles(count); }
+    inline uint8 MemReadByte(uint16 address) { DelayCycle(); return m_system->CPURead(address); }
+    inline void MemWriteByte(uint16 address, uint8 value) { DelayCycle(); m_system->CPUWrite(address, value); }
     inline uint16 MemReadWord(uint16 address) { return ((uint16)MemReadByte(address)) | ((uint16)MemReadByte(address + 1) << 8); }
     inline void MemWriteWord(uint16 address, uint16 value) { MemWriteByte(address, (uint8)(value)); MemWriteByte(address + 1, (uint8)(value >> 8)); }
-#else
-    inline uint8 MemReadByte(uint16 address) { return m_system->CPURead(address); }
-    inline void MemWriteByte(uint16 address, uint8 value) { m_system->CPUWrite(address, value); }
-    inline uint16 MemReadWord(uint16 address) { return ((uint16)m_system->CPURead(address)) | ((uint16)m_system->CPURead(address + 1) << 8); }
-    inline void MemWriteWord(uint16 address, uint16 value) { m_system->CPUWrite(address, (uint8)(value)); m_system->CPUWrite(address + 1, (uint8)(value >> 8)); }
-#endif
 
     // stack push/pop with protection
     void Push(uint8 value);

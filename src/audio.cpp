@@ -16,7 +16,8 @@ Audio::Audio(System *system)
     : m_system(system)
     , m_buffer(new Stereo_Buffer())
     , m_apu(new Gb_Apu())
-    , m_audio_cycle(0)
+    , m_last_cycle(0)
+    , m_cycles_since_frame(0)
     , m_output_buffer(new int16[OUTPUT_BUFFER_SIZE])
     , m_output_buffer_rpos(0)
     , m_output_buffer_wpos(0)
@@ -65,12 +66,13 @@ void Audio::SetOutputEnabled(bool enabled)
 void Audio::Reset()
 {
     m_apu->reset((m_system->InCGBMode()) ? Gb_Apu::mode_cgb : Gb_Apu::mode_dmg, false);
-    m_audio_cycle = 0;
+    m_last_cycle = 0;
+    m_cycles_since_frame = 0;
 }
 
 bool Audio::LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError)
 {
-    m_audio_cycle = binaryReader.ReadUInt32();
+    m_last_cycle = binaryReader.ReadUInt32();
 
     gb_apu_state_t state_in;
     binaryReader.ReadBytes(&state_in, sizeof(state_in));
@@ -103,17 +105,19 @@ void Audio::SaveState(ByteStream *pStream, BinaryWriter &binaryWriter)
     gb_apu_state_t state_out;
     m_apu->save_state(&state_out);
 
-    binaryWriter.WriteUInt32(m_audio_cycle);
+    binaryWriter.WriteUInt32(m_last_cycle);
     binaryWriter.WriteBytes(&state_out, sizeof(state_out));
 }
 
-void Audio::ExecuteFor(uint32 cycles)
+void Audio::Synchronize()
 {
-    m_audio_cycle += cycles;
+    uint32 cycles_to_execute = m_system->CalculateCycleCount(m_last_cycle, m_system->GetCycleNumber());
+    m_last_cycle = m_system->GetCycleNumber();
+    m_cycles_since_frame += cycles_to_execute;
 
-    while (m_audio_cycle >= PUSH_FREQUENCY_IN_CYCLES)
+    while (m_cycles_since_frame >= PUSH_FREQUENCY_IN_CYCLES)
     {
-        m_audio_cycle -= PUSH_FREQUENCY_IN_CYCLES;
+        m_cycles_since_frame -= PUSH_FREQUENCY_IN_CYCLES;
 
         // push a frame
         m_apu->end_frame(PUSH_FREQUENCY_IN_CYCLES);
@@ -157,16 +161,20 @@ void Audio::ExecuteFor(uint32 cycles)
             m_lock.Unlock();
         }
     }
+
+    m_system->SetNextAudioSyncCycle(PUSH_FREQUENCY_IN_CYCLES - m_last_cycle);
 }
 
 uint8 Audio::CPUReadRegister(uint8 index) const
 {
-    return (uint8)m_apu->read_register(m_audio_cycle, 0xFF00 | index);
+    uint32 op_time = m_cycles_since_frame + m_system->CalculateCycleCount(m_last_cycle, m_system->GetCycleNumber());
+    return (uint8)m_apu->read_register(op_time, 0xFF00 | index);
 }
 
 void Audio::CPUWriteRegister(uint8 index, uint8 value)
 {
-    return m_apu->write_register(m_audio_cycle, 0xFF00 | index, value);
+    uint32 op_time = m_cycles_since_frame + m_system->CalculateCycleCount(m_last_cycle, m_system->GetCycleNumber());
+    return m_apu->write_register(op_time, 0xFF00 | index, value);
 }
 
 size_t Audio::ReadSamples(int16 *buffer, size_t count)

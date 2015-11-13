@@ -51,6 +51,13 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge)
     m_audio = new Audio(this);
     m_serial = new Serial(this);
 
+    m_cycle_number = 0;
+    m_double_speed_cycle_number = 0;
+    m_next_display_sync_cycle = 0;
+    m_next_audio_sync_cycle = 0;
+    m_next_serial_sync_cycle = 0;
+    m_next_timer_sync_cycle = 0;
+
     m_clocks_since_reset = 0;
     m_last_vblank_clocks = 0;
     m_speed_multiplier = 1.0f;
@@ -91,6 +98,13 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge)
 
 void System::Reset()
 {
+    m_cycle_number = 0;
+    m_double_speed_cycle_number = 0;
+    m_next_display_sync_cycle = 0;
+    m_next_audio_sync_cycle = 0;
+    m_next_serial_sync_cycle = 0;
+    m_next_timer_sync_cycle = 0;
+
     m_clocks_since_reset = 0;
     m_last_vblank_clocks = 0;
     m_reset_timer.Reset();
@@ -136,44 +150,60 @@ void System::Step()
     // handle serial pause
     if (m_serial_pause)
     {
-        m_serial->ExecuteFor(0);
+        m_serial->Synchronize();
         return;
     }
 
-    uint32 clocks = m_cpu->Step();
-
-    // This is possible to be zero in the case when the operation is done in registers.
-    if (clocks > 0)
-        StepOtherClocks(clocks);
+    m_cpu->ExecuteInstruction();
 }
 
-void System::StepOtherClocks(uint32 clocks)
+void System::AddCPUCycles(uint32 cpu_clocks)
 {
     // CPU clocks are always dividable by 4
-    DebugAssert((clocks % 4) == 0);
+    DebugAssert((cpu_clocks % 4) == 0);
+
+    // what we will synchronize
+    bool sync_timers = false;
+    bool sync_serial = false;
+    bool sync_display = false;
+    bool sync_audio = false;
+
+    // fast clocks
+    m_double_speed_cycle_number += cpu_clocks;
+    sync_timers = (m_double_speed_cycle_number >= m_next_timer_sync_cycle);
+    sync_serial = (m_double_speed_cycle_number >= m_next_serial_sync_cycle);
 
     // Make each instruction take half as long in double-speed mode.
     uint32 slow_speed_shift = (m_cgb_speed_switch >> 7);
-    uint32 slow_speed_clocks = clocks >> slow_speed_shift;
+    uint32 slow_speed_clocks = cpu_clocks >> slow_speed_shift;
+
+    // handle overflows here
+    m_cycle_number += slow_speed_clocks;
+    sync_display = (m_cycle_number >= m_next_display_sync_cycle);
+    sync_audio = (m_cycle_number >= m_next_audio_sync_cycle);
 
     // update our counter [use the normal speed as a reference]
     m_clocks_since_reset += slow_speed_clocks;
 
     // Handle memory locking for OAM transfers [affected by double speed]
     if (m_memory_locked_cycles > 0)
-        m_memory_locked_cycles = (clocks > m_memory_locked_cycles) ? 0 : (m_memory_locked_cycles - clocks);
+        m_memory_locked_cycles = (cpu_clocks > m_memory_locked_cycles) ? 0 : (m_memory_locked_cycles - cpu_clocks);
 
     // Simulate display [not affected by double speed]
-    m_display->ExecuteFor(slow_speed_clocks);
+    if (sync_display)
+        m_display->Synchronize();
 
     // Simulate audio [not affected by double speed]
-    m_audio->ExecuteFor(slow_speed_clocks);
+    if (sync_audio)
+        m_audio->Synchronize();
 
     // Simulate serial [affected by double speed]
-    m_serial->ExecuteFor(clocks);
+    if (sync_serial)
+        m_serial->Synchronize();
 
     // Simulate timers [affected by double speed]
-    UpdateTimer(clocks);
+    if (sync_timers)
+        SynchronizeTimers();
 }
 
 void System::SetSerialPause(bool enabled)
@@ -209,7 +239,7 @@ double System::ExecuteFrame()
         return VBLANK_INTERVAL;
     if (m_serial_pause)
     {
-        m_serial->ExecuteFor(0);
+        m_serial->Synchronize();
         return 0.001;
     }
 
@@ -314,7 +344,7 @@ void System::SetPadDirection(PAD_DIRECTION direction, bool state)
     }
 }
 
-void System::SetPadDirectionState(uint32 state)
+void System::SetPadDirectionState(uint8 state)
 {
     // flip on bits to off (which is what the gb expects)
     state = (state & PAD_DIRECTION_MASK) ^ PAD_DIRECTION_MASK;
@@ -341,7 +371,7 @@ void System::SetPadButton(PAD_BUTTON button, bool state)
     }
 }
 
-void System::SetPadButtonState(uint32 state)
+void System::SetPadButtonState(uint8 state)
 {
     // flip on bits to off (which is what the gb expects)
     state = (state & PAD_BUTTON_MASK) ^ PAD_BUTTON_MASK;
@@ -619,6 +649,7 @@ void System::ResetMemory()
 
 void System::ResetTimer()
 {
+    m_timer_last_cycle = 0;
     m_timer_clocks = 0;
     m_timer_divider_clocks = 0;
     m_timer_divider = 1;
@@ -680,15 +711,18 @@ void System::SetPostBootstrapState()
     m_biosLatch = false;
 }
 
-void System::UpdateTimer(uint32 clocks)
+void System::SynchronizeTimers()
 {
+    uint32 cycles_to_execute = CalculateCycleCount(m_timer_last_cycle, m_cycle_number);
+    m_timer_last_cycle = m_cycle_number;
+
     //bool timer_control_changed = m_timer_control_changed;
     //m_timer_control_changed = false;
 
     // cpu runs at 4,194,304hz
     // timer runs at 16,384hz
     // therefore, every 256 cpu "clocks" equals one timer tick
-    m_timer_divider_clocks += clocks;
+    m_timer_divider_clocks += cycles_to_execute;
     while (m_timer_divider_clocks >= 256)
     {
         m_timer_divider++;
@@ -696,13 +730,19 @@ void System::UpdateTimer(uint32 clocks)
     }
 
     // timer start/stop
+    //uint32 next_divider_tick = 256 - m_timer_divider_clocks;
     if (!(m_timer_control & 0x4))
+    {
+        // divider timer is updated on-demand when it is read
+        //SetNextTimerSyncCycle(next_divider_tick);
+        SetNextTimerSyncCycle(100000);
         return;
+    }
 
     // 
 
     // add cycles
-    m_timer_clocks += clocks;
+    m_timer_clocks += cycles_to_execute;
 
     // find timer rate
     //static const uint32 clock_rates[] = { 4096, 262144, 65536, 16384 };
@@ -725,6 +765,10 @@ void System::UpdateTimer(uint32 clocks)
 
         m_timer_clocks -= clocks_per_timer_tick;
     }
+
+    uint32 next_timer_tick = clocks_per_timer_tick - m_timer_clocks;
+    //SetNextTimerSyncCycle(Min(next_divider_tick, next_timer_tick));
+    SetNextTimerSyncCycle(next_timer_tick);
 }
 
 void System::DisassembleCart(const char *outfile)
@@ -737,7 +781,7 @@ void System::DisassembleCart(const char *outfile)
     pStream->Release();
 }
 
-uint8 System::CPURead(uint16 address) const
+uint8 System::CPURead(uint16 address)
 {
 //     if (address == 0xc009)
 //         __debugbreak();
@@ -775,6 +819,7 @@ uint8 System::CPURead(uint16 address) const
     case 0x8000:
     case 0x9000:
         {
+            m_display->Synchronize();
             if (m_vramLocked && !m_memory_permissive)
             {
                 // Apparently returns 0xFF?
@@ -821,6 +866,7 @@ uint8 System::CPURead(uint16 address) const
                 // oam
             case 0xE00:
                 {
+                    m_display->Synchronize();
                     if (m_oamLocked && !m_memory_permissive)
                     {
                         // Apparently returns 0xFF?
@@ -896,6 +942,7 @@ void System::CPUWrite(uint16 address, uint8 value)
     case 0x8000:
     case 0x9000:
         {
+            m_display->Synchronize();
             if (m_vramLocked && !m_memory_permissive)
             {
                 Log_WarningPrintf("CPU write of VRAM address 0x%04X (value 0x%02X) while locked.", address, value);
@@ -954,6 +1001,7 @@ void System::CPUWrite(uint16 address, uint8 value)
                 // oam
             case 0xE00:
                 {
+                    m_display->Synchronize();
                     if (m_oamLocked && !m_memory_permissive)
                     {
                         // Apparently returns 0xFF?
@@ -994,7 +1042,7 @@ void System::CPUWrite(uint16 address, uint8 value)
     Log_WarningPrintf("Unhandled CPU write address 0x%04X (value 0x%02X)", address, value);
 }
 
-uint8 System::CPUReadIORegister(uint8 index) const
+uint8 System::CPUReadIORegister(uint8 index)
 {
     switch (index & 0xF0)
     {
@@ -1015,26 +1063,32 @@ uint8 System::CPUReadIORegister(uint8 index) const
 
                 // FF01 - SB serial data
             case 0x01:
+                m_serial->Synchronize();
                 return m_serial->GetSerialData();
 
                 // FF02 - SC serial control
             case 0x02:
+                m_serial->Synchronize();
                 return m_serial->GetSerialControl();
 
                 // FF04 - DIV - Divider Register (R/W)
             case 0x04:
+                SynchronizeTimers();
                 return m_timer_divider;
 
                 // FF05 - TIMA - Timer counter (R/W)
             case 0x05:
+                SynchronizeTimers();
                 return m_timer_counter;
 
                 // FF06 - TMA - Timer Modulo (R/W)
             case 0x06:
+                SynchronizeTimers();
                 return m_timer_overflow_value;
 
                 // FF07 - TAC - Timer Control (R/W)
             case 0x07:
+                SynchronizeTimers();
                 return m_timer_control;
 
                 // FF0F - IF - Interrupt Flag (R/W)
@@ -1063,6 +1117,7 @@ uint8 System::CPUReadIORegister(uint8 index) const
             case 0x0C:      // FF1C - NR32 - Channel 3 Select output level (R/W)
             case 0x0D:      // FF1D - NR33 - Channel 3 Frequency's lower data (W)
             case 0x0E:      // FF1E - NR34 - Channel 3 Frequency's higher data (R/W)
+                m_audio->Synchronize();
                 return m_audio->CPUReadRegister(index);
             }
 
@@ -1080,6 +1135,7 @@ uint8 System::CPUReadIORegister(uint8 index) const
             case 0x04:      // FF24 - NR50 - Channel control / ON-OFF / Volume (R/W)
             case 0x05:      // FF25 - NR51 - Selection of Sound output terminal (R/W)
             case 0x06:      // FF26 - NR52 - sound on/off
+                m_audio->Synchronize();
                 return m_audio->CPUReadRegister(index);
             }
 
@@ -1089,6 +1145,7 @@ uint8 System::CPUReadIORegister(uint8 index) const
     case 0x30:
         {
             // FF30-FF3F - Wave Pattern RAM
+            m_audio->Synchronize();
             return m_audio->CPUReadRegister(index);
         }
 
@@ -1108,6 +1165,7 @@ uint8 System::CPUReadIORegister(uint8 index) const
             case 0x09:      // FF49 - OBP1 - Object Palette 1 Data(R / W) - Non CGB Mode Only
             case 0x0A:      // FF4A - WY - Window Y Position (R/W)
             case 0x0B:      // FF4B - WX - Window X Position minus 7 (R/W)
+                m_display->Synchronize();
                 return m_display->CPUReadRegister(index);
             }
 
@@ -1169,6 +1227,7 @@ uint8 System::CPUReadIORegister(uint8 index) const
                 case 0x03:      // FF53 - HDMA3 - CGB Mode Only - New DMA Destination, High
                 case 0x04:      // FF54 - HDMA4 - CGB Mode Only - New DMA Destination, Low
                 case 0x05:      // FF55 - HDMA5 - CGB Mode Only - New DMA Length/Mode/Start
+                    m_display->Synchronize();
                     return m_display->CPUReadRegister(index);
                 }
 
@@ -1184,6 +1243,7 @@ uint8 System::CPUReadIORegister(uint8 index) const
                 case 0x09:      // FF69 - BCPD/BGPD - CGB Mode Only - Background Palette Data
                 case 0x0A:      // FF6A - OCPS/OBPI - CGB Mode Only - Sprite Palette Index
                 case 0x0B:      // FF6B - OCPD/OBPD - CGB Mode Only - Sprite Palette Data
+                    m_display->Synchronize();
                     return m_display->CPUReadRegister(index);
                 }
 
@@ -1230,36 +1290,45 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
 
                 // FF01 - SB serial data
             case 0x01:
+                m_serial->Synchronize();
                 m_serial->SetSerialData(value);
                 return;
 
                 // FF02 - SC serial control
             case 0x02:
+                m_serial->Synchronize();
                 m_serial->SetSerialControl(value);
-                return;                
+                return;
 
                 // FF04 - DIV - Divider Register (R/W)
             case 0x04:
+                SynchronizeTimers();
                 m_timer_divider = 0;
                 return;
 
                 // FF05 - TIMA - Timer counter (R/W)
             case 0x05:
+                SynchronizeTimers();
                 m_timer_counter = value;
                 return;
 
                 // FF06 - TMA - Timer Modulo (R/W)
             case 0x06:
+                SynchronizeTimers();
                 m_timer_overflow_value = value;
                 return;
 
                 // FF07 - TAC - Timer Control (R/W)
             case 0x07:
+                SynchronizeTimers();
                 m_timer_control = value;
                 return;
 
                 // interrupt flag
             case 0x0F:
+                m_serial->Synchronize();
+                m_display->Synchronize();
+                SynchronizeTimers();
                 m_cpu->GetRegisters()->IF = value;
                 return;
             }
@@ -1285,6 +1354,7 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             case 0x0C:      // FF1C - NR32 - Channel 3 Select output level (R/W)
             case 0x0D:      // FF1D - NR33 - Channel 3 Frequency's lower data (W)
             case 0x0E:      // FF1E - NR34 - Channel 3 Frequency's higher data (R/W)
+                m_audio->Synchronize();
                 m_audio->CPUWriteRegister(index, value);
                 return;
             }
@@ -1303,6 +1373,7 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             case 0x04:      // FF24 - NR50 - Channel control / ON-OFF / Volume (R/W)
             case 0x05:      // FF25 - NR51 - Selection of Sound output terminal (R/W)
             case 0x06:      // FF26 - NR52 - sound on/off
+                m_audio->Synchronize();
                 m_audio->CPUWriteRegister(index, value);
                 return;
             }
@@ -1313,6 +1384,7 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
     case 0x30:
         {
             // FF30-FF3F - Wave Pattern RAM
+            m_audio->Synchronize();
             m_audio->CPUWriteRegister(index, value);
             return;
         }
@@ -1332,11 +1404,14 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             case 0x09:      // FF49 - OBP1 - Object Palette 1 Data(R / W) - Non CGB Mode Only
             case 0x0A:      // FF4A - WY - Window Y Position (R/W)
             case 0x0B:      // FF4B - WX - Window X Position minus 7 (R/W)
+                m_display->Synchronize();
                 m_display->CPUWriteRegister(index, value);
                 return;
 
             case 0x06:      // FF46 - DMA - DMA Transfer and Start Address (W)
                 {
+                    m_display->Synchronize();
+
                     // Writing to this register launches a DMA transfer from ROM or RAM to OAM memory (sprite attribute table). The written value specifies the transfer source address divided by 100h
                     // It takes 160 microseconds until the transfer has completed (80 microseconds in CGB Double Speed Mode), during this time the CPU can access only HRAM (memory at FF80-FFFE).
                     uint16 source_address = (uint16)value * 256;
@@ -1406,6 +1481,7 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                 case 0x03:      // FF53 - HDMA3 - CGB Mode Only - New DMA Destination, High
                 case 0x04:      // FF54 - HDMA4 - CGB Mode Only - New DMA Destination, Low
                 case 0x05:      // FF55 - HDMA5 - CGB Mode Only - New DMA Length/Mode/Start
+                    m_display->Synchronize();
                     m_display->CPUWriteRegister(index, value);
                     return;
                 }
@@ -1421,6 +1497,7 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                 case 0x09:      // FF69 - BCPD/BGPD - CGB Mode Only - Background Palette Data
                 case 0x0A:      // FF6A - OCPS/OBPI - CGB Mode Only - Sprite Palette Index
                 case 0x0B:      // FF6B - OCPD/OBPD - CGB Mode Only - Sprite Palette Data
+                    m_display->Synchronize();
                     m_display->CPUWriteRegister(index, value);
                     return;
                 }

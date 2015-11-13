@@ -22,7 +22,7 @@ public:
     void Reset();
 
     // step
-    void ExecuteFor(uint32 clocks);
+    void Synchronize();
 
 private:
     uint32 GetTransferClocks() const;
@@ -35,6 +35,7 @@ private:
     void SaveState(ByteStream *pStream, BinaryWriter &binaryWriter);
 
     System *m_system;
+    uint32 m_last_cycle;
     bool m_has_connection;
 
     // serial

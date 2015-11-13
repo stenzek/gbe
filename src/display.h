@@ -59,7 +59,7 @@ public:
     void Reset();
 
     // step
-    void ExecuteFor(uint32 cpuCycles);
+    void Synchronize();
 
 private:
     void RenderScanline(uint8 LINE);
@@ -90,6 +90,7 @@ private:
     void ExecuteHDMATransferBlock(uint32 bytes);
 
     System *m_system;
+    uint32 m_last_cycle;
 
     // registers - use a struct here?
     Registers m_registers;

@@ -68,42 +68,6 @@ uint16 CPU::PopWord()
     return value;
 }
 
-#ifdef ACCURATE_MEMORY_TIMING
-
-void CPU::DelayForMemoryReadWrite(uint32 &cycles)
-{
-    // a memory access takes 4 clock cycles
-    cycles += 4;
-    m_system->StepOtherClocks(4);
-}
-
-#endif
-
-// uint8 CPU::TimedMemReadByte(uint32 &cycles, uint16 address)
-// {
-//     // read the value *after* the clock
-//     DelayForMemoryReadWrite(cycles);
-//     return m_system->CPURead(address);
-// }
-// 
-// uint16 CPU::TimedMemReadWord(uint32 &cycles, uint16 address)
-// {
-//     return (uint16)TimedMemReadByte(cycles, address) | ((uint16)TimedMemReadByte(cycles, address + 1) << 8);
-// }
-// 
-// void CPU::TimedMemWriteByte(uint32 &cycles, uint16 address, uint8 value)
-// {
-//     // write the value *after* the clock
-//     DelayForMemoryReadWrite(cycles);
-//     m_system->CPUWrite(address, value);
-// }
-// 
-// void CPU::TimedMemWriteWord(uint32 &cycles, uint16 address, uint16 value)
-// {
-//     TimedMemWriteByte(cycles, address, (uint8)(value & 0xFF));
-//     TimedMemWriteByte(cycles, address, (uint8)(value >> 8));
-// }
-
 void CPU::RaiseInterrupt(uint8 index)
 {
     DebugAssert(index < NUM_CPU_INT);
@@ -187,15 +151,14 @@ bool CPU::TestPredicate(Instruction::Predicate condition)
     }
 }
 
-uint32 CPU::Step()
+void CPU::ExecuteInstruction()
 {
-    uint32 original_clocks = m_clock;
-
     // cpu disabled for memory transfer?
     if (m_disabled)
     {
         // keep other subsystems running, don't advance the instruction clock
-        return 4;
+        m_system->AddCPUCycles(4);
+        return;
     }
 
     // interrupts enabled?
@@ -237,10 +200,11 @@ uint32 CPU::Step()
 #ifdef ACCURATE_MEMORY_TIMING
                     // interrupt takes 20 cycles total, 2 memory writes
                     m_clock += 20 - 4 - 4;
-                    return 20 - 4 - 4;
+                    m_system->AddCPUCycles(20 - 4 - 4);
+                    return;
 #else
-                    m_clock += 20;
-                    return 20;
+                    m_system->AddCPUCycles(20);
+                    return;
 #endif
                     
                 }
@@ -251,8 +215,8 @@ uint32 CPU::Step()
     // if halted, simulate a single cycle to keep the display/audio going
     if (m_halted)
     {
-        m_clock += 4;
-        return 4;
+        m_system->AddCPUCycles(4);
+        return;
     }
 
 //     if (m_registers.PC == 0x35e1)
@@ -329,7 +293,6 @@ uint32 CPU::Step()
     #define get_imm16() ((uint16)instruction_buffer[1] | ((uint16)instruction_buffer[2] << 8))
 
     // execution table
-    uint32 cycles_consumed = instruction->cycles;
     switch (instruction->type)
     {
         //////////////////////////////////////////////////////////////////////////
@@ -516,12 +479,9 @@ uint32 CPU::Step()
                 UnreachableCode();
             }
 
-#ifdef ACCURATE_MEMORY_TIMING
-            DelayForMemoryReadWrite(m_clock);
-#endif
-
             // read memory
             m_registers.A = m_system->CPUReadIORegister(regnum);
+            DelayCycle();
             break;
         }
 
@@ -543,11 +503,8 @@ uint32 CPU::Step()
                 UnreachableCode();
             }
 
-#ifdef ACCURATE_MEMORY_TIMING
-            DelayForMemoryReadWrite(m_clock);
-#endif
-
             // write memory
+            DelayCycle();
             m_system->CPUWriteIORegister(regnum, m_registers.A);
             break;
         }
@@ -680,6 +637,7 @@ uint32 CPU::Step()
             m_registers.SetFlagN(false);
             m_registers.SetFlagH((new_value & 0xFFF) < ((uint32)old_value & 0xFFF));
             m_registers.SetFlagC(new_value > 0xFFFF); // correct?
+            DelayCycle();
             break;
         }
 
@@ -699,6 +657,7 @@ uint32 CPU::Step()
             m_registers.SetFlagN(false);
             m_registers.SetFlagH((new_value & 0xF) < (old_value & 0xF));
             m_registers.SetFlagC((new_value & 0xFF) < (old_value & 0xFF));
+            DelayCycles(8);
             break;
         }
 
@@ -1293,22 +1252,28 @@ uint32 CPU::Step()
             switch (operand->mode)
             {
             case Instruction::AddressMode_Imm16:
-                address = get_imm16();
-                break;
+                {
+                    // memory read cycles, plus 4 if taken
+                    address = get_imm16();
+                    if (TestPredicate(instruction->predicate))
+                    {
+                        m_registers.PC = address;
+                        DelayCycle();
+                    }
+                    break;
+                }
 
             case Instruction::AddressMode_Reg16:
-                address = m_registers.reg16[operand->reg16];
-                break;
+                {
+                    // only 4 cycles for this jump
+                    address = m_registers.reg16[operand->reg16];
+                    m_registers.PC = address;
+                    break;
+                }
 
             default:
                 UnreachableCode();
-                address = 0;
             }
-
-            if (TestPredicate(instruction->predicate))
-                m_registers.PC = address;
-            else
-                cycles_consumed = instruction->cycles_skipped;
 
             break;
         }
@@ -1319,6 +1284,7 @@ uint32 CPU::Step()
 
     case Instruction::Type_JR:
         {
+            // 8 without, 12 with jump
             if (TestPredicate(instruction->predicate))
             {
                 int8 d8 = (int8)get_imm8();
@@ -1326,10 +1292,8 @@ uint32 CPU::Step()
                     m_registers.PC -= (uint16)-d8;
                 else
                     m_registers.PC += (uint16)d8;
-            }
-            else
-            {
-                cycles_consumed = instruction->cycles_skipped;
+
+                DelayCycle();
             }
 
             break;
@@ -1346,10 +1310,7 @@ uint32 CPU::Step()
             {
                 PushWord(m_registers.PC);
                 m_registers.PC = get_imm16();
-            }
-            else
-            {
-                cycles_consumed = instruction->cycles_skipped;
+                DelayCycle();
             }
 
             break;
@@ -1361,10 +1322,23 @@ uint32 CPU::Step()
 
     case Instruction::Type_RET:
         {
-            if (TestPredicate(instruction->predicate))
+            if (instruction->predicate == Instruction::Predicate_Always)
+            {
+                // 16 cycles total
                 m_registers.PC = PopWord();
+                DelayCycle();
+            }
+            else if (TestPredicate(instruction->predicate))
+            {
+                // 20 cycles total
+                m_registers.PC = PopWord();
+                DelayCycles(8);
+            }
             else
-                cycles_consumed = instruction->cycles_skipped;
+            {
+                // 8 cycles if not taken
+                DelayCycle();
+            }
 
             break;
         }
@@ -1375,6 +1349,7 @@ uint32 CPU::Step()
             //Log_DevPrintf("Interrupts enabled from RETI");
             m_registers.IME = true;
             m_registers.PC = PopWord();
+            DelayCycle();
             break;
         }
 
@@ -1383,8 +1358,10 @@ uint32 CPU::Step()
         //////////////////////////////////////////////////////////////////////////
     case Instruction::Type_PUSH:
         {
+            // 16 cycles
             DebugAssert(source->mode == Instruction::AddressMode_Reg16);
             PushWord(m_registers.reg16[source->reg16]);
+            DelayCycle();
             break;
         }
 
@@ -1393,6 +1370,7 @@ uint32 CPU::Step()
         //////////////////////////////////////////////////////////////////////////
     case Instruction::Type_POP:
         {
+            // 12 cycles
             DebugAssert(destination->mode == Instruction::AddressMode_Reg16);
             m_registers.reg16[destination->reg16] = PopWord();
 
@@ -1408,8 +1386,10 @@ uint32 CPU::Step()
         //////////////////////////////////////////////////////////////////////////
     case Instruction::Type_RST:
         {
+            // 16 cycles
             PushWord(m_registers.PC);
             m_registers.PC = 0x0000 + destination->restart_vector;
+            DelayCycle();
             break;
         }
 
@@ -1443,12 +1423,12 @@ uint32 CPU::Step()
 
             //Log_DevPrintf("CPU Stop");
 
-#ifdef ACCURATE_MEMORY_TIMING
-            // For some reason, the parameter isn't actually read?
-            // All instruction manuals seem to say this takes 4 cycles,
-            // not 8, despite having a parameter.
-            m_clock -= 4;
-#endif
+// #ifdef ACCURATE_MEMORY_TIMING
+//             // For some reason, the parameter isn't actually read?
+//             // All instruction manuals seem to say this takes 4 cycles,
+//             // not 8, despite having a parameter.
+//             m_clock -= 4;
+// #endif
             break;
         }
 
@@ -1477,6 +1457,7 @@ uint32 CPU::Step()
                 value += offset;
 
             m_registers.HL = value;
+            DelayCycle();
 
             // affects flags, only load that does. how??
             m_registers.SetFlagZ(false);
@@ -1663,14 +1644,5 @@ uint32 CPU::Step()
 
     #undef get_imm8
     #undef get_imm16
-
-#ifdef ACCURATE_MEMORY_TIMING
-    uint32 diff_cycles = m_clock - original_clocks;
-    DebugAssert(diff_cycles <= cycles_consumed);
-    return cycles_consumed - diff_cycles;
-#else
-    m_clock += cycles_consumed;
-    return cycles_consumed;
-#endif
 }
 
