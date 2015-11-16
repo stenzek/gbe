@@ -151,6 +151,8 @@ bool CPU::TestPredicate(Instruction::Predicate condition)
     }
 }
 
+#if 0
+
 void CPU::ExecuteInstruction()
 {
     // cpu disabled for memory transfer?
@@ -1646,3 +1648,4 @@ void CPU::ExecuteInstruction()
     #undef get_imm16
 }
 
+#endif

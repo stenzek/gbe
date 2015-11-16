@@ -23,5 +23,6 @@
     <ClCompile Include="src\system_link.cpp" />
     <ClCompile Include="src\serial.cpp" />
     <ClCompile Include="src\link.cpp" />
+    <ClCompile Include="src\cpu_instructions.cpp" />
   </ItemGroup>
 </Project>

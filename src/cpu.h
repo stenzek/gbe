@@ -328,4 +328,41 @@ private:
     static const Instruction cb_instructions[256];
 
     bool TestPredicate(Instruction::Predicate condition);
+
+private:
+    uint8 ReadOperandByte();
+    uint16 ReadOperandWord();
+    int8 ReadOperandSignedByte();
+    uint8 INSTR_inc(uint8 value);
+    uint8 INSTR_dec(uint8 value);
+    void INSTR_add(uint8 value); // add a, value
+    void INSTR_adc(uint8 value); // adc a, value
+    void INSTR_sub(uint8 value); // sub a, value
+    void INSTR_sbc(uint8 value); // sbc a, value
+    void INSTR_and(uint8 value); // and a, value
+    void INSTR_or(uint8 value); // or a, value
+    void INSTR_xor(uint8 value); // xor a, value
+    void INSTR_cp(uint8 value); // cp a, value
+    uint8 INSTR_rl(uint8 value, bool set_z);
+    uint8 INSTR_rr(uint8 value, bool set_z);
+    uint8 INSTR_rlc(uint8 value, bool set_z);
+    uint8 INSTR_rrc(uint8 value, bool set_z);
+    uint8 INSTR_sla(uint8 value);
+    uint8 INSTR_sra(uint8 value);
+    uint8 INSTR_srl(uint8 value);
+    uint8 INSTR_swap(uint8 value);
+    void INSTR_bit(uint8 bit, uint8 value);
+    void INSTR_halt();
+    void INSTR_stop();
+    void INSTR_jr(int8 displacement);
+    void INSTR_jp(uint16 address);
+    void INSTR_call(uint16 address);
+    void INSTR_ret();
+    void INSTR_rst(uint8 vector); // RST vector
+    void INSTR_addhl(uint16 value);
+    void INSTR_addsp(int8 displacement);
+    void INSTR_ldhlsp(int8 displacement);
+    void INSTR_daa();
 };
+
+
