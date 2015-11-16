@@ -39,10 +39,10 @@ uint8 CPU::INSTR_inc(uint8 value)
 uint8 CPU::INSTR_dec(uint8 value)
 {
     // 8-bit register decrement
-    uint8 old_value = value--;
+    value--;
     m_registers.SetFlagZ(value == 0);
     m_registers.SetFlagN(true);
-    m_registers.SetFlagH((old_value & 0xF) == 0xF);
+    m_registers.SetFlagH((value & 0xF) == 0xF);
     return value;
 }
 
@@ -61,53 +61,47 @@ void CPU::INSTR_add(uint8 value)
 
 void CPU::INSTR_adc(uint8 value)
 {
-    uint32 addend = (uint32)value;
-
     // handle carry
     uint8 carry_in = (uint8)m_registers.GetFlagC();
 
     // do operation
     uint8 old_value = m_registers.A;
-    uint8 new_value = old_value + addend + carry_in;
+    uint8 new_value = old_value + value + carry_in;
     m_registers.A = new_value;
 
     // update flags
     m_registers.SetFlagZ((new_value == 0));
     m_registers.SetFlagN(false);
-    m_registers.SetFlagH(((old_value & 0xF) + (addend & 0xF) + carry_in) > 0xF);
-    m_registers.SetFlagC(((uint32)old_value + addend + carry_in) > 0xFF);
+    m_registers.SetFlagH(((old_value & 0xF) + (value & 0xF) + carry_in) > 0xF);
+    m_registers.SetFlagC(((uint32)old_value + value + carry_in) > 0xFF);
 }
 
 void CPU::INSTR_sub(uint8 value)
 {
-    uint32 addend = (uint32)value;
-
     // store value - only writes to A
     uint8 old_value = m_registers.A;
-    uint8 new_value = old_value - addend;
+    uint8 new_value = old_value - value;
     m_registers.A = new_value;
 
     m_registers.SetFlagZ((new_value == 0));
     m_registers.SetFlagN(true);
     m_registers.SetFlagH((new_value & 0xF) > (old_value & 0xF));
-    m_registers.SetFlagC(addend > old_value);
+    m_registers.SetFlagC(value > old_value);
 }
 
 void CPU::INSTR_sbc(uint8 value)
 {
-    uint32 addend = (uint32)value;
-
     // handle carry
     uint8 carry_in = (uint8)m_registers.GetFlagC();
     uint8 old_value = m_registers.A;
-    uint8 new_value = old_value - addend - carry_in;
+    uint8 new_value = old_value - value - carry_in;
     m_registers.A = new_value;
 
     // update flags
     m_registers.SetFlagZ((new_value == 0));
     m_registers.SetFlagN(true);
-    m_registers.SetFlagH(((addend & 0xF) + carry_in) > (old_value & 0xF));
-    m_registers.SetFlagC(((uint32)addend + carry_in) > old_value);
+    m_registers.SetFlagH(((value & 0xF) + carry_in) > (old_value & 0xF));
+    m_registers.SetFlagC(((uint32)value + carry_in) > old_value);
 }
 
 void CPU::INSTR_and(uint8 value)
@@ -292,6 +286,18 @@ void CPU::INSTR_bit(uint8 bit, uint8 value)
     m_registers.SetFlagZ((value == 0));
     m_registers.SetFlagN(false);
     m_registers.SetFlagH(true);
+}
+
+uint8 CPU::INSTR_res(uint8 bit, uint8 value)
+{
+    uint8 mask = ~uint8(1 << bit);
+    return value & mask;
+}
+
+uint8 CPU::INSTR_set(uint8 bit, uint8 value)
+{
+    uint8 mask = uint8(1 << bit);
+    return value | mask;
 }
 
 void CPU::INSTR_addhl(uint16 value)
@@ -482,6 +488,7 @@ void CPU::ExecuteInstruction()
         return;
     }
 
+#ifdef Y_BUILD_CONFIG_DEBUG
     // debug
     static bool disasm_enabled = false;
     //static bool disasm_enabled = true;
@@ -489,10 +496,11 @@ void CPU::ExecuteInstruction()
     {
         SmallString disasm;
         if (Disassemble(&disasm, m_system, m_registers.PC))
-            Log_DevPrintf("exec: %s", disasm.GetCharArray());
+            Log_DevPrintf("exec: [AF:%04X,BC:%04X,DE:%04X,HL:%04X] %s", m_registers.AF, m_registers.BC, m_registers.DE, m_registers.HL, disasm.GetCharArray());
         else
             Log_DevPrintf("disasm fail at %04X", m_registers.PC);
     }
+#endif
 
     // fetch
     uint8 opcode = MemReadByte(m_registers.PC++);
@@ -522,10 +530,10 @@ void CPU::ExecuteInstruction()
     case 0x10:  INSTR_stop();                                                                                               break;  // STOP 0
     case 0x11:  m_registers.DE = ReadOperandWord();                                                                         break;  // LD DE, d16
     case 0x12:  MemWriteByte(m_registers.DE, m_registers.A);                                                                break;  // LD (DE), A
-    case 0x13:  m_registers.BC++; DelayCycle();                                                                             break;  // INC DE
-    case 0x14:  m_registers.B = INSTR_inc(m_registers.B);                                                                   break;  // INC D
-    case 0x15:  m_registers.B = INSTR_dec(m_registers.B);                                                                   break;  // DEC D
-    case 0x16:  m_registers.B = ReadOperandByte();                                                                          break;  // LD D, d8
+    case 0x13:  m_registers.DE++; DelayCycle();                                                                             break;  // INC DE
+    case 0x14:  m_registers.D = INSTR_inc(m_registers.D);                                                                   break;  // INC D
+    case 0x15:  m_registers.D = INSTR_dec(m_registers.D);                                                                   break;  // DEC D
+    case 0x16:  m_registers.D = ReadOperandByte();                                                                          break;  // LD D, d8
     case 0x17:  m_registers.A = INSTR_rl(m_registers.A, false);                                                             break;  // RLA
     case 0x18:  displacement = ReadOperandByte(); INSTR_jr(displacement);                                                   break;  // JR r8
     case 0x19:  INSTR_addhl(m_registers.DE);                                                                                break;  // ADD HL, DE
@@ -560,7 +568,7 @@ void CPU::ExecuteInstruction()
     case 0x36:  MemWriteByte(m_registers.HL, ReadOperandByte());                                                            break;  // LD (HL), d8
     case 0x37:  m_registers.SetFlagN(false); m_registers.SetFlagH(false); m_registers.SetFlagC(true);                       break;  // SCF
     case 0x38:  displacement = ReadOperandByte(); if (m_registers.GetFlagC()) { INSTR_jr(displacement); }                   break;  // JR C, r8
-    case 0x39:  INSTR_addhl(m_registers.HL);                                                                                break;  // ADD HL, SP
+    case 0x39:  INSTR_addhl(m_registers.SP);                                                                                break;  // ADD HL, SP
     case 0x3A:  m_registers.A = MemReadByte(m_registers.HL--);                                                              break;  // LD A, (HL-)
     case 0x3B:  m_registers.SP--; DelayCycle();                                                                             break;  // DEC SP
     case 0x3C:  m_registers.A = INSTR_inc(m_registers.A);                                                                   break;  // INC A
@@ -670,15 +678,15 @@ void CPU::ExecuteInstruction()
     case 0xA4:  INSTR_and(m_registers.H);                                                                                   break;  // AND H
     case 0xA5:  INSTR_and(m_registers.L);                                                                                   break;  // AND L
     case 0xA6:  INSTR_and(MemReadByte(m_registers.HL));                                                                     break;  // AND (HL)
-    case 0xA7:  INSTR_xor(m_registers.A);                                                                                   break;  // AND A
-    case 0xA8:  INSTR_xor(m_registers.B);                                                                                   break;  // AND B
-    case 0xA9:  INSTR_xor(m_registers.C);                                                                                   break;  // AND C
-    case 0xAA:  INSTR_xor(m_registers.D);                                                                                   break;  // AND D
-    case 0xAB:  INSTR_xor(m_registers.E);                                                                                   break;  // AND E
-    case 0xAC:  INSTR_xor(m_registers.H);                                                                                   break;  // AND H
-    case 0xAD:  INSTR_xor(m_registers.L);                                                                                   break;  // AND L
-    case 0xAE:  INSTR_xor(MemReadByte(m_registers.HL));                                                                     break;  // AND (HL)
-    case 0xAF:  INSTR_xor(m_registers.A);                                                                                   break;  // AND A
+    case 0xA7:  INSTR_and(m_registers.A);                                                                                   break;  // AND A
+    case 0xA8:  INSTR_xor(m_registers.B);                                                                                   break;  // XOR B
+    case 0xA9:  INSTR_xor(m_registers.C);                                                                                   break;  // XOR C
+    case 0xAA:  INSTR_xor(m_registers.D);                                                                                   break;  // XOR D
+    case 0xAB:  INSTR_xor(m_registers.E);                                                                                   break;  // XOR E
+    case 0xAC:  INSTR_xor(m_registers.H);                                                                                   break;  // XOR H
+    case 0xAD:  INSTR_xor(m_registers.L);                                                                                   break;  // XOR L
+    case 0xAE:  INSTR_xor(MemReadByte(m_registers.HL));                                                                     break;  // XOR (HL)
+    case 0xAF:  INSTR_xor(m_registers.A);                                                                                   break;  // XOR A
     case 0xB0:  INSTR_or(m_registers.B);                                                                                    break;  // OR B
     case 0xB1:  INSTR_or(m_registers.C);                                                                                    break;  // OR C
     case 0xB2:  INSTR_or(m_registers.D);                                                                                    break;  // OR D
@@ -735,7 +743,7 @@ void CPU::ExecuteInstruction()
     case 0xE6:  INSTR_and(ReadOperandByte());                                                                               break;  // AND d8
     case 0xE7:  INSTR_rst(0x20);                                                                                            break;  // RST 20H
     case 0xE8:  INSTR_addsp(ReadOperandSignedByte());                                                                       break;  // ADD SP, r8
-    case 0xE9:  m_registers.SP = m_registers.HL;                                                                            break;  // JP (HL)
+    case 0xE9:  m_registers.PC = m_registers.HL;                                                                            break;  // JP (HL)
     case 0xEA:  MemWriteByte(ReadOperandWord(), m_registers.A);                                                             break;  // LD (a16), A
     case 0xEB:  UnreachableCode();                                                                                          break;  // 
     case 0xEC:  UnreachableCode();                                                                                          break;  // 
@@ -743,7 +751,7 @@ void CPU::ExecuteInstruction()
     case 0xEE:  INSTR_xor(ReadOperandByte());                                                                               break;  // XOR d8
     case 0xEF:  INSTR_rst(0x28);                                                                                            break;  // RST 28H
     case 0xF0:  ioreg = ReadOperandByte(); m_registers.A = m_system->CPUReadIORegister(ioreg); DelayCycle();                break;  // LDH A, (a8)
-    case 0xF1:  m_registers.AF = PopWord();                                                                                 break;  // POP AF
+    case 0xF1:  m_registers.AF = PopWord() & 0xFFF0;                                                                        break;  // POP AF
     case 0xF2:  m_registers.A = m_system->CPUReadIORegister(m_registers.C); DelayCycle();                                   break;  // LD A, (C)
     case 0xF3:  m_registers.IME = false;                                                                                    break;  // DI
     case 0xF4:  UnreachableCode();                                                                                          break;  // 
@@ -760,7 +768,7 @@ void CPU::ExecuteInstruction()
     case 0xFF:  INSTR_rst(0x38);                                                                                            break;  // RST 38H
 
         // CB Prefix
-    case 0xCB:                                                                                                      // PREFIX CB
+    case 0xCB:                                                                                                              // PREFIX CB
         {
             opcode = ReadOperandByte();
             switch (opcode)
@@ -804,7 +812,7 @@ void CPU::ExecuteInstruction()
             case 0x24:  m_registers.H = INSTR_sla(m_registers.H);                                                           break;  // SLA H
             case 0x25:  m_registers.L = INSTR_sla(m_registers.L);                                                           break;  // SLA L
             case 0x26:  MemWriteByte(m_registers.HL, INSTR_sla(MemReadByte(m_registers.HL)));                               break;  // SLA (HL)
-            case 0x27:  m_registers.A = INSTR_sra(m_registers.A);                                                           break;  // SLA A
+            case 0x27:  m_registers.A = INSTR_sla(m_registers.A);                                                           break;  // SLA A
             case 0x28:  m_registers.B = INSTR_sra(m_registers.B);                                                           break;  // SRA B
             case 0x29:  m_registers.C = INSTR_sra(m_registers.C);                                                           break;  // SRA C
             case 0x2A:  m_registers.D = INSTR_sra(m_registers.D);                                                           break;  // SRA D
@@ -821,14 +829,14 @@ void CPU::ExecuteInstruction()
             case 0x35:  m_registers.L = INSTR_swap(m_registers.L);                                                          break;  // SWAP L
             case 0x36:  MemWriteByte(m_registers.HL, INSTR_swap(MemReadByte(m_registers.HL)));                              break;  // SWAP (HL)
             case 0x37:  m_registers.A = INSTR_swap(m_registers.A);                                                          break;  // SWAP A
-            case 0x38:  m_registers.B = INSTR_srl(m_registers.B);                                                           break;  // SRA B
-            case 0x39:  m_registers.C = INSTR_srl(m_registers.C);                                                           break;  // SRA C
-            case 0x3A:  m_registers.D = INSTR_srl(m_registers.D);                                                           break;  // SRA D
-            case 0x3B:  m_registers.E = INSTR_srl(m_registers.E);                                                           break;  // SRA E
-            case 0x3C:  m_registers.H = INSTR_srl(m_registers.H);                                                           break;  // SRA H
-            case 0x3D:  m_registers.L = INSTR_srl(m_registers.L);                                                           break;  // SRA L
-            case 0x3E:  MemWriteByte(m_registers.HL, INSTR_srl(MemReadByte(m_registers.HL)));                               break;  // SRA (HL)
-            case 0x3F:  m_registers.A = INSTR_srl(m_registers.A);                                                           break;  // SRA A
+            case 0x38:  m_registers.B = INSTR_srl(m_registers.B);                                                           break;  // SRL B
+            case 0x39:  m_registers.C = INSTR_srl(m_registers.C);                                                           break;  // SRL C
+            case 0x3A:  m_registers.D = INSTR_srl(m_registers.D);                                                           break;  // SRL D
+            case 0x3B:  m_registers.E = INSTR_srl(m_registers.E);                                                           break;  // SRL E
+            case 0x3C:  m_registers.H = INSTR_srl(m_registers.H);                                                           break;  // SRL H
+            case 0x3D:  m_registers.L = INSTR_srl(m_registers.L);                                                           break;  // SRL L
+            case 0x3E:  MemWriteByte(m_registers.HL, INSTR_srl(MemReadByte(m_registers.HL)));                               break;  // SRL (HL)
+            case 0x3F:  m_registers.A = INSTR_srl(m_registers.A);                                                           break;  // SRL A
             case 0x40:  INSTR_bit(0, m_registers.B);                                                                        break;  // BIT 0, B
             case 0x41:  INSTR_bit(0, m_registers.C);                                                                        break;  // BIT 0, C
             case 0x42:  INSTR_bit(0, m_registers.D);                                                                        break;  // BIT 0, D
@@ -861,13 +869,166 @@ void CPU::ExecuteInstruction()
             case 0x5D:  INSTR_bit(3, m_registers.L);                                                                        break;  // BIT 3, L
             case 0x5E:  INSTR_bit(3, MemReadByte(m_registers.HL)); DelayCycle();                                            break;  // BIT 3, (HL)
             case 0x5F:  INSTR_bit(3, m_registers.A);                                                                        break;  // BIT 3, A
-            case 0x80:  m_registers.B &= ~uint8(1 << 0);                                                                    break;  // RES 0, B
-            case 0x90:  m_registers.B &= ~uint8(1 << 2);                                                                    break;  // RES 2, B
-            case 0xA0:  m_registers.B &= ~uint8(1 << 4);                                                                    break;  // RES 4, B
-            
-            default:
-                UnreachableCode();
-                break;
+            case 0x60:  INSTR_bit(4, m_registers.B);                                                                        break;  // BIT 4, B
+            case 0x61:  INSTR_bit(4, m_registers.C);                                                                        break;  // BIT 4, C
+            case 0x62:  INSTR_bit(4, m_registers.D);                                                                        break;  // BIT 4, D
+            case 0x63:  INSTR_bit(4, m_registers.E);                                                                        break;  // BIT 4, E
+            case 0x64:  INSTR_bit(4, m_registers.H);                                                                        break;  // BIT 4, H
+            case 0x65:  INSTR_bit(4, m_registers.L);                                                                        break;  // BIT 4, L
+            case 0x66:  INSTR_bit(4, MemReadByte(m_registers.HL)); DelayCycle();                                            break;  // BIT 4, (HL)
+            case 0x67:  INSTR_bit(4, m_registers.A);                                                                        break;  // BIT 4, A
+            case 0x68:  INSTR_bit(5, m_registers.B);                                                                        break;  // BIT 5, B
+            case 0x69:  INSTR_bit(5, m_registers.C);                                                                        break;  // BIT 5, C
+            case 0x6A:  INSTR_bit(5, m_registers.D);                                                                        break;  // BIT 5, D
+            case 0x6B:  INSTR_bit(5, m_registers.E);                                                                        break;  // BIT 5, E
+            case 0x6C:  INSTR_bit(5, m_registers.H);                                                                        break;  // BIT 5, H
+            case 0x6D:  INSTR_bit(5, m_registers.L);                                                                        break;  // BIT 5, L
+            case 0x6E:  INSTR_bit(5, MemReadByte(m_registers.HL)); DelayCycle();                                            break;  // BIT 5, (HL)
+            case 0x6F:  INSTR_bit(5, m_registers.A);                                                                        break;  // BIT 5, A
+            case 0x70:  INSTR_bit(6, m_registers.B);                                                                        break;  // BIT 6, B
+            case 0x71:  INSTR_bit(6, m_registers.C);                                                                        break;  // BIT 6, C
+            case 0x72:  INSTR_bit(6, m_registers.D);                                                                        break;  // BIT 6, D
+            case 0x73:  INSTR_bit(6, m_registers.E);                                                                        break;  // BIT 6, E
+            case 0x74:  INSTR_bit(6, m_registers.H);                                                                        break;  // BIT 6, H
+            case 0x75:  INSTR_bit(6, m_registers.L);                                                                        break;  // BIT 6, L
+            case 0x76:  INSTR_bit(6, MemReadByte(m_registers.HL)); DelayCycle();                                            break;  // BIT 6, (HL)
+            case 0x77:  INSTR_bit(6, m_registers.A);                                                                        break;  // BIT 6, A
+            case 0x78:  INSTR_bit(7, m_registers.B);                                                                        break;  // BIT 7, B
+            case 0x79:  INSTR_bit(7, m_registers.C);                                                                        break;  // BIT 7, C
+            case 0x7A:  INSTR_bit(7, m_registers.D);                                                                        break;  // BIT 7, D
+            case 0x7B:  INSTR_bit(7, m_registers.E);                                                                        break;  // BIT 7, E
+            case 0x7C:  INSTR_bit(7, m_registers.H);                                                                        break;  // BIT 7, H
+            case 0x7D:  INSTR_bit(7, m_registers.L);                                                                        break;  // BIT 7, L
+            case 0x7E:  INSTR_bit(7, MemReadByte(m_registers.HL)); DelayCycle();                                            break;  // BIT 7, (HL)
+            case 0x7F:  INSTR_bit(7, m_registers.A);                                                                        break;  // BIT 7, A
+            case 0x80:  m_registers.B = INSTR_res(0, m_registers.B);                                                        break;  // RES 0, B
+            case 0x81:  m_registers.C = INSTR_res(0, m_registers.C);                                                        break;  // RES 0, C
+            case 0x82:  m_registers.D = INSTR_res(0, m_registers.D);                                                        break;  // RES 0, D
+            case 0x83:  m_registers.E = INSTR_res(0, m_registers.E);                                                        break;  // RES 0, E
+            case 0x84:  m_registers.H = INSTR_res(0, m_registers.H);                                                        break;  // RES 0, H
+            case 0x85:  m_registers.L = INSTR_res(0, m_registers.L);                                                        break;  // RES 0, L
+            case 0x86:  MemWriteByte(m_registers.HL, INSTR_res(0, MemReadByte(m_registers.HL)));                            break;  // RES 0, (HL)
+            case 0x87:  m_registers.A = INSTR_res(0, m_registers.A);                                                        break;  // RES 0, A
+            case 0x88:  m_registers.B = INSTR_res(1, m_registers.B);                                                        break;  // RES 1, B
+            case 0x89:  m_registers.C = INSTR_res(1, m_registers.C);                                                        break;  // RES 1, C
+            case 0x8A:  m_registers.D = INSTR_res(1, m_registers.D);                                                        break;  // RES 1, D
+            case 0x8B:  m_registers.E = INSTR_res(1, m_registers.E);                                                        break;  // RES 1, E
+            case 0x8C:  m_registers.H = INSTR_res(1, m_registers.H);                                                        break;  // RES 1, H
+            case 0x8D:  m_registers.L = INSTR_res(1, m_registers.L);                                                        break;  // RES 1, L
+            case 0x8E:  MemWriteByte(m_registers.HL, INSTR_res(1, MemReadByte(m_registers.HL)));                            break;  // RES 1, (HL)
+            case 0x8F:  m_registers.A = INSTR_res(1, m_registers.A);                                                        break;  // RES 1, A
+            case 0x90:  m_registers.B = INSTR_res(2, m_registers.B);                                                        break;  // RES 2, B
+            case 0x91:  m_registers.C = INSTR_res(2, m_registers.C);                                                        break;  // RES 2, C
+            case 0x92:  m_registers.D = INSTR_res(2, m_registers.D);                                                        break;  // RES 2, D
+            case 0x93:  m_registers.E = INSTR_res(2, m_registers.E);                                                        break;  // RES 2, E
+            case 0x94:  m_registers.H = INSTR_res(2, m_registers.H);                                                        break;  // RES 2, H
+            case 0x95:  m_registers.L = INSTR_res(2, m_registers.L);                                                        break;  // RES 2, L
+            case 0x96:  MemWriteByte(m_registers.HL, INSTR_res(2, MemReadByte(m_registers.HL)));                            break;  // RES 2, (HL)
+            case 0x97:  m_registers.A = INSTR_res(2, m_registers.A);                                                        break;  // RES 2, A
+            case 0x98:  m_registers.B = INSTR_res(3, m_registers.B);                                                        break;  // RES 3, B
+            case 0x99:  m_registers.C = INSTR_res(3, m_registers.C);                                                        break;  // RES 3, C
+            case 0x9A:  m_registers.D = INSTR_res(3, m_registers.D);                                                        break;  // RES 3, D
+            case 0x9B:  m_registers.E = INSTR_res(3, m_registers.E);                                                        break;  // RES 3, E
+            case 0x9C:  m_registers.H = INSTR_res(3, m_registers.H);                                                        break;  // RES 3, H
+            case 0x9D:  m_registers.L = INSTR_res(3, m_registers.L);                                                        break;  // RES 3, L
+            case 0x9E:  MemWriteByte(m_registers.HL, INSTR_res(3, MemReadByte(m_registers.HL)));                            break;  // RES 3, (HL)
+            case 0x9F:  m_registers.A = INSTR_res(3, m_registers.A);                                                        break;  // RES 3, A
+            case 0xA0:  m_registers.B = INSTR_res(4, m_registers.B);                                                        break;  // RES 4, B
+            case 0xA1:  m_registers.C = INSTR_res(4, m_registers.C);                                                        break;  // RES 4, C
+            case 0xA2:  m_registers.D = INSTR_res(4, m_registers.D);                                                        break;  // RES 4, D
+            case 0xA3:  m_registers.E = INSTR_res(4, m_registers.E);                                                        break;  // RES 4, E
+            case 0xA4:  m_registers.H = INSTR_res(4, m_registers.H);                                                        break;  // RES 4, H
+            case 0xA5:  m_registers.L = INSTR_res(4, m_registers.L);                                                        break;  // RES 4, L
+            case 0xA6:  MemWriteByte(m_registers.HL, INSTR_res(4, MemReadByte(m_registers.HL)));                            break;  // RES 4, (HL)
+            case 0xA7:  m_registers.A = INSTR_res(4, m_registers.A);                                                        break;  // RES 4, A
+            case 0xA8:  m_registers.B = INSTR_res(5, m_registers.B);                                                        break;  // RES 5, B
+            case 0xA9:  m_registers.C = INSTR_res(5, m_registers.C);                                                        break;  // RES 5, C
+            case 0xAA:  m_registers.D = INSTR_res(5, m_registers.D);                                                        break;  // RES 5, D
+            case 0xAB:  m_registers.E = INSTR_res(5, m_registers.E);                                                        break;  // RES 5, E
+            case 0xAC:  m_registers.H = INSTR_res(5, m_registers.H);                                                        break;  // RES 5, H
+            case 0xAD:  m_registers.L = INSTR_res(5, m_registers.L);                                                        break;  // RES 5, L
+            case 0xAE:  MemWriteByte(m_registers.HL, INSTR_res(5, MemReadByte(m_registers.HL)));                            break;  // RES 5, (HL)
+            case 0xAF:  m_registers.A = INSTR_res(5, m_registers.A);                                                        break;  // RES 5, A
+            case 0xB0:  m_registers.B = INSTR_res(6, m_registers.B);                                                        break;  // RES 6, B
+            case 0xB1:  m_registers.C = INSTR_res(6, m_registers.C);                                                        break;  // RES 6, C
+            case 0xB2:  m_registers.D = INSTR_res(6, m_registers.D);                                                        break;  // RES 6, D
+            case 0xB3:  m_registers.E = INSTR_res(6, m_registers.E);                                                        break;  // RES 6, E
+            case 0xB4:  m_registers.H = INSTR_res(6, m_registers.H);                                                        break;  // RES 6, H
+            case 0xB5:  m_registers.L = INSTR_res(6, m_registers.L);                                                        break;  // RES 6, L
+            case 0xB6:  MemWriteByte(m_registers.HL, INSTR_res(6, MemReadByte(m_registers.HL)));                            break;  // RES 6, (HL)
+            case 0xB7:  m_registers.A = INSTR_res(6, m_registers.A);                                                        break;  // RES 6, A
+            case 0xB8:  m_registers.B = INSTR_res(7, m_registers.B);                                                        break;  // RES 7, B
+            case 0xB9:  m_registers.C = INSTR_res(7, m_registers.C);                                                        break;  // RES 7, C
+            case 0xBA:  m_registers.D = INSTR_res(7, m_registers.D);                                                        break;  // RES 7, D
+            case 0xBB:  m_registers.E = INSTR_res(7, m_registers.E);                                                        break;  // RES 7, E
+            case 0xBC:  m_registers.H = INSTR_res(7, m_registers.H);                                                        break;  // RES 7, H
+            case 0xBD:  m_registers.L = INSTR_res(7, m_registers.L);                                                        break;  // RES 7, L
+            case 0xBE:  MemWriteByte(m_registers.HL, INSTR_res(7, MemReadByte(m_registers.HL)));                            break;  // RES 7, (HL)
+            case 0xBF:  m_registers.A = INSTR_res(7, m_registers.A);                                                        break;  // RES 7, A
+            case 0xC0:  m_registers.B = INSTR_set(0, m_registers.B);                                                        break;  // SET 0, B
+            case 0xC1:  m_registers.C = INSTR_set(0, m_registers.C);                                                        break;  // SET 0, C
+            case 0xC2:  m_registers.D = INSTR_set(0, m_registers.D);                                                        break;  // SET 0, D
+            case 0xC3:  m_registers.E = INSTR_set(0, m_registers.E);                                                        break;  // SET 0, E
+            case 0xC4:  m_registers.H = INSTR_set(0, m_registers.H);                                                        break;  // SET 0, H
+            case 0xC5:  m_registers.L = INSTR_set(0, m_registers.L);                                                        break;  // SET 0, L
+            case 0xC6:  MemWriteByte(m_registers.HL, INSTR_set(0, MemReadByte(m_registers.HL)));                            break;  // SET 0, (HL)
+            case 0xC7:  m_registers.A = INSTR_set(0, m_registers.A);                                                        break;  // SET 0, A
+            case 0xC8:  m_registers.B = INSTR_set(1, m_registers.B);                                                        break;  // SET 1, B
+            case 0xC9:  m_registers.C = INSTR_set(1, m_registers.C);                                                        break;  // SET 1, C
+            case 0xCA:  m_registers.D = INSTR_set(1, m_registers.D);                                                        break;  // SET 1, D
+            case 0xCB:  m_registers.E = INSTR_set(1, m_registers.E);                                                        break;  // SET 1, E
+            case 0xCC:  m_registers.H = INSTR_set(1, m_registers.H);                                                        break;  // SET 1, H
+            case 0xCD:  m_registers.L = INSTR_set(1, m_registers.L);                                                        break;  // SET 1, L
+            case 0xCE:  MemWriteByte(m_registers.HL, INSTR_set(1, MemReadByte(m_registers.HL)));                            break;  // SET 1, (HL)
+            case 0xCF:  m_registers.A = INSTR_set(1, m_registers.A);                                                        break;  // SET 1, A
+            case 0xD0:  m_registers.B = INSTR_set(2, m_registers.B);                                                        break;  // SET 2, B
+            case 0xD1:  m_registers.C = INSTR_set(2, m_registers.C);                                                        break;  // SET 2, C
+            case 0xD2:  m_registers.D = INSTR_set(2, m_registers.D);                                                        break;  // SET 2, D
+            case 0xD3:  m_registers.E = INSTR_set(2, m_registers.E);                                                        break;  // SET 2, E
+            case 0xD4:  m_registers.H = INSTR_set(2, m_registers.H);                                                        break;  // SET 2, H
+            case 0xD5:  m_registers.L = INSTR_set(2, m_registers.L);                                                        break;  // SET 2, L
+            case 0xD6:  MemWriteByte(m_registers.HL, INSTR_set(2, MemReadByte(m_registers.HL)));                            break;  // SET 2, (HL)
+            case 0xD7:  m_registers.A = INSTR_set(2, m_registers.A);                                                        break;  // SET 2, A
+            case 0xD8:  m_registers.B = INSTR_set(3, m_registers.B);                                                        break;  // SET 3, B
+            case 0xD9:  m_registers.C = INSTR_set(3, m_registers.C);                                                        break;  // SET 3, C
+            case 0xDA:  m_registers.D = INSTR_set(3, m_registers.D);                                                        break;  // SET 3, D
+            case 0xDB:  m_registers.E = INSTR_set(3, m_registers.E);                                                        break;  // SET 3, E
+            case 0xDC:  m_registers.H = INSTR_set(3, m_registers.H);                                                        break;  // SET 3, H
+            case 0xDD:  m_registers.L = INSTR_set(3, m_registers.L);                                                        break;  // SET 3, L
+            case 0xDE:  MemWriteByte(m_registers.HL, INSTR_set(3, MemReadByte(m_registers.HL)));                            break;  // SET 3, (HL)
+            case 0xDF:  m_registers.A = INSTR_set(3, m_registers.A);                                                        break;  // SET 3, A
+            case 0xE0:  m_registers.B = INSTR_set(4, m_registers.B);                                                        break;  // SET 4, B
+            case 0xE1:  m_registers.C = INSTR_set(4, m_registers.C);                                                        break;  // SET 4, C
+            case 0xE2:  m_registers.D = INSTR_set(4, m_registers.D);                                                        break;  // SET 4, D
+            case 0xE3:  m_registers.E = INSTR_set(4, m_registers.E);                                                        break;  // SET 4, E
+            case 0xE4:  m_registers.H = INSTR_set(4, m_registers.H);                                                        break;  // SET 4, H
+            case 0xE5:  m_registers.L = INSTR_set(4, m_registers.L);                                                        break;  // SET 4, L
+            case 0xE6:  MemWriteByte(m_registers.HL, INSTR_set(4, MemReadByte(m_registers.HL)));                            break;  // SET 4, (HL)
+            case 0xE7:  m_registers.A = INSTR_set(4, m_registers.A);                                                        break;  // SET 4, A
+            case 0xE8:  m_registers.B = INSTR_set(5, m_registers.B);                                                        break;  // SET 5, B
+            case 0xE9:  m_registers.C = INSTR_set(5, m_registers.C);                                                        break;  // SET 5, C
+            case 0xEA:  m_registers.D = INSTR_set(5, m_registers.D);                                                        break;  // SET 5, D
+            case 0xEB:  m_registers.E = INSTR_set(5, m_registers.E);                                                        break;  // SET 5, E
+            case 0xEC:  m_registers.H = INSTR_set(5, m_registers.H);                                                        break;  // SET 5, H
+            case 0xED:  m_registers.L = INSTR_set(5, m_registers.L);                                                        break;  // SET 5, L
+            case 0xEE:  MemWriteByte(m_registers.HL, INSTR_set(5, MemReadByte(m_registers.HL)));                            break;  // SET 5, (HL)
+            case 0xEF:  m_registers.A = INSTR_set(5, m_registers.A);                                                        break;  // SET 5, A
+            case 0xF0:  m_registers.B = INSTR_set(6, m_registers.B);                                                        break;  // SET 6, B
+            case 0xF1:  m_registers.C = INSTR_set(6, m_registers.C);                                                        break;  // SET 6, C
+            case 0xF2:  m_registers.D = INSTR_set(6, m_registers.D);                                                        break;  // SET 6, D
+            case 0xF3:  m_registers.E = INSTR_set(6, m_registers.E);                                                        break;  // SET 6, E
+            case 0xF4:  m_registers.H = INSTR_set(6, m_registers.H);                                                        break;  // SET 6, H
+            case 0xF5:  m_registers.L = INSTR_set(6, m_registers.L);                                                        break;  // SET 6, L
+            case 0xF6:  MemWriteByte(m_registers.HL, INSTR_set(6, MemReadByte(m_registers.HL)));                            break;  // SET 6, (HL)
+            case 0xF7:  m_registers.A = INSTR_set(6, m_registers.A);                                                        break;  // SET 6, A
+            case 0xF8:  m_registers.B = INSTR_set(7, m_registers.B);                                                        break;  // SET 7, B
+            case 0xF9:  m_registers.C = INSTR_set(7, m_registers.C);                                                        break;  // SET 7, C
+            case 0xFA:  m_registers.D = INSTR_set(7, m_registers.D);                                                        break;  // SET 7, D
+            case 0xFB:  m_registers.E = INSTR_set(7, m_registers.E);                                                        break;  // SET 7, E
+            case 0xFC:  m_registers.H = INSTR_set(7, m_registers.H);                                                        break;  // SET 7, H
+            case 0xFD:  m_registers.L = INSTR_set(7, m_registers.L);                                                        break;  // SET 7, L
+            case 0xFE:  MemWriteByte(m_registers.HL, INSTR_set(7, MemReadByte(m_registers.HL)));                            break;  // SET 7, (HL)
+            case 0xFF:  m_registers.A = INSTR_set(7, m_registers.A);                                                        break;  // SET 7, A
             }
         }
         break;

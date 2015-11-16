@@ -151,90 +151,88 @@ bool CPU::TestPredicate(Instruction::Predicate condition)
     }
 }
 
-#if 0
-
-void CPU::ExecuteInstruction()
+void CPU::ExecuteInstructionOld()
 {
-    // cpu disabled for memory transfer?
-    if (m_disabled)
-    {
-        // keep other subsystems running, don't advance the instruction clock
-        m_system->AddCPUCycles(4);
-        return;
-    }
-
-    // interrupts enabled?
-    if (m_registers.IME)
-    {
-        // have we got a pending interrupt?
-        uint8 interrupt_mask = ((1 << (NUM_CPU_INT)) - 1) & m_registers.IF & m_registers.IE;
-        if (interrupt_mask != 0)
-        {
-            // http://bgb.bircd.org/pandocs.htm#interrupts
-            // find the first interrupt pending in priority (0 = highest)
-            for (uint32 i = 0; i < NUM_CPU_INT; i++)
-            {
-                if (interrupt_mask & (1 << i))
-                {
-                    // trigger this interrupt
-                    // clear flag
-                    m_registers.IF &= ~(1 << i);
-
-                    // disable interrupts
-                    m_registers.IME = false;
-
-                    // Jump to vector
-                    static const uint16 jump_locations[] = {
-                        0x0040,     // vblank
-                        0x0048,     // lcdc
-                        0x0050,     // timer
-                        0x0058,     // serial
-                        0x0060,     // joypad
-                    };
-
-                    TRACE("Entering interrupt handler $%04X, PC was $%04X", jump_locations[i], m_registers.PC);
-                    //DisassembleFrom(m_system, m_registers.PC, 10);
-
-                    PushWord(m_registers.PC);
-                    m_registers.PC = jump_locations[i];
-                    m_halted = false;
-
-#ifdef ACCURATE_MEMORY_TIMING
-                    // interrupt takes 20 cycles total, 2 memory writes
-                    m_clock += 20 - 4 - 4;
-                    m_system->AddCPUCycles(20 - 4 - 4);
-                    return;
-#else
-                    m_system->AddCPUCycles(20);
-                    return;
-#endif
-                    
-                }
-            }
-        }
-    }
-
-    // if halted, simulate a single cycle to keep the display/audio going
-    if (m_halted)
-    {
-        m_system->AddCPUCycles(4);
-        return;
-    }
-
-//     if (m_registers.PC == 0x35e1)
-//         __debugbreak();
-
-    // debug
-    static bool disasm_enabled = false;
-    //static bool disasm_enabled = true;
-    if (disasm_enabled)
-    {
-        SmallString disasm;
-        if (Disassemble(&disasm, m_system, m_registers.PC))
-            Log_DevPrintf("exec: %s", disasm.GetCharArray());
-        else
-            Log_DevPrintf("disasm fail at %04X", m_registers.PC);
-    }
+//     // cpu disabled for memory transfer?
+//     if (m_disabled)
+//     {
+//         // keep other subsystems running, don't advance the instruction clock
+//         m_system->AddCPUCycles(4);
+//         return;
+//     }
+// 
+//     // interrupts enabled?
+//     if (m_registers.IME)
+//     {
+//         // have we got a pending interrupt?
+//         uint8 interrupt_mask = ((1 << (NUM_CPU_INT)) - 1) & m_registers.IF & m_registers.IE;
+//         if (interrupt_mask != 0)
+//         {
+//             // http://bgb.bircd.org/pandocs.htm#interrupts
+//             // find the first interrupt pending in priority (0 = highest)
+//             for (uint32 i = 0; i < NUM_CPU_INT; i++)
+//             {
+//                 if (interrupt_mask & (1 << i))
+//                 {
+//                     // trigger this interrupt
+//                     // clear flag
+//                     m_registers.IF &= ~(1 << i);
+// 
+//                     // disable interrupts
+//                     m_registers.IME = false;
+// 
+//                     // Jump to vector
+//                     static const uint16 jump_locations[] = {
+//                         0x0040,     // vblank
+//                         0x0048,     // lcdc
+//                         0x0050,     // timer
+//                         0x0058,     // serial
+//                         0x0060,     // joypad
+//                     };
+// 
+//                     TRACE("Entering interrupt handler $%04X, PC was $%04X", jump_locations[i], m_registers.PC);
+//                     //DisassembleFrom(m_system, m_registers.PC, 10);
+// 
+//                     PushWord(m_registers.PC);
+//                     m_registers.PC = jump_locations[i];
+//                     m_halted = false;
+// 
+// #ifdef ACCURATE_MEMORY_TIMING
+//                     // interrupt takes 20 cycles total, 2 memory writes
+//                     m_clock += 20 - 4 - 4;
+//                     m_system->AddCPUCycles(20 - 4 - 4);
+//                     return;
+// #else
+//                     m_system->AddCPUCycles(20);
+//                     return;
+// #endif
+//                     
+//                 }
+//             }
+//         }
+//     }
+// 
+//     // if halted, simulate a single cycle to keep the display/audio going
+//     if (m_halted)
+//     {
+//         m_system->AddCPUCycles(4);
+//         return;
+//     }
+// 
+// //     if (m_registers.PC == 0x35e1)
+// //         __debugbreak();
+// 
+//     // debug
+//     static bool disasm_enabled = false;
+//     //static bool disasm_enabled = true;
+//     if (disasm_enabled)
+//     {
+//         SmallString disasm;
+//         if (Disassemble(&disasm, m_system, m_registers.PC))
+//             Log_DevPrintf("exec: %s", disasm.GetCharArray());
+//         else
+//             Log_DevPrintf("disasm fail at %04X", m_registers.PC);
+//     }
 
     // fetch opcode
     uint16 original_pc = m_registers.PC;
@@ -1648,4 +1646,3 @@ void CPU::ExecuteInstruction()
     #undef get_imm16
 }
 
-#endif

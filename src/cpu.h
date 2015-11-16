@@ -167,6 +167,7 @@ public:
 
     // step
     void ExecuteInstruction();
+    void ExecuteInstructionOld();
 
     // disassemble an instruction
     static bool Disassemble(String *pDestination, System *memory, uint16 address);
@@ -352,6 +353,8 @@ private:
     uint8 INSTR_srl(uint8 value);
     uint8 INSTR_swap(uint8 value);
     void INSTR_bit(uint8 bit, uint8 value);
+    uint8 INSTR_res(uint8 bit, uint8 value);
+    uint8 INSTR_set(uint8 bit, uint8 value);
     void INSTR_halt();
     void INSTR_stop();
     void INSTR_jr(int8 displacement);

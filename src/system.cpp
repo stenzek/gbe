@@ -1292,6 +1292,7 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             case 0x01:
                 m_serial->Synchronize();
                 m_serial->SetSerialData(value);
+                Log_DevPrintf("SD: %02X (%c)", value, value);
                 return;
 
                 // FF02 - SC serial control
