@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.v7.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:cardview="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="80dp"
+    android:layout_margin="8dp"
+    android:clickable="true"
+    android:foreground="?android:selectableItemBackground">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <ImageView android:id="@+id/game_image"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:layout_margin="4dp"
+            android:src="@android:drawable/sym_def_app_icon" />
+
+        <TextView android:id="@+id/game_title"
+            android:layout_toRightOf="@id/game_image"
+            android:layout_width="match_parent"
+            android:layout_height="28dp"
+            android:layout_margin="4dp"
+            android:textSize="24dp"
+            android:textAllCaps="true"
+            android:text="Game Title" />
+
+        <TextView android:id="@+id/game_details"
+            android:layout_width="match_parent"
+            android:layout_height="18dp"
+            android:textSize="14dp"
+            android:text="Never played"
+            android:layout_below="@+id/game_title"
+            android:layout_alignLeft="@+id/game_title"
+            android:layout_alignStart="@+id/game_title" />
+
+        <TextView android:id="@+id/game_filename"
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:textSize="10dp"
+            android:text="Game Filename.gbc"
+            android:layout_below="@+id/game_details"
+            android:layout_alignLeft="@+id/game_details"
+            android:layout_alignStart="@+id/game_details" />
+
+    </RelativeLayout>
+
+</android.support.v7.widget.CardView>

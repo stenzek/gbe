@@ -4,17 +4,18 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
-import android.widget.Toast;
 
 import java.io.File;
 import java.io.FilenameFilter;
@@ -26,13 +27,28 @@ public class GameListActivity extends AppCompatActivity {
 
     static final int ACTIVITY_RESULT_UPDATE_SEARCH_PATHS = 1;
 
+    private RecyclerView mGameListView;
+    private GameListAdapter mGameListAdapter;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_game_list);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        populateGameList();
+
+        mGameListView = (RecyclerView)findViewById(R.id.gameListView);
+        mGameListView.setLayoutManager(new LinearLayoutManager(this));
+
+        mGameListAdapter = new GameListAdapter(this);
+        mGameListView.setAdapter(mGameListAdapter);
+        //mGameListAdapter.refreshList();
+
+        mGameListAdapter.setOnItemClickedListener(new GameListAdapter.OnItemClickedListener() {
+            public void onClick(GameListAdapter.GameInfo gameInfo) {
+                launchGame(gameInfo.getPath());
+            }
+        });
     }
 
     @Override
@@ -71,14 +87,14 @@ public class GameListActivity extends AppCompatActivity {
             case ACTIVITY_RESULT_UPDATE_SEARCH_PATHS: {
                 if (resultCode == RESULT_OK) {
                     // Refresh the game list.
-                    populateGameList();
+                    mGameListAdapter.refreshList();
                 }
                 break;
             }
         }
     }
 
-    private void populateGameList()
+    /*private void populateGameList()
     {
         // Get current list of paths, split into an array.
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
@@ -130,7 +146,7 @@ public class GameListActivity extends AppCompatActivity {
                 }
             });
         }
-    }
+    }*/
 
     private void launchGame(String path)
     {
