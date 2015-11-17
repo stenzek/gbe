@@ -7,37 +7,37 @@ Log_SetChannel(CPU);
 
 void CPU::DisassembleFrom(System *system, uint16 address, uint16 count, ByteStream *pStream)
 {
-    uint16 start_address = address;
-    uint16 end_address;
-    if ((uint32)start_address + count > Y_UINT16_MAX)
-        end_address = Y_UINT16_MAX;
-    else
-        end_address = start_address + count;
-
-    for (uint16 current_address = start_address; current_address < end_address; )
-    {
-        SmallString str;
-        if (!Disassemble(&str, system, current_address))
-        {
-            Log_ErrorPrintf("Disasm fail at %04X", address);
-            return;
-        }
-
-        const Instruction *instruction = &instructions[system->CPURead(current_address)];
-        if (instruction->type == Instruction::Type_Prefix)
-            instruction = &cb_instructions[system->CPURead(current_address + 1)];
-
-        current_address += (uint16)instruction->length;
-        if (pStream == nullptr)
-        {
-            Log_DevPrint(str);
-        }
-        else
-        {
-            str.AppendCharacter('\n');
-            pStream->Write2(str.GetCharArray(), str.GetLength());
-        }
-    }
+//     uint16 start_address = address;
+//     uint16 end_address;
+//     if ((uint32)start_address + count > Y_UINT16_MAX)
+//         end_address = Y_UINT16_MAX;
+//     else
+//         end_address = start_address + count;
+// 
+//     for (uint16 current_address = start_address; current_address < end_address; )
+//     {
+//         SmallString str;
+//         if (!Disassemble(&str, system, current_address))
+//         {
+//             Log_ErrorPrintf("Disasm fail at %04X", address);
+//             return;
+//         }
+// 
+//         const Instruction *instruction = &instructions[system->CPURead(current_address)];
+//         if (instruction->type == Instruction::Type_Prefix)
+//             instruction = &cb_instructions[system->CPURead(current_address + 1)];
+// 
+//         current_address += (uint16)instruction->length;
+//         if (pStream == nullptr)
+//         {
+//             Log_DevPrint(str);
+//         }
+//         else
+//         {
+//             str.AppendCharacter('\n');
+//             pStream->Write2(str.GetCharArray(), str.GetLength());
+//         }
+//     }
 }
 
 bool CPU::Disassemble(String *pDestination, System *memory, uint16 address)

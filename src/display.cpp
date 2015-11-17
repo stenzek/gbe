@@ -21,6 +21,7 @@ static uint32 CalculateHDMATransferCycles(uint32 length)
 
 Display::Display(System *memory)
     : m_system(memory)
+    , m_last_cycle(0)
     , m_frameReady(false)
 {
     
@@ -178,6 +179,7 @@ void Display::Reset()
 {
     ClearFrameBuffer();
     m_frameReady = false;
+    m_last_cycle = 0;
 
     Y_memzero(&m_registers, sizeof(m_registers));
     Y_memzero(m_cgb_bg_palette, sizeof(m_cgb_bg_palette));
@@ -355,8 +357,6 @@ void Display::SetLCDCRegister(uint8 value)
             // We should be in vblank.
             if (m_state != DISPLAY_STATE_VBLANK)
             {
-                Log_WarningPrintf("LCD display turned off whilst out of vblank state. This may damage a real DMG.");
-
                 // Set to vblank mode (since the rom is misbehaving)
                 m_cyclesSinceVBlank = 65664;
                 m_currentScanLine = 144;
@@ -367,6 +367,7 @@ void Display::SetLCDCRegister(uint8 value)
             // Unlock memory.
             m_system->SetVRAMLock(false);
             m_system->SetOAMLock(false);
+            m_system->SetNextDisplaySyncCycle(4194304);
 
             // Clear the framebuffer, and update display.
             TRACE("Display disabled.");
@@ -378,10 +379,12 @@ void Display::SetLCDCRegister(uint8 value)
         {
             // Reset back to original state (is this correct behavior?)
             TRACE("Display enabled.");
-            //m_currentScanLine = 0;
-            //m_cyclesSinceVBlank = 0;
-            //SetState(DISPLAY_STATE_OAM_READ);
-            //SetLYRegister(0);
+            m_currentScanLine = 0;
+            m_cyclesSinceVBlank = 0;
+            SetState(DISPLAY_STATE_OAM_READ);
+            SetLYRegister(0);
+            m_last_cycle = m_system->GetCycleNumber();
+            m_system->SetNextDisplaySyncCycle(m_modeClocksRemaining);
         }
     }
 
@@ -477,13 +480,16 @@ void Display::ExecuteHDMATransferBlock(uint32 bytes)
     m_system->DisableCPU(true);
 }
 
-void Display::ExecuteFor(uint32 cpuCycles)
+void Display::Synchronize()
 {
+    uint32 cycles_to_execute = m_system->CalculateCycleCount(m_last_cycle, m_system->GetCycleNumber());
+    m_last_cycle = m_system->GetCycleNumber();
+
     // Handle HDMA transfers blocking of cpu.
     // This would be better placed elsewhere.
     if (m_HDMATransferClocksRemaining > 0)
     {
-        if (cpuCycles >= m_HDMATransferClocksRemaining)
+        if (cycles_to_execute >= m_HDMATransferClocksRemaining)
         {
             // Re-enable the CPU.
             m_system->DisableCPU(false);
@@ -492,28 +498,33 @@ void Display::ExecuteFor(uint32 cpuCycles)
         else
         {
             // Still going.
-            m_HDMATransferClocksRemaining -= cpuCycles;
+            m_HDMATransferClocksRemaining -= cycles_to_execute;
         }
     }
 
     // Don't do anything if we're disabled.
     if (!(m_registers.LCDC & (1 << 7)))
+    {
+        // Set next sync time to a vsync away for now.
+        // When we're re-enabled, the cycle number gets reset.
+        m_system->SetNextDisplaySyncCycle(70224);
         return;
+    }
 
     // Execute as much time as we can.
-    while (cpuCycles > 0)
+    while (cycles_to_execute > 0)
     {
         // Execute these many GPU cycles
-        if (cpuCycles < m_modeClocksRemaining)
+        if (cycles_to_execute < m_modeClocksRemaining)
         {
             // Still has to wait.
-            m_modeClocksRemaining -= cpuCycles;
-            m_cyclesSinceVBlank += cpuCycles;
+            m_modeClocksRemaining -= cycles_to_execute;
+            m_cyclesSinceVBlank += cycles_to_execute;
             break;
         }
 
         // Completed this wait period.
-        cpuCycles -= m_modeClocksRemaining;
+        cycles_to_execute -= m_modeClocksRemaining;
         m_cyclesSinceVBlank += m_modeClocksRemaining;
         
         // Switch to the next mode (if appropriate)
@@ -587,6 +598,9 @@ void Display::ExecuteFor(uint32 cpuCycles)
             }
         }
     }
+
+    // next synchronize time
+    m_system->SetNextDisplaySyncCycle(m_modeClocksRemaining);
 }
 
 uint8 Display::ReadTile(uint8 bank, bool high_tileset, int32 tile, uint8 x, uint8 y) const

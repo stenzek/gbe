@@ -8,6 +8,7 @@ Log_SetChannel(Serial);
 
 Serial::Serial(System *system)
     : m_system(system)
+    , m_last_cycle(0)
     , m_has_connection(false)
     , m_serial_control(0x00)
     , m_serial_read_data(0xFF)
@@ -120,6 +121,9 @@ void Serial::SetSerialControl(uint8 value)
             m_clocks_since_transfer_start = 0;
         }
     }
+
+    // re-schedule tick
+    ScheduleSynchronization();
 }
 
 void Serial::SetSerialData(uint8 value)
@@ -129,6 +133,7 @@ void Serial::SetSerialData(uint8 value)
 
 void Serial::Reset()
 {
+    m_last_cycle = 0;
     m_serial_control = 0x00;
     m_serial_read_data = 0xFF;
     m_serial_write_data = 0x00;
@@ -155,7 +160,7 @@ bool Serial::LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *p
     m_clocks_since_transfer_start = 0;
     m_nonready_clocks = 0;
     m_nonready_sequence = 0;
-
+    ScheduleSynchronization();
     return true;
 }
 
@@ -183,18 +188,21 @@ void Serial::EndTransfer(uint32 clocks)
     }
 }
 
-void Serial::ExecuteFor(uint32 clocks)
+void Serial::Synchronize()
 {
-    if (clocks > 0)
+    uint32 cycles_to_execute = m_system->CalculateCycleCount(m_last_cycle, m_system->GetDoubleSpeedCycleNumber());
+    m_last_cycle = m_system->GetDoubleSpeedCycleNumber();
+
+    if (cycles_to_execute > 0)
     {
         // counter
         if (m_serial_control & (1 << 7))
-            m_clocks_since_transfer_start += clocks;
+            m_clocks_since_transfer_start += cycles_to_execute;
 
         // transfers
         if (m_serial_wait_clocks > 0)
         {
-            if (clocks >= m_serial_wait_clocks)
+            if (cycles_to_execute >= m_serial_wait_clocks)
             {
                 TRACE("Firing serial interrupt.");
                 m_serial_control &= ~(1 << 7);
@@ -204,27 +212,43 @@ void Serial::ExecuteFor(uint32 clocks)
             }
             else
             {
-                m_serial_wait_clocks -= clocks;
+                m_serial_wait_clocks -= cycles_to_execute;
             }
         }
 
         // nonready clocks
         if (m_nonready_clocks > 0)
         {
-            if (clocks >= m_nonready_clocks)
+            if (cycles_to_execute >= m_nonready_clocks)
             {
                 TRACE("Sending delayed NOTREADY response.");
                 SendNotReadyResponse();
             }
             else
             {
-                m_nonready_clocks -= clocks;
+                m_nonready_clocks -= cycles_to_execute;
             }
         }
     }
 
     // link socket activity
     HandleRequests();
+    ScheduleSynchronization();
+}
+
+void Serial::ScheduleSynchronization()
+{
+    // determine number of cycles to next execution
+    if (m_serial_wait_clocks > 0 && m_nonready_clocks > 0)
+        m_system->SetNextSerialSyncCycle(Min(m_serial_wait_clocks, m_nonready_clocks));
+    else if (m_serial_wait_clocks > 0)
+        m_system->SetNextSerialSyncCycle(m_serial_wait_clocks);
+    else if (m_nonready_clocks > 0)
+        m_system->SetNextSerialSyncCycle(m_nonready_clocks);
+    else if (m_has_connection)
+        m_system->SetNextSerialSyncCycle(4);
+    else
+        m_system->SetNextSerialSyncCycle(4194304);
 }
 
 void Serial::HandleRequests()

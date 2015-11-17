@@ -166,7 +166,8 @@ public:
     void Reset();
 
     // step
-    uint32 Step();
+    void ExecuteInstruction();
+    void ExecuteInstructionOld();
 
     // disassemble an instruction
     static bool Disassemble(String *pDestination, System *memory, uint16 address);
@@ -174,18 +175,12 @@ public:
 
 private:
     // memory read/writes
-#ifdef ACCURATE_MEMORY_TIMING
-    void DelayForMemoryReadWrite(uint32 &cycles);
-    inline uint8 MemReadByte(uint16 address) { DelayForMemoryReadWrite(m_clock); return m_system->CPURead(address); }
-    inline void MemWriteByte(uint16 address, uint8 value) { DelayForMemoryReadWrite(m_clock); m_system->CPUWrite(address, value); }
+    inline void DelayCycle() { m_system->AddCPUCycles(4); }
+    inline void DelayCycles(uint32 count) { m_system->AddCPUCycles(count); }
+    inline uint8 MemReadByte(uint16 address) { DelayCycle(); return m_system->CPURead(address); }
+    inline void MemWriteByte(uint16 address, uint8 value) { DelayCycle(); m_system->CPUWrite(address, value); }
     inline uint16 MemReadWord(uint16 address) { return ((uint16)MemReadByte(address)) | ((uint16)MemReadByte(address + 1) << 8); }
     inline void MemWriteWord(uint16 address, uint16 value) { MemWriteByte(address, (uint8)(value)); MemWriteByte(address + 1, (uint8)(value >> 8)); }
-#else
-    inline uint8 MemReadByte(uint16 address) { return m_system->CPURead(address); }
-    inline void MemWriteByte(uint16 address, uint8 value) { m_system->CPUWrite(address, value); }
-    inline uint16 MemReadWord(uint16 address) { return ((uint16)m_system->CPURead(address)) | ((uint16)m_system->CPURead(address + 1) << 8); }
-    inline void MemWriteWord(uint16 address, uint16 value) { m_system->CPUWrite(address, (uint8)(value)); m_system->CPUWrite(address + 1, (uint8)(value >> 8)); }
-#endif
 
     // stack push/pop with protection
     void Push(uint8 value);
@@ -218,120 +213,42 @@ private:
     // halted during memory transfer, cannot break out of this
     bool m_disabled;
 
-public:
-
-    struct Instruction
-    {
-        enum AddressMode
-        {
-            AddressMode_Reg8,
-            AddressMode_Reg16,
-            AddressMode_Imm8,
-            AddressMode_Imm16,
-            AddressMode_Mem8,
-            AddressMode_Mem16,
-            AddressMode_Addr8,
-            AddressMode_Addr16,
-            AddressMode_Stack,
-            NumAddressModes
-        };
-
-        enum Type
-        {
-            Type_Stub,
-            Type_Prefix,
-            Type_Nop,
-            Type_Load,
-            Type_Store,
-            Type_READIO,
-            Type_WRITEIO,
-            Type_Move,
-            Type_JR,
-            Type_JP,
-            Type_CALL,
-            Type_RET,
-            Type_RETI,
-            Type_PUSH,
-            Type_POP, 
-            Type_INC,
-            Type_DEC,
-            Type_ADD,
-            Type_ADD16,
-            Type_ADDS8,
-            Type_ADC,
-            Type_SUB,
-            Type_SBC,
-            Type_AND,
-            Type_OR,
-            Type_XOR,
-            Type_CPL,
-            Type_SWAP,
-            Type_RL,
-            Type_RR,
-            Type_RLC,
-            Type_RRC,
-            Type_CP,
-            Type_BIT,
-            Type_SET,
-            Type_RES,
-            Type_RST,
-            Type_CCF,
-            Type_SCF,
-            Type_HALT,
-            Type_STOP,
-            Type_EI,
-            Type_DI,
-            Type_LDHL_SPR8,
-            Type_SLA,
-            Type_SRA,
-            Type_SRL,
-            Type_DAA
-        };
-
-        enum LoadStoreAction
-        {
-            LoadStoreAction_None,
-            LoadStoreAction_IncrementAddress,
-            LoadStoreAction_DecrementAddress,
-        };
-
-        enum Predicate
-        {
-            Predicate_Always,
-            Predicate_Zero,
-            Predicate_Carry,
-            Predicate_NotZero,
-            Predicate_NotCarry,
-        };
-
-        struct Operand
-        {
-            AddressMode mode;
-            union
-            {
-                Reg8 reg8;
-                Reg16 reg16;
-                uint8 restart_vector;
-            };
-        };
-
-        Type type;
-        Operand operand;
-        Operand operand2;
-        uint32 length;
-        uint32 cycles;
-        union
-        {
-            LoadStoreAction load_action;
-            Predicate predicate;
-            uint8 bitnum;
-        };
-        uint32 cycles_skipped;
-    };
-
 private:
-    static const Instruction instructions[256];
-    static const Instruction cb_instructions[256];
-
-    bool TestPredicate(Instruction::Predicate condition);
+    uint8 ReadOperandByte();
+    uint16 ReadOperandWord();
+    int8 ReadOperandSignedByte();
+    uint8 INSTR_inc(uint8 value);
+    uint8 INSTR_dec(uint8 value);
+    void INSTR_add(uint8 value); // add a, value
+    void INSTR_adc(uint8 value); // adc a, value
+    void INSTR_sub(uint8 value); // sub a, value
+    void INSTR_sbc(uint8 value); // sbc a, value
+    void INSTR_and(uint8 value); // and a, value
+    void INSTR_or(uint8 value); // or a, value
+    void INSTR_xor(uint8 value); // xor a, value
+    void INSTR_cp(uint8 value); // cp a, value
+    uint8 INSTR_rl(uint8 value, bool set_z);
+    uint8 INSTR_rr(uint8 value, bool set_z);
+    uint8 INSTR_rlc(uint8 value, bool set_z);
+    uint8 INSTR_rrc(uint8 value, bool set_z);
+    uint8 INSTR_sla(uint8 value);
+    uint8 INSTR_sra(uint8 value);
+    uint8 INSTR_srl(uint8 value);
+    uint8 INSTR_swap(uint8 value);
+    void INSTR_bit(uint8 bit, uint8 value);
+    uint8 INSTR_res(uint8 bit, uint8 value);
+    uint8 INSTR_set(uint8 bit, uint8 value);
+    void INSTR_halt();
+    void INSTR_stop();
+    void INSTR_jr(int8 displacement);
+    void INSTR_jp(uint16 address);
+    void INSTR_call(uint16 address);
+    void INSTR_ret();
+    void INSTR_rst(uint8 vector); // RST vector
+    void INSTR_addhl(uint16 value);
+    void INSTR_addsp(int8 displacement);
+    void INSTR_ldhlsp(int8 displacement);
+    void INSTR_daa();
 };
+
+

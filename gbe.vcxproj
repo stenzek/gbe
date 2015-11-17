@@ -137,7 +137,6 @@
     <ClCompile Include="src\display.cpp" />
     <ClCompile Include="src\cpu.cpp" />
     <ClCompile Include="src\cpu_disasm.cpp" />
-    <ClCompile Include="src\cpu_instruction_table.cpp" />
     <ClCompile Include="src\system_link.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

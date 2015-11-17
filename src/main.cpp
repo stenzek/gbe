@@ -24,12 +24,16 @@ struct ProgramArgs
     const char *cart_filename;
     bool disable_bios;
     bool permissive_memory;
+    bool accurate_timing;
+    bool frame_limiter;
+    bool enable_audio;
 };
 
 struct State : public System::CallbackInterface
 {
     Cartridge *cart;
     const byte *bios;
+    uint32 bios_length;
 
     System *system;
 
@@ -301,31 +305,46 @@ struct State : public System::CallbackInterface
     }
 };
 
-static bool LoadBIOS(const char *filename, bool specified, State *state)
+static bool LoadBIOS(State *state, SYSTEM_MODE mode)
 {
-    AutoReleasePtr<ByteStream> pStream = FileSystem::OpenFile(filename, BYTESTREAM_OPEN_READ | BYTESTREAM_OPEN_STREAMED);
+    struct BiosDesc { const char *filename; uint32 expected_size; };
+    static const BiosDesc bios_desc[NUM_SYSTEM_MODES] =
+    {
+        { "dmg.bin",    256     },
+        { "sgb.bin",    256     },
+        { "cgb.bin",    2048    }
+    };
+
+    SmallString bios_path;
+    bios_path.Format("bootroms/%s", bios_desc[mode].filename);
+    FileSystem::BuildOSPath(bios_path);
+
+    AutoReleasePtr<ByteStream> pStream = FileSystem::OpenFile(bios_path, BYTESTREAM_OPEN_READ | BYTESTREAM_OPEN_STREAMED);
     if (pStream == nullptr)
     {
-        if (specified)
-            Log_ErrorPrintf("Failed to load bios file '%s'", filename);
-
+        Log_WarningPrintf("Failed to find bios file '%s'", bios_path.GetCharArray());
         return false;
     }
 
-    if (pStream->GetSize() != GB_BIOS_LENGTH)
+    uint32 actual_size = (uint32)pStream->GetSize();
+    uint32 expected_size = bios_desc[mode].expected_size;
+    if (actual_size != expected_size)
     {
-        Log_ErrorPrintf("Bios file '%s' is incorrect length (%u bytes, should be %u bytes)", filename, (uint32)pStream->GetSize(), GB_BIOS_LENGTH);
+        Log_ErrorPrintf("Bios file '%s' is incorrect length (expected %u bytes, actual %u bytes)", bios_path.GetCharArray(), expected_size, actual_size);
         return false;
     }
 
-    state->bios = new byte[GB_BIOS_LENGTH];
-    if (!pStream->Read2((byte *)state->bios, GB_BIOS_LENGTH))
+    byte *bios = new byte[actual_size];
+    if (!pStream->Read2(bios, actual_size))
     {
-        Log_ErrorPrintf("Failed to read bios file '%s'", filename);
+        Log_ErrorPrintf("Failed to read bios file '%s'", bios_path.GetCharArray());
+        delete[] bios;
         return false;
     }
 
-    Log_InfoPrintf("Loaded bios file '%s'.", filename);
+    Log_InfoPrintf("Loaded bios file '%s' (%u bytes).", bios_path.GetCharArray(), actual_size);
+    state->bios = bios;
+    state->bios_length = actual_size;
     return true;
 }
 
@@ -391,6 +410,30 @@ static bool ParseArguments(int argc, char *argv[], ProgramArgs *out_args)
         {
             out_args->permissive_memory = false;
         }
+        else if (CHECK_ARG("-framelimiter"))
+        {
+            out_args->frame_limiter = true;
+        }
+        else if (CHECK_ARG("-noframelimiter"))
+        {
+            out_args->frame_limiter = false;
+        }
+        else if (CHECK_ARG("-accuratetiming"))
+        {
+            out_args->accurate_timing = true;
+        }
+        else if (CHECK_ARG("-noaccuratetiming"))
+        {
+            out_args->accurate_timing = false;
+        }
+        else if (CHECK_ARG("-audio"))
+        {
+            out_args->enable_audio = true;
+        }
+        else if (CHECK_ARG("-noaudio"))
+        {
+            out_args->enable_audio = false;
+        }
         else
         {
             out_args->cart_filename = argv[i];
@@ -406,6 +449,7 @@ static bool ParseArguments(int argc, char *argv[], ProgramArgs *out_args)
 static bool InitializeState(const ProgramArgs *args, State *state)
 {
     state->bios = nullptr;
+    state->bios_length = 0;
     state->cart = nullptr;
     state->system = nullptr;
     state->window = nullptr;
@@ -414,19 +458,10 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     state->audio_device_id = 0;
     state->running = true;
 
-    // load bios
-    bool bios_specified = (args->bios_filename != nullptr);
-    const char *bios_filename = (args->bios_filename != nullptr) ? args->bios_filename : "bios.bin";
-    if (!args->disable_bios && !LoadBIOS(bios_filename, bios_specified, state) && bios_specified)
-        return false;
-
     // load cart
     state->system = new System(state);
     if (args->cart_filename != nullptr && !LoadCart(args->cart_filename, state))
-    {
-        delete state->system;
         return false;
-    }
 
     // create render window
     SmallString window_title;
@@ -435,8 +470,6 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     if (state->window == nullptr)
     {
         Log_ErrorPrintf("Failed to crate SDL window: %s", SDL_GetError());
-        delete state->cart;
-        delete state->system;
         return false;
     }
 
@@ -445,8 +478,6 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     if (state->surface == nullptr)
     {
         SDL_DestroyWindow(state->window);
-        delete state->cart;
-        delete state->system;
         return false;
     }
 
@@ -457,8 +488,16 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     if (state->audio_device_id == 0)
         Log_WarningPrintf("Failed to open audio device (error: %s). No audio will be heard.", SDL_GetError());
 
+    // get system mode
+    SYSTEM_MODE system_mode = (state->cart != nullptr) ? state->cart->GetSystemMode() : SYSTEM_MODE_DMG;
+    Log_InfoPrintf("Using system mode %s.", NameTable_GetNameString(NameTables::SystemMode, system_mode));
+
+    // load bios
+    if (!args->disable_bios)
+        LoadBIOS(state, system_mode);
+
     // init system
-    if (!state->system->Init(NUM_SYSTEM_MODES, state->bios, state->cart))
+    if (!state->system->Init(system_mode, state->bios, state->bios_length, state->cart))
     {
         Log_ErrorPrintf("Failed to initialize system");
         return false;
@@ -466,8 +505,9 @@ static bool InitializeState(const ProgramArgs *args, State *state)
 
     // apply options
     state->system->SetPermissiveMemoryAccess(args->permissive_memory);
-    //state->system->SetAccurateTiming(false);
-    //state->system->SetAudioEnabled(false);
+    state->system->SetAccurateTiming(args->accurate_timing);
+    state->system->SetAudioEnabled(args->enable_audio);
+    state->system->SetFrameLimiter(args->frame_limiter);
     return true;
 }
 

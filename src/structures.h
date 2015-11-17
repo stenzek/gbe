@@ -2,8 +2,6 @@
 #include "YBaseLib/Common.h"
 #include "YBaseLib/NameTable.h"
 
-const uint32 GB_BIOS_LENGTH = 256;
-
 // trace message macro, compiles out in release
 #ifdef Y_BUILD_CONFIG_DEBUG
     #define TRACE(...) Log_TracePrintf(__VA_ARGS__)

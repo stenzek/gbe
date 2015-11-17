@@ -49,7 +49,7 @@ public:
 
     Cartridge *GetCartridge() const { return m_cartridge; }
 
-    bool Init(SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge);
+    bool Init(SYSTEM_MODE mode, const byte *bios, uint32 bios_length, Cartridge *cartridge);
     void Reset();   
     void Step();
 
@@ -63,9 +63,9 @@ public:
     // Pad direction
     void SetPadDirection(PAD_DIRECTION direction);
     void SetPadDirection(PAD_DIRECTION direction, bool state);
-    void SetPadDirectionState(uint32 state);
+    void SetPadDirectionState(uint8 state);
     void SetPadButton(PAD_BUTTON button, bool state);
-    void SetPadButtonState(uint32 state);
+    void SetPadButtonState(uint8 state);
 
     // frame number
     uint32 GetFrameCounter() const { return m_frame_counter; }
@@ -99,11 +99,11 @@ public:
 
 private:
     // cpu view of memory
-    uint8 CPURead(uint16 address) const;
+    uint8 CPURead(uint16 address);
     void CPUWrite(uint16 address, uint8 value);
 
     // cpu io registers
-    uint8 CPUReadIORegister(uint8 index) const;
+    uint8 CPUReadIORegister(uint8 index);
     void CPUWriteIORegister(uint8 index, uint8 value);
 
     // cpu interrupt request
@@ -128,18 +128,31 @@ private:
     // CGB Speed Switch
     bool SwitchCGBSpeed();
 
-    // execute other processors while the cpu is reading memory
-    void StepOtherClocks(uint32 clocks);
-
     // serial pause
     void SetSerialPause(bool enabled);
+
+    // synchronization
+    // yeah this'll overflow, but it just means we'll synchronize too early, then correct it afterwards
+    uint32 GetCycleNumber() const { return m_cycle_number; }
+    uint32 GetDoubleSpeedCycleNumber() const { return m_double_speed_cycle_number; }
+    void SetNextDisplaySyncCycle(uint32 cycles) { m_next_display_sync_cycle = (m_cycle_number < m_next_display_sync_cycle) ? Min(m_next_display_sync_cycle, m_cycle_number + cycles) : (m_cycle_number + cycles); }
+    void SetNextAudioSyncCycle(uint32 cycles) { m_next_audio_sync_cycle = (m_cycle_number < m_next_audio_sync_cycle) ? Min(m_next_audio_sync_cycle, m_cycle_number + cycles) : (m_cycle_number + cycles); }
+    void SetNextSerialSyncCycle(uint32 cycles) { m_next_serial_sync_cycle = (m_double_speed_cycle_number < m_next_serial_sync_cycle) ? Min(m_next_serial_sync_cycle, m_double_speed_cycle_number + cycles) : (m_double_speed_cycle_number + cycles); }
+    void SetNextTimerSyncCycle(uint32 cycles) { m_next_timer_sync_cycle = (m_double_speed_cycle_number < m_next_timer_sync_cycle) ? Min(m_next_timer_sync_cycle, m_double_speed_cycle_number + cycles) : (m_double_speed_cycle_number + cycles); }
+
+    // helper to calculate difference
+    static inline uint32 CalculateCycleCount(uint32 oldCycleNumber, uint32 newCycleNumber) { return (oldCycleNumber > newCycleNumber) ? (0xFFFFFFFF - oldCycleNumber + newCycleNumber) : (newCycleNumber - oldCycleNumber); }
+
+    // execute other processors while the cpu is reading memory
+    void AddCPUCycles(uint32 cpu_clocks);
 
 private:
     void ResetMemory();
     void ResetTimer();
     void ResetPad();
     void SetPostBootstrapState();
-    void UpdateTimer(uint32 clocks);
+    void SynchronizeTimers();
+    void ScheduleTimerSynchronization();
     void DisassembleCart(const char *outfile);
     uint64 TimeToClocks(double time);
     double ClocksToTime(uint64 clocks);
@@ -151,8 +164,17 @@ private:
     Serial *m_serial;
 
     CallbackInterface *m_callbacks;
-    const byte *m_bios;
     Cartridge *m_cartridge;
+    const byte *m_bios;
+    uint32 m_bios_length;
+
+    // synchronization
+    uint32 m_cycle_number;
+    uint32 m_double_speed_cycle_number;
+    uint32 m_next_display_sync_cycle;
+    uint32 m_next_audio_sync_cycle;
+    uint32 m_next_serial_sync_cycle;
+    uint32 m_next_timer_sync_cycle;
 
     Timer m_reset_timer;
 
@@ -180,6 +202,7 @@ private:
     bool m_memory_permissive;
 
     // timer
+    uint32 m_timer_last_cycle;
     uint32 m_timer_clocks;
     uint32 m_timer_divider_clocks;
     uint8 m_timer_divider;

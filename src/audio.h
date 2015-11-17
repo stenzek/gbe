@@ -23,7 +23,7 @@ public:
     void SetOutputEnabled(bool enabled);
 
     void Reset();
-    void ExecuteFor(uint32 cycles);
+    void Synchronize();
 
     // register access
     uint8 CPUReadRegister(uint8 index) const;
@@ -42,7 +42,8 @@ private:
     Gb_Apu *m_apu;
     Stereo_Buffer *m_buffer;
 
-    uint32 m_audio_cycle;
+    uint32 m_last_cycle;
+    uint32 m_cycles_since_frame;
 
     Mutex m_lock;
 
