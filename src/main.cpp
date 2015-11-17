@@ -24,6 +24,9 @@ struct ProgramArgs
     const char *cart_filename;
     bool disable_bios;
     bool permissive_memory;
+    bool accurate_timing;
+    bool frame_limiter;
+    bool enable_audio;
 };
 
 struct State : public System::CallbackInterface
@@ -391,6 +394,30 @@ static bool ParseArguments(int argc, char *argv[], ProgramArgs *out_args)
         {
             out_args->permissive_memory = false;
         }
+        else if (CHECK_ARG("-framelimiter"))
+        {
+            out_args->frame_limiter = true;
+        }
+        else if (CHECK_ARG("-noframelimiter"))
+        {
+            out_args->frame_limiter = false;
+        }
+        else if (CHECK_ARG("-accuratetiming"))
+        {
+            out_args->accurate_timing = true;
+        }
+        else if (CHECK_ARG("-noaccuratetiming"))
+        {
+            out_args->accurate_timing = false;
+        }
+        else if (CHECK_ARG("-audio"))
+        {
+            out_args->enable_audio = true;
+        }
+        else if (CHECK_ARG("-noaudio"))
+        {
+            out_args->enable_audio = false;
+        }
         else
         {
             out_args->cart_filename = argv[i];
@@ -466,9 +493,9 @@ static bool InitializeState(const ProgramArgs *args, State *state)
 
     // apply options
     state->system->SetPermissiveMemoryAccess(args->permissive_memory);
-    state->system->SetAccurateTiming(false);
-    state->system->SetAudioEnabled(false);
-    state->system->SetFrameLimiter(false);
+    state->system->SetAccurateTiming(args->accurate_timing);
+    state->system->SetAudioEnabled(args->enable_audio);
+    state->system->SetFrameLimiter(args->frame_limiter);
     return true;
 }
 
