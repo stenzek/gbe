@@ -716,9 +716,6 @@ void System::SynchronizeTimers()
     uint32 cycles_to_execute = CalculateCycleCount(m_timer_last_cycle, m_cycle_number);
     m_timer_last_cycle = m_cycle_number;
 
-    //bool timer_control_changed = m_timer_control_changed;
-    //m_timer_control_changed = false;
-
     // cpu runs at 4,194,304hz
     // timer runs at 16,384hz
     // therefore, every 256 cpu "clocks" equals one timer tick
@@ -730,16 +727,12 @@ void System::SynchronizeTimers()
     }
 
     // timer start/stop
-    //uint32 next_divider_tick = 256 - m_timer_divider_clocks;
     if (!(m_timer_control & 0x4))
     {
-        // divider timer is updated on-demand when it is read
-        //SetNextTimerSyncCycle(next_divider_tick);
-        SetNextTimerSyncCycle(100000);
+        // divider timer is updated on-demand when it is read, so just set to +1 sec
+        SetNextTimerSyncCycle(4194304);
         return;
     }
-
-    // 
 
     // add cycles
     m_timer_clocks += cycles_to_execute;
@@ -766,9 +759,8 @@ void System::SynchronizeTimers()
         m_timer_clocks -= clocks_per_timer_tick;
     }
 
-    uint32 next_timer_tick = clocks_per_timer_tick - m_timer_clocks;
-    //SetNextTimerSyncCycle(Min(next_divider_tick, next_timer_tick));
-    SetNextTimerSyncCycle(next_timer_tick);
+    uint32 next_interrupt_time = (256 - m_timer_counter) * clocks_per_timer_tick - m_timer_clocks;
+    SetNextTimerSyncCycle(next_interrupt_time);
 }
 
 void System::DisassembleCart(const char *outfile)
@@ -1311,18 +1303,21 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             case 0x05:
                 SynchronizeTimers();
                 m_timer_counter = value;
+                SynchronizeTimers();
                 return;
 
                 // FF06 - TMA - Timer Modulo (R/W)
             case 0x06:
                 SynchronizeTimers();
                 m_timer_overflow_value = value;
+                SynchronizeTimers();
                 return;
 
                 // FF07 - TAC - Timer Control (R/W)
             case 0x07:
                 SynchronizeTimers();
                 m_timer_control = value;
+                SynchronizeTimers();
                 return;
 
                 // interrupt flag
