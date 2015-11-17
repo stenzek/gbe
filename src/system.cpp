@@ -17,6 +17,8 @@
 Log_SetChannel(System);
 
 // TODO: Split to separate files
+const uint32 DMG_BIOS_LENGTH = 256;
+const uint32 CGB_BIOS_LENGTH = 2048;
 
 System::System(CallbackInterface *callbacks)
 {
@@ -47,6 +49,15 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, uint32 bios_length, Cartri
     m_bios = bios;
     m_bios_length = (bios != nullptr) ? bios_length : 0;
     m_cartridge = cartridge;
+    if (m_bios_length != 0)
+    {
+        if ((m_mode == SYSTEM_MODE_DMG && m_bios_length != DMG_BIOS_LENGTH) ||
+            (m_mode == SYSTEM_MODE_CGB && m_bios_length != CGB_BIOS_LENGTH))
+        {
+            Log_ErrorPrintf("Incorrect bootstrap rom length");
+            return false;
+        }
+    }
 
     m_cpu = new CPU(this);
     m_display = new Display(this);
@@ -814,8 +825,23 @@ uint8 System::CPURead(uint16 address)
     case 0xA000:
     case 0xB000:
         {
-            if (m_biosLatch && address < m_bios_length)
-                return m_bios[address];
+            if (m_biosLatch)
+            {
+                // DMG rom is 256 bytes from 0000->00FF
+                // CGB rom is 256 bytes from 0000->00FF, 0200->08FF
+                if (m_mode == SYSTEM_MODE_DMG)
+                {
+                    if (address <= 0x00FF)
+                        return m_bios[address];
+                }
+                else if (m_mode == SYSTEM_MODE_CGB)
+                {
+                    if (address <= 0x00FF)
+                        return m_bios[address];
+                    else if (address >= 0x0200 && address <= 0x08FF)
+                        return m_bios[0x0100 + (address - 0x0200)];
+                }
+            }
 
             // Cart read
             return (m_cartridge != nullptr) ? m_cartridge->CPURead(address) : 0x00;
