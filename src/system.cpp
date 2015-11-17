@@ -27,6 +27,7 @@ System::System(CallbackInterface *callbacks)
     m_cartridge = nullptr;
     m_callbacks = callbacks;
     m_bios = nullptr;
+    m_bios_length = 0;
     m_biosLatch = false;
     m_vramLocked = false;
     m_oamLocked = false;
@@ -40,10 +41,11 @@ System::~System()
     delete m_cpu;
 }
 
-bool System::Init(SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge)
+bool System::Init(SYSTEM_MODE mode, const byte *bios, uint32 bios_length, Cartridge *cartridge)
 {
     m_mode = (mode == NUM_SYSTEM_MODES) ? cartridge->GetSystemMode() : mode;
     m_bios = bios;
+    m_bios_length = (bios != nullptr) ? bios_length : 0;
     m_cartridge = cartridge;
 
     m_cpu = new CPU(this);
@@ -89,7 +91,7 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge)
         m_cartridge->Reset();
 
     // if bios not provided, emulate post-bootstrap state
-    if (m_bios == nullptr || m_mode != SYSTEM_MODE_DMG)
+    if (m_bios == nullptr)
         SetPostBootstrapState();
 
     Log_InfoPrintf("Initialized system in mode %s.", NameTable_GetNameString(NameTables::SystemMode, m_mode));
@@ -127,7 +129,7 @@ void System::Reset()
         m_cartridge->Reset();
 
     // if bios not provided, emulate post-bootstrap state
-    if (m_bios == nullptr || m_mode != SYSTEM_MODE_DMG)
+    if (m_bios == nullptr)
         SetPostBootstrapState();
 }
 
@@ -800,8 +802,8 @@ uint8 System::CPURead(uint16 address)
     case 0xA000:
     case 0xB000:
         {
-            if (m_biosLatch && address < GB_BIOS_LENGTH)
-                return (m_bios != nullptr) ? m_bios[address] : 0x00;
+            if (m_biosLatch && address < m_bios_length)
+                return m_bios[address];
 
             // Cart read
             return (m_cartridge != nullptr) ? m_cartridge->CPURead(address) : 0x00;

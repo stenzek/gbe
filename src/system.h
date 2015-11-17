@@ -49,7 +49,7 @@ public:
 
     Cartridge *GetCartridge() const { return m_cartridge; }
 
-    bool Init(SYSTEM_MODE mode, const byte *bios, Cartridge *cartridge);
+    bool Init(SYSTEM_MODE mode, const byte *bios, uint32 bios_length, Cartridge *cartridge);
     void Reset();   
     void Step();
 
@@ -163,8 +163,9 @@ private:
     Serial *m_serial;
 
     CallbackInterface *m_callbacks;
-    const byte *m_bios;
     Cartridge *m_cartridge;
+    const byte *m_bios;
+    uint32 m_bios_length;
 
     // synchronization
     uint32 m_cycle_number;
