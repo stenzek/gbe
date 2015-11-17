@@ -627,7 +627,7 @@ void CPU::ExecuteInstruction()
     uint16 dstaddr;
     uint8 displacement;
     uint8 ioreg;
-switch (opcode)
+    switch (opcode)
     {
     case 0x00:                                                                                                              break;  // NOP
     case 0x01:  m_registers.BC = ReadOperandWord();                                                                         break;  // LD BC, d16

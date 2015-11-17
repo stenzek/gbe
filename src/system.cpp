@@ -1140,6 +1140,7 @@ uint8 System::CPUReadIORegister(uint8 index)
             case 0x02:      // FF12 - NR12 - Channel 1 Volume Envelope (R/W)
             case 0x03:      // FF13 - NR13 - Channel 1 Frequency lo (Write Only)
             case 0x04:      // FF14 - NR14 - Channel 1 Frequency hi (R/W)
+            case 0x05:      // FF15 - NR?? - ???
             case 0x06:      // FF16 - NR21 - Channel 2 Sound Length/Wave Pattern Duty (R/W)
             case 0x07:      // FF17 - NR22 - Channel 2 Volume Envelope (R/W)
             case 0x08:      // FF18 - NR23 - Channel 2 Frequency lo data (W)
@@ -1149,6 +1150,7 @@ uint8 System::CPUReadIORegister(uint8 index)
             case 0x0C:      // FF1C - NR32 - Channel 3 Select output level (R/W)
             case 0x0D:      // FF1D - NR33 - Channel 3 Frequency's lower data (W)
             case 0x0E:      // FF1E - NR34 - Channel 3 Frequency's higher data (R/W)
+            case 0x0F:      // FF1F - NR?? - ???
                 m_audio->Synchronize();
                 return m_audio->CPUReadRegister(index);
             }
@@ -1167,6 +1169,15 @@ uint8 System::CPUReadIORegister(uint8 index)
             case 0x04:      // FF24 - NR50 - Channel control / ON-OFF / Volume (R/W)
             case 0x05:      // FF25 - NR51 - Selection of Sound output terminal (R/W)
             case 0x06:      // FF26 - NR52 - sound on/off
+            case 0x07:      // FF27 - ???
+            case 0x08:      // FF28 - ???
+            case 0x09:      // FF29 - ???
+            case 0x0A:      // FF2A - ???
+            case 0x0B:      // FF2B - ???
+            case 0x0C:      // FF2C - ???
+            case 0x0D:      // FF2D - ???
+            case 0x0E:      // FF2E - ???
+            case 0x0F:      // FF2F - ???
                 m_audio->Synchronize();
                 return m_audio->CPUReadRegister(index);
             }
@@ -1215,8 +1226,6 @@ uint8 System::CPUReadIORegister(uint8 index)
 
             break;
         }
-
-
 
     case 0xF0:
         {
@@ -1324,7 +1333,6 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             case 0x01:
                 m_serial->Synchronize();
                 m_serial->SetSerialData(value);
-                Log_DevPrintf("SD: %02X (%c)", value, value);
                 return;
 
                 // FF02 - SC serial control
@@ -1381,6 +1389,7 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             case 0x02:      // FF12 - NR12 - Channel 1 Volume Envelope (R/W)
             case 0x03:      // FF13 - NR13 - Channel 1 Frequency lo (Write Only)
             case 0x04:      // FF14 - NR14 - Channel 1 Frequency hi (R/W)
+            case 0x05:      // FF15 - NR?? - ???
             case 0x06:      // FF16 - NR21 - Channel 2 Sound Length/Wave Pattern Duty (R/W)
             case 0x07:      // FF17 - NR22 - Channel 2 Volume Envelope (R/W)
             case 0x08:      // FF18 - NR23 - Channel 2 Frequency lo data (W)
@@ -1390,6 +1399,7 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             case 0x0C:      // FF1C - NR32 - Channel 3 Select output level (R/W)
             case 0x0D:      // FF1D - NR33 - Channel 3 Frequency's lower data (W)
             case 0x0E:      // FF1E - NR34 - Channel 3 Frequency's higher data (R/W)
+            case 0x0F:      // FF1F - NR?? - ???
                 m_audio->Synchronize();
                 m_audio->CPUWriteRegister(index, value);
                 return;
@@ -1409,6 +1419,15 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             case 0x04:      // FF24 - NR50 - Channel control / ON-OFF / Volume (R/W)
             case 0x05:      // FF25 - NR51 - Selection of Sound output terminal (R/W)
             case 0x06:      // FF26 - NR52 - sound on/off
+            case 0x07:      // FF27 - ???
+            case 0x08:      // FF28 - ???
+            case 0x09:      // FF29 - ???
+            case 0x0A:      // FF2A - ???
+            case 0x0B:      // FF2B - ???
+            case 0x0C:      // FF2C - ???
+            case 0x0D:      // FF2D - ???
+            case 0x0E:      // FF2E - ???
+            case 0x0F:      // FF2F - ???
                 m_audio->Synchronize();
                 m_audio->CPUWriteRegister(index, value);
                 return;
