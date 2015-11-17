@@ -357,8 +357,6 @@ void Display::SetLCDCRegister(uint8 value)
             // We should be in vblank.
             if (m_state != DISPLAY_STATE_VBLANK)
             {
-                Log_WarningPrintf("LCD display turned off whilst out of vblank state. This may damage a real DMG.");
-
                 // Set to vblank mode (since the rom is misbehaving)
                 m_cyclesSinceVBlank = 65664;
                 m_currentScanLine = 144;
@@ -369,7 +367,7 @@ void Display::SetLCDCRegister(uint8 value)
             // Unlock memory.
             m_system->SetVRAMLock(false);
             m_system->SetOAMLock(false);
-            m_system->SetNextDisplaySyncCycle(70224);
+            m_system->SetNextDisplaySyncCycle(4194304);
 
             // Clear the framebuffer, and update display.
             TRACE("Display disabled.");
@@ -381,10 +379,11 @@ void Display::SetLCDCRegister(uint8 value)
         {
             // Reset back to original state (is this correct behavior?)
             TRACE("Display enabled.");
-            //m_currentScanLine = 0;
-            //m_cyclesSinceVBlank = 0;
-            //SetState(DISPLAY_STATE_OAM_READ);
-            //SetLYRegister(0);
+            m_currentScanLine = 0;
+            m_cyclesSinceVBlank = 0;
+            SetState(DISPLAY_STATE_OAM_READ);
+            SetLYRegister(0);
+            m_last_cycle = m_system->GetCycleNumber();
             m_system->SetNextDisplaySyncCycle(m_modeClocksRemaining);
         }
     }
