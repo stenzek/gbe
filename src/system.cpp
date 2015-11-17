@@ -715,8 +715,8 @@ void System::SetPostBootstrapState()
 
 void System::SynchronizeTimers()
 {
-    uint32 cycles_to_execute = CalculateCycleCount(m_timer_last_cycle, m_cycle_number);
-    m_timer_last_cycle = m_cycle_number;
+    uint32 cycles_to_execute = CalculateCycleCount(m_timer_last_cycle, m_double_speed_cycle_number);
+    m_timer_last_cycle = m_double_speed_cycle_number;
 
     // cpu runs at 4,194,304hz
     // timer runs at 16,384hz
