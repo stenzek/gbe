@@ -8,6 +8,7 @@ Log_SetChannel(Serial);
 
 Serial::Serial(System *system)
     : m_system(system)
+    , m_last_cycle(0)
     , m_has_connection(false)
     , m_serial_control(0x00)
     , m_serial_read_data(0xFF)
@@ -120,6 +121,9 @@ void Serial::SetSerialControl(uint8 value)
             m_clocks_since_transfer_start = 0;
         }
     }
+
+    // re-schedule tick
+    ScheduleTick();
 }
 
 void Serial::SetSerialData(uint8 value)
@@ -129,6 +133,7 @@ void Serial::SetSerialData(uint8 value)
 
 void Serial::Reset()
 {
+    m_last_cycle = 0;
     m_serial_control = 0x00;
     m_serial_read_data = 0xFF;
     m_serial_write_data = 0x00;
@@ -155,7 +160,7 @@ bool Serial::LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *p
     m_clocks_since_transfer_start = 0;
     m_nonready_clocks = 0;
     m_nonready_sequence = 0;
-
+    ScheduleTick();
     return true;
 }
 
@@ -185,8 +190,8 @@ void Serial::EndTransfer(uint32 clocks)
 
 void Serial::Synchronize()
 {
-    uint32 cycles_to_execute = m_system->CalculateCycleCount(m_last_cycle, m_system->GetCycleNumber());
-    m_last_cycle = m_system->GetCycleNumber();
+    uint32 cycles_to_execute = m_system->CalculateCycleCount(m_last_cycle, m_system->GetDoubleSpeedCycleNumber());
+    m_last_cycle = m_system->GetDoubleSpeedCycleNumber();
 
     if (cycles_to_execute > 0)
     {
@@ -228,7 +233,11 @@ void Serial::Synchronize()
 
     // link socket activity
     HandleRequests();
+    ScheduleTick();
+}
 
+void Serial::ScheduleTick()
+{
     // determine number of cycles to next execution
     if (m_serial_wait_clocks > 0 && m_nonready_clocks > 0)
         m_system->SetNextSerialSyncCycle(Min(m_serial_wait_clocks, m_nonready_clocks));
@@ -239,7 +248,7 @@ void Serial::Synchronize()
     else if (m_has_connection)
         m_system->SetNextSerialSyncCycle(4);
     else
-        m_system->SetNextSerialSyncCycle(70000);
+        m_system->SetNextSerialSyncCycle(4194304);
 }
 
 void Serial::HandleRequests()
