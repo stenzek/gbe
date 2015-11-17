@@ -73,7 +73,6 @@ GBE_SRC_FILES := \
     $(GBE_SRC_BASE)/cartridge.cpp \
     $(GBE_SRC_BASE)/cpu.cpp \
     $(GBE_SRC_BASE)/cpu_disasm.cpp \
-    $(GBE_SRC_BASE)/cpu_instruction_table.cpp \
     $(GBE_SRC_BASE)/display.cpp \
     $(GBE_SRC_BASE)/link.cpp \
     $(GBE_SRC_BASE)/serial.cpp \
