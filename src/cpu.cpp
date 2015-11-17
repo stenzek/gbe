@@ -125,6 +125,7 @@ void CPU::SaveState(ByteStream *pStream, BinaryWriter &binaryWriter)
     binaryWriter.WriteBool(m_halted);
     binaryWriter.WriteBool(m_disabled);
 }
+
 uint8 CPU::ReadOperandByte()
 {
     return MemReadByte(m_registers.PC++);
@@ -424,6 +425,7 @@ void CPU::INSTR_addhl(uint16 value)
     m_registers.SetFlagN(false);
     m_registers.SetFlagH((new_value & 0xFFF) < ((uint32)old_value & 0xFFF));
     m_registers.SetFlagC(new_value > 0xFFFF); // correct?
+    DelayCycle();
 }
 
 void CPU::INSTR_addsp(int8 displacement)
@@ -541,6 +543,7 @@ void CPU::INSTR_daa()
     m_registers.SetFlagZ((m_registers.A == 0));
     if (value > 0xFF)
         m_registers.SetFlagC(true);
+
 }
 
 void CPU::ExecuteInstruction()
@@ -624,7 +627,7 @@ void CPU::ExecuteInstruction()
     uint16 dstaddr;
     uint8 displacement;
     uint8 ioreg;
-    switch (opcode)
+switch (opcode)
     {
     case 0x00:                                                                                                              break;  // NOP
     case 0x01:  m_registers.BC = ReadOperandWord();                                                                         break;  // LD BC, d16
@@ -823,7 +826,7 @@ void CPU::ExecuteInstruction()
     case 0xC2:  dstaddr = ReadOperandWord(); if (!m_registers.GetFlagZ()) { INSTR_jp(dstaddr); }                            break;  // JP NZ, a16
     case 0xC3:  dstaddr = ReadOperandWord(); INSTR_jp(dstaddr);                                                             break;  // JP a16
     case 0xC4:  dstaddr = ReadOperandWord(); if (!m_registers.GetFlagZ()) { INSTR_call(dstaddr); }                          break;  // CALL NZ, a16
-    case 0xC5:  PushWord(m_registers.BC);                                                                                   break;  // PUSH BC
+    case 0xC5:  PushWord(m_registers.BC); DelayCycle();                                                                     break;  // PUSH BC
     case 0xC6:  INSTR_add(ReadOperandByte());                                                                               break;  // ADD a, d8
     case 0xC7:  INSTR_rst(0x00);                                                                                            break;  // RST 00H
     case 0xC8:  DelayCycle(); if (m_registers.GetFlagZ()) { INSTR_ret(); }                                                  break;  // RET Z
@@ -838,7 +841,7 @@ void CPU::ExecuteInstruction()
     case 0xD2:  dstaddr = ReadOperandWord(); if (!m_registers.GetFlagC()) { INSTR_jp(dstaddr); }                            break;  // JP NC, a16
     case 0xD3:  UnreachableCode();                                                                                          break;  // 
     case 0xD4:  dstaddr = ReadOperandWord(); if (!m_registers.GetFlagC()) { INSTR_call(dstaddr); }                          break;  // CALL NC, a16
-    case 0xD5:  PushWord(m_registers.DE);                                                                                   break;  // PUSH DE
+    case 0xD5:  PushWord(m_registers.DE); DelayCycle();                                                                     break;  // PUSH DE
     case 0xD6:  INSTR_sub(ReadOperandByte());                                                                               break;  // SUB a, d8
     case 0xD7:  INSTR_rst(0x10);                                                                                            break;  // RST 10H
     case 0xD8:  DelayCycle(); if (m_registers.GetFlagC()) { INSTR_ret(); }                                                  break;  // RET C
@@ -854,7 +857,7 @@ void CPU::ExecuteInstruction()
     case 0xE2:  DelayCycle(); m_system->CPUWriteIORegister(m_registers.C, m_registers.A);                                   break;  // LD (C), A
     case 0xE3:  UnreachableCode();                                                                                          break;  // 
     case 0xE4:  UnreachableCode();                                                                                          break;  // 
-    case 0xE5:  PushWord(m_registers.HL);                                                                                   break;  // PUSH HL
+    case 0xE5:  PushWord(m_registers.HL); DelayCycle();                                                                     break;  // PUSH HL
     case 0xE6:  INSTR_and(ReadOperandByte());                                                                               break;  // AND d8
     case 0xE7:  INSTR_rst(0x20);                                                                                            break;  // RST 20H
     case 0xE8:  INSTR_addsp(ReadOperandSignedByte());                                                                       break;  // ADD SP, r8
@@ -865,12 +868,12 @@ void CPU::ExecuteInstruction()
     case 0xED:  UnreachableCode();                                                                                          break;  // 
     case 0xEE:  INSTR_xor(ReadOperandByte());                                                                               break;  // XOR d8
     case 0xEF:  INSTR_rst(0x28);                                                                                            break;  // RST 28H
-    case 0xF0:  ioreg = ReadOperandByte(); m_registers.A = m_system->CPUReadIORegister(ioreg); DelayCycle();                break;  // LDH A, (a8)
+    case 0xF0:  ioreg = ReadOperandByte(); DelayCycle(); m_registers.A = m_system->CPUReadIORegister(ioreg);                break;  // LDH A, (a8)
     case 0xF1:  m_registers.AF = PopWord() & 0xFFF0;                                                                        break;  // POP AF
-    case 0xF2:  m_registers.A = m_system->CPUReadIORegister(m_registers.C); DelayCycle();                                   break;  // LD A, (C)
+    case 0xF2:  DelayCycle(); m_registers.A = m_system->CPUReadIORegister(m_registers.C);                                   break;  // LD A, (C)
     case 0xF3:  m_registers.IME = false;                                                                                    break;  // DI
     case 0xF4:  UnreachableCode();                                                                                          break;  // 
-    case 0xF5:  PushWord(m_registers.AF);                                                                                   break;  // PUSH AF
+    case 0xF5:  PushWord(m_registers.AF); DelayCycle();                                                                     break;  // PUSH AF
     case 0xF6:  INSTR_or(ReadOperandByte());                                                                                break;  // OR d8
     case 0xF7:  INSTR_rst(0x30);                                                                                            break;  // RST 30H
     case 0xF8:  INSTR_ldhlsp(ReadOperandSignedByte());                                                                      break;  // LD HL, SP+r8
@@ -958,7 +961,7 @@ void CPU::ExecuteInstruction()
             case 0x43:  INSTR_bit(0, m_registers.E);                                                                        break;  // BIT 0, E
             case 0x44:  INSTR_bit(0, m_registers.H);                                                                        break;  // BIT 0, H
             case 0x45:  INSTR_bit(0, m_registers.L);                                                                        break;  // BIT 0, L
-            case 0x46:  INSTR_bit(0, MemReadByte(m_registers.HL)); DelayCycle();                                            break;  // BIT 0, (HL)
+            case 0x46:  INSTR_bit(0, MemReadByte(m_registers.HL));                                                          break;  // BIT 0, (HL)
             case 0x47:  INSTR_bit(0, m_registers.A);                                                                        break;  // BIT 0, A
             case 0x48:  INSTR_bit(1, m_registers.B);                                                                        break;  // BIT 1, B
             case 0x49:  INSTR_bit(1, m_registers.C);                                                                        break;  // BIT 1, C
@@ -966,7 +969,7 @@ void CPU::ExecuteInstruction()
             case 0x4B:  INSTR_bit(1, m_registers.E);                                                                        break;  // BIT 1, E
             case 0x4C:  INSTR_bit(1, m_registers.H);                                                                        break;  // BIT 1, H
             case 0x4D:  INSTR_bit(1, m_registers.L);                                                                        break;  // BIT 1, L
-            case 0x4E:  INSTR_bit(1, MemReadByte(m_registers.HL)); DelayCycle();                                            break;  // BIT 1, (HL)
+            case 0x4E:  INSTR_bit(1, MemReadByte(m_registers.HL));                                                          break;  // BIT 1, (HL)
             case 0x4F:  INSTR_bit(1, m_registers.A);                                                                        break;  // BIT 1, A
             case 0x50:  INSTR_bit(2, m_registers.B);                                                                        break;  // BIT 2, B
             case 0x51:  INSTR_bit(2, m_registers.C);                                                                        break;  // BIT 2, C
@@ -974,7 +977,7 @@ void CPU::ExecuteInstruction()
             case 0x53:  INSTR_bit(2, m_registers.E);                                                                        break;  // BIT 2, E
             case 0x54:  INSTR_bit(2, m_registers.H);                                                                        break;  // BIT 2, H
             case 0x55:  INSTR_bit(2, m_registers.L);                                                                        break;  // BIT 2, L
-            case 0x56:  INSTR_bit(2, MemReadByte(m_registers.HL)); DelayCycle();                                            break;  // BIT 2, (HL)
+            case 0x56:  INSTR_bit(2, MemReadByte(m_registers.HL));                                                          break;  // BIT 2, (HL)
             case 0x57:  INSTR_bit(2, m_registers.A);                                                                        break;  // BIT 2, A
             case 0x58:  INSTR_bit(3, m_registers.B);                                                                        break;  // BIT 3, B
             case 0x59:  INSTR_bit(3, m_registers.C);                                                                        break;  // BIT 3, C
@@ -982,7 +985,7 @@ void CPU::ExecuteInstruction()
             case 0x5B:  INSTR_bit(3, m_registers.E);                                                                        break;  // BIT 3, E
             case 0x5C:  INSTR_bit(3, m_registers.H);                                                                        break;  // BIT 3, H
             case 0x5D:  INSTR_bit(3, m_registers.L);                                                                        break;  // BIT 3, L
-            case 0x5E:  INSTR_bit(3, MemReadByte(m_registers.HL)); DelayCycle();                                            break;  // BIT 3, (HL)
+            case 0x5E:  INSTR_bit(3, MemReadByte(m_registers.HL));                                                          break;  // BIT 3, (HL)
             case 0x5F:  INSTR_bit(3, m_registers.A);                                                                        break;  // BIT 3, A
             case 0x60:  INSTR_bit(4, m_registers.B);                                                                        break;  // BIT 4, B
             case 0x61:  INSTR_bit(4, m_registers.C);                                                                        break;  // BIT 4, C
@@ -990,7 +993,7 @@ void CPU::ExecuteInstruction()
             case 0x63:  INSTR_bit(4, m_registers.E);                                                                        break;  // BIT 4, E
             case 0x64:  INSTR_bit(4, m_registers.H);                                                                        break;  // BIT 4, H
             case 0x65:  INSTR_bit(4, m_registers.L);                                                                        break;  // BIT 4, L
-            case 0x66:  INSTR_bit(4, MemReadByte(m_registers.HL)); DelayCycle();                                            break;  // BIT 4, (HL)
+            case 0x66:  INSTR_bit(4, MemReadByte(m_registers.HL));                                                          break;  // BIT 4, (HL)
             case 0x67:  INSTR_bit(4, m_registers.A);                                                                        break;  // BIT 4, A
             case 0x68:  INSTR_bit(5, m_registers.B);                                                                        break;  // BIT 5, B
             case 0x69:  INSTR_bit(5, m_registers.C);                                                                        break;  // BIT 5, C
@@ -998,7 +1001,7 @@ void CPU::ExecuteInstruction()
             case 0x6B:  INSTR_bit(5, m_registers.E);                                                                        break;  // BIT 5, E
             case 0x6C:  INSTR_bit(5, m_registers.H);                                                                        break;  // BIT 5, H
             case 0x6D:  INSTR_bit(5, m_registers.L);                                                                        break;  // BIT 5, L
-            case 0x6E:  INSTR_bit(5, MemReadByte(m_registers.HL)); DelayCycle();                                            break;  // BIT 5, (HL)
+            case 0x6E:  INSTR_bit(5, MemReadByte(m_registers.HL));                                                          break;  // BIT 5, (HL)
             case 0x6F:  INSTR_bit(5, m_registers.A);                                                                        break;  // BIT 5, A
             case 0x70:  INSTR_bit(6, m_registers.B);                                                                        break;  // BIT 6, B
             case 0x71:  INSTR_bit(6, m_registers.C);                                                                        break;  // BIT 6, C
@@ -1006,7 +1009,7 @@ void CPU::ExecuteInstruction()
             case 0x73:  INSTR_bit(6, m_registers.E);                                                                        break;  // BIT 6, E
             case 0x74:  INSTR_bit(6, m_registers.H);                                                                        break;  // BIT 6, H
             case 0x75:  INSTR_bit(6, m_registers.L);                                                                        break;  // BIT 6, L
-            case 0x76:  INSTR_bit(6, MemReadByte(m_registers.HL)); DelayCycle();                                            break;  // BIT 6, (HL)
+            case 0x76:  INSTR_bit(6, MemReadByte(m_registers.HL));                                                          break;  // BIT 6, (HL)
             case 0x77:  INSTR_bit(6, m_registers.A);                                                                        break;  // BIT 6, A
             case 0x78:  INSTR_bit(7, m_registers.B);                                                                        break;  // BIT 7, B
             case 0x79:  INSTR_bit(7, m_registers.C);                                                                        break;  // BIT 7, C
@@ -1014,7 +1017,7 @@ void CPU::ExecuteInstruction()
             case 0x7B:  INSTR_bit(7, m_registers.E);                                                                        break;  // BIT 7, E
             case 0x7C:  INSTR_bit(7, m_registers.H);                                                                        break;  // BIT 7, H
             case 0x7D:  INSTR_bit(7, m_registers.L);                                                                        break;  // BIT 7, L
-            case 0x7E:  INSTR_bit(7, MemReadByte(m_registers.HL)); DelayCycle();                                            break;  // BIT 7, (HL)
+            case 0x7E:  INSTR_bit(7, MemReadByte(m_registers.HL));                                                          break;  // BIT 7, (HL)
             case 0x7F:  INSTR_bit(7, m_registers.A);                                                                        break;  // BIT 7, A
             case 0x80:  m_registers.B = INSTR_res(0, m_registers.B);                                                        break;  // RES 0, B
             case 0x81:  m_registers.C = INSTR_res(0, m_registers.C);                                                        break;  // RES 0, C
