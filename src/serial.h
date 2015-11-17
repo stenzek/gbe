@@ -26,7 +26,7 @@ public:
 
 private:
     uint32 GetTransferClocks() const;
-    void ScheduleTick();
+    void ScheduleSynchronization();
     void SendNotReadyResponse();
     void EndTransfer(uint32 clocks);
     void HandleRequests();

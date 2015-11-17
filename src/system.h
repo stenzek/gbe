@@ -152,6 +152,7 @@ private:
     void ResetPad();
     void SetPostBootstrapState();
     void SynchronizeTimers();
+    void ScheduleTimerSynchronization();
     void DisassembleCart(const char *outfile);
     uint64 TimeToClocks(double time);
     double ClocksToTime(uint64 clocks);

@@ -729,40 +729,52 @@ void System::SynchronizeTimers()
     }
 
     // timer start/stop
-    if (!(m_timer_control & 0x4))
+    if (m_timer_control & 0x4)
+    {
+        // add cycles
+        m_timer_clocks += cycles_to_execute;
+
+        // find timer rate
+        //static const uint32 clock_rates[] = { 4096, 262144, 65536, 16384 };
+        static const uint32 clocks_per_timer_ticks[] = { 1024, 16, 64, 256 };
+        uint32 clocks_per_timer_tick = clocks_per_timer_ticks[m_timer_control & 0x3];
+
+        // cap at one iteration when the rate changes
+        //if (m_timer_control_changed && m_timer_cycles > clock_rate)
+            //m_timer_cycles %= clock_rate;
+
+        // increment timer
+        while (m_timer_clocks >= clocks_per_timer_tick)
+        {
+            if ((++m_timer_counter) == 0x00)
+            {
+                // timer overflow
+                CPUInterruptRequest(CPU_INT_TIMER);
+                m_timer_counter = m_timer_overflow_value;
+            }
+
+            m_timer_clocks -= clocks_per_timer_tick;
+        }
+    }
+
+    ScheduleTimerSynchronization();
+}
+
+void System::ScheduleTimerSynchronization()
+{
+    if (m_timer_control & 0x4)
+    {
+        // schedule update for the next interrupt time
+        static const uint32 clocks_per_timer_ticks[] = { 1024, 16, 64, 256 };
+        uint32 clocks_per_timer_tick = clocks_per_timer_ticks[m_timer_control & 0x3];
+        uint32 next_interrupt_time = (256 - m_timer_counter) * clocks_per_timer_tick - m_timer_clocks;
+        SetNextTimerSyncCycle(next_interrupt_time);
+    }
+    else
     {
         // divider timer is updated on-demand when it is read, so just set to +1 sec
         SetNextTimerSyncCycle(4194304);
-        return;
     }
-
-    // add cycles
-    m_timer_clocks += cycles_to_execute;
-
-    // find timer rate
-    //static const uint32 clock_rates[] = { 4096, 262144, 65536, 16384 };
-    static const uint32 clocks_per_timer_ticks[] = { 1024, 16, 64, 256 };
-    uint32 clocks_per_timer_tick = clocks_per_timer_ticks[m_timer_control & 0x3];
-
-    // cap at one iteration when the rate changes
-    //if (m_timer_control_changed && m_timer_cycles > clock_rate)
-        //m_timer_cycles %= clock_rate;
-
-    // increment timer
-    while (m_timer_clocks >= clocks_per_timer_tick)
-    {
-        if ((++m_timer_counter) == 0x00)
-        {
-            // timer overflow
-            CPUInterruptRequest(CPU_INT_TIMER);
-            m_timer_counter = m_timer_overflow_value;
-        }
-
-        m_timer_clocks -= clocks_per_timer_tick;
-    }
-
-    uint32 next_interrupt_time = (256 - m_timer_counter) * clocks_per_timer_tick - m_timer_clocks;
-    SetNextTimerSyncCycle(next_interrupt_time);
 }
 
 void System::DisassembleCart(const char *outfile)
@@ -1305,21 +1317,21 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             case 0x05:
                 SynchronizeTimers();
                 m_timer_counter = value;
-                SynchronizeTimers();
+                ScheduleTimerSynchronization();
                 return;
 
                 // FF06 - TMA - Timer Modulo (R/W)
             case 0x06:
                 SynchronizeTimers();
                 m_timer_overflow_value = value;
-                SynchronizeTimers();
+                ScheduleTimerSynchronization();
                 return;
 
                 // FF07 - TAC - Timer Control (R/W)
             case 0x07:
                 SynchronizeTimers();
                 m_timer_control = value;
-                SynchronizeTimers();
+                ScheduleTimerSynchronization();
                 return;
 
                 // interrupt flag

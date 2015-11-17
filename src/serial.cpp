@@ -123,7 +123,7 @@ void Serial::SetSerialControl(uint8 value)
     }
 
     // re-schedule tick
-    ScheduleTick();
+    ScheduleSynchronization();
 }
 
 void Serial::SetSerialData(uint8 value)
@@ -160,7 +160,7 @@ bool Serial::LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *p
     m_clocks_since_transfer_start = 0;
     m_nonready_clocks = 0;
     m_nonready_sequence = 0;
-    ScheduleTick();
+    ScheduleSynchronization();
     return true;
 }
 
@@ -233,10 +233,10 @@ void Serial::Synchronize()
 
     // link socket activity
     HandleRequests();
-    ScheduleTick();
+    ScheduleSynchronization();
 }
 
-void Serial::ScheduleTick()
+void Serial::ScheduleSynchronization()
 {
     // determine number of cycles to next execution
     if (m_serial_wait_clocks > 0 && m_nonready_clocks > 0)
