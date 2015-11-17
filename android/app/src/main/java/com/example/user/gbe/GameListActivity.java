@@ -42,7 +42,7 @@ public class GameListActivity extends AppCompatActivity {
 
         mGameListAdapter = new GameListAdapter(this);
         mGameListView.setAdapter(mGameListAdapter);
-        //mGameListAdapter.refreshList();
+        mGameListAdapter.refreshList();
 
         mGameListAdapter.setOnItemClickedListener(new GameListAdapter.OnItemClickedListener() {
             public void onClick(GameListAdapter.GameInfo gameInfo) {
