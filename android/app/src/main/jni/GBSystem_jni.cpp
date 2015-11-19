@@ -89,16 +89,6 @@ public:
         return true;
     }
 
-    bool BootSystem(SYSTEM_MODE mode, const byte *bios, uint32 bios_length)
-    {
-        if (!m_system->Init(mode, nullptr, m_cart))
-            return false;
-
-        m_system->SetAccurateTiming(false);
-        //m_system->SetFrameLimiter(false);
-        return true;
-    }
-
     virtual void PresentDisplayBuffer(const void *pPixels, uint32 row_stride) override final
     {
         JNIEnv *env = GetJNIEnv();
@@ -321,12 +311,16 @@ extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeBootS
         return;
     }
 
-    bool result = native->BootSystem((SYSTEM_MODE)systemMode, nullptr, 0);
-    if (!result)
+    System *system = native->GetSystem();
+    Cartridge *cart = native->GetCartridge();
+    if (!system->Init((SYSTEM_MODE)systemMode, nullptr, 0, cart))
     {
         ThrowGBSystemException(env, "System boot failed.");
         return;
     }
+
+    system->SetAccurateTiming(false);
+    //system->SetFrameLimiter(false);
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeSetPaused(JNIEnv *env, jobject obj, jboolean paused)
