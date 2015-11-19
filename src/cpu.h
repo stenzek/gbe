@@ -167,7 +167,6 @@ public:
 
     // step
     void ExecuteInstruction();
-    void ExecuteInstructionOld();
 
     // disassemble an instruction
     static bool Disassemble(String *pDestination, System *memory, uint16 address);

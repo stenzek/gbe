@@ -78,8 +78,7 @@ GBE_SRC_FILES := \
     $(GBE_SRC_BASE)/link.cpp \
     $(GBE_SRC_BASE)/serial.cpp \
     $(GBE_SRC_BASE)/structures.cpp \
-    $(GBE_SRC_BASE)/system.cpp \
-    $(GBE_SRC_BASE)/system_link.cpp
+    $(GBE_SRC_BASE)/system.cpp
 
 JNI_SRC_FILES := \
 	GBSystem_jni.cpp
