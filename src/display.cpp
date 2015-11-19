@@ -802,7 +802,7 @@ void Display::RenderScanline(uint8 LINE)
                 if (sprite->hflip)
                     tile_x = 7 - tile_x;
                 if (sprite->vflip)
-                    tile_y = SPRITE_HEIGHT - tile_y;
+                    tile_y = (SPRITE_HEIGHT - 1) - tile_y;
 
                 // "In 8x16 mode, the lower bit of the tile number is ignored. Ie. the upper 8x8 tile is "NN AND FEh", and the lower 8x8 tile is "NN OR 01h"."
                 uint16 tile_index;
@@ -1010,7 +1010,7 @@ void Display::RenderScanline_CGB(uint8 LINE)
                 if (sprite->hflip)
                     tile_x = 7 - tile_x;
                 if (sprite->vflip)
-                    tile_y = SPRITE_HEIGHT - tile_y;
+                    tile_y = (SPRITE_HEIGHT - 1) - tile_y;
 
                 // "In 8x16 mode, the lower bit of the tile number is ignored. Ie. the upper 8x8 tile is "NN AND FEh", and the lower 8x8 tile is "NN OR 01h"."
                 uint16 tile_index;
