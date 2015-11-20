@@ -1,33 +1,43 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <SwitchPreference
-        android:key="example_switch"
-        android:title="@string/pref_title_social_recommendations"
-        android:summary="@string/pref_description_social_recommendations"
-        android:defaultValue="true" />
+    <PreferenceCategory
+        android:title="App Settings">
 
-    <!-- NOTE: EditTextPreference accepts EditText attributes. -->
-    <!-- NOTE: EditTextPreference's summary should be set to its value by the activity code. -->
-    <EditTextPreference
-        android:key="example_text"
-        android:title="@string/pref_title_display_name"
-        android:defaultValue="@string/pref_default_display_name"
-        android:selectAllOnFocus="true"
-        android:inputType="textCapWords"
-        android:capitalize="words"
-        android:singleLine="true"
-        android:maxLines="1" />
+        <Preference
+            android:title="ROM Search Paths..."
+            android:summary="Tap to change search directories">
+        </Preference>
 
-    <!-- NOTE: Hide buttons to simplify the UI. Users can touch outside the dialog to
-         dismiss it. -->
-    <!-- NOTE: ListPreference's summary should be set to its value by the activity code. -->
-    <ListPreference
-        android:key="example_list"
-        android:title="@string/pref_title_add_friends_to_messages"
-        android:defaultValue="-1"
-        android:entries="@array/pref_example_list_titles"
-        android:entryValues="@array/pref_example_list_values"
-        android:negativeButtonText="@null"
-        android:positiveButtonText="@null" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="Emulation Settings">
+
+        <SwitchPreference
+            android:defaultValue="true"
+            android:key="enable_sound"
+            android:summary="Enable the generation and output of game audio."
+            android:title="Enable Sound" />
+
+        <SwitchPreference
+            android:defaultValue="true"
+            android:key="accurate_timing"
+            android:summary="Enable consistent CPU timing accurate to console."
+            android:title="Accurate Timing" />
+
+        <SwitchPreference
+            android:defaultValue="true"
+            android:key="frame_limiter"
+            android:summary="Enable frame limiter, if off, target speed has no effect."
+            android:title="Frame Limiter" />
+
+        <ListPreference
+            android:defaultValue="100"
+            android:entries="@array/pref_target_speed_titles"
+            android:entryValues="@array/pref_target_speed_values"
+            android:key="target_speed"
+            android:summary="Set the target speed of the CPU/display emulation."
+            android:title="Target Speed" />
+    </PreferenceCategory>
 
 </PreferenceScreen>

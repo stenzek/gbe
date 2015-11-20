@@ -32,19 +32,29 @@ public class GameListAdapter extends RecyclerView.Adapter<GameListAdapter.ViewHo
 
         public GameInfo(String path) {
             mPath = path;
+            mFileTitle = (mPath.lastIndexOf('/') > 0) ? mPath.substring(mPath.lastIndexOf('/') + 1) : mPath;
         }
 
         final String getPath() { return mPath; }
         final String getTitle() { return mTitle; }
         final String getFileTitle() { return mFileTitle; }
         final Date getLastSaveTime() { return mLastSaveTime; }
+
         final void loadDetails() {
             if (mDetailsLoaded)
                 return;
 
-            mTitle = "Query cart title";
-            mFileTitle = (mPath.lastIndexOf('/') > 0) ? mPath.substring(mPath.lastIndexOf('/') + 1) : mPath;
-            mLastSaveTime = null;
+            try {
+                CartridgeInfo info = new CartridgeInfo(mPath);
+                mTitle = info.getTitle();
+                mLastSaveTime = null;
+            } catch (CartridgeInfoException e) {
+                // TODO: notifyDataSetChanged when fail?
+                mTitle = "<invalid rom>";
+                mLastSaveTime = null;
+                return;
+            }
+
             mDetailsLoaded = true;
         }
     }
@@ -91,8 +101,7 @@ public class GameListAdapter extends RecyclerView.Adapter<GameListAdapter.ViewHo
             File files[] = dir.listFiles(new FilenameFilter() {
                 @Override
                 public boolean accept(File dir, String filename) {
-                    //return (filename.toLowerCase().endsWith(".gb") || filename.toLowerCase().endsWith(".gbc"));
-                    return true;
+                    return (filename.toLowerCase().endsWith(".gb") || filename.toLowerCase().endsWith(".gbc"));
                 }
             });
             for (File currentFile : files) {
