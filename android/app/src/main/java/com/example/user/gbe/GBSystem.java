@@ -52,8 +52,8 @@ public class GBSystem {
 	private native void nativeSetPaused(boolean paused);
 	private native void nativeSetPadDirectionState(int state);
 	private native void nativeSetPadButtonState(int state);
-	private native byte[] nativeSaveState();
-    private native void nativeLoadState(byte[] data);
+	private native byte[] nativeSaveState() throws GBSystemException;
+    private native void nativeLoadState(byte[] data) throws GBSystemException;
 
 	/* Native callbacks */
 	private void onScreenBufferReady() {
@@ -202,7 +202,7 @@ public class GBSystem {
 		mPadButtonState = (down) ? (mPadButtonState | button) : (mPadButtonState & ~button);
 	}
 
-    public byte[] saveState(Bitmap screenshot) {
+    public byte[] saveState(Bitmap screenshot) throws GBSystemException {
         pause();
         byte[] saveData = nativeSaveState();
         nativeCopyScreenBuffer(screenshot);
@@ -210,7 +210,7 @@ public class GBSystem {
         return saveData;
     }
 
-    public void loadState(byte[] data) {
+    public void loadState(byte[] data) throws GBSystemException {
         pause();
         nativeLoadState(data);
         resume();

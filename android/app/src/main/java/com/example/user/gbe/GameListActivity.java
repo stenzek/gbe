@@ -66,6 +66,10 @@ public class GameListActivity extends AppCompatActivity {
         int id = item.getItemId();
         switch (id)
         {
+            case R.id.refresh: {
+                mGameListAdapter.refreshList();
+                return true;
+            }
             case R.id.action_settings: {
                 startActivity(new Intent(this, SettingsActivity.class));
                 return true;

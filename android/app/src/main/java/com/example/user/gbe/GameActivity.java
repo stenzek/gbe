@@ -1,6 +1,7 @@
 package com.example.user.gbe;
 
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -42,6 +43,7 @@ public class GameActivity extends AppCompatActivity {
     private GBDisplayView mDisplayView;
     private boolean mToolbarVisible;
     private GBSystem gbSystem;
+    private SaveStateManager mSaveStateManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -110,13 +112,13 @@ public class GameActivity extends AppCompatActivity {
         {
             // Save State
             case R.id.save_state: {
-                Toast.makeText(GameActivity.this, "Saving state", Toast.LENGTH_SHORT).show();
+                saveStateAuto();
                 return true;
             }
 
             // Load State
             case R.id.load_state: {
-                Toast.makeText(GameActivity.this, "Loading state", Toast.LENGTH_SHORT).show();
+                loadStateAuto();
                 return true;
             }
 
@@ -250,6 +252,9 @@ public class GameActivity extends AppCompatActivity {
             endEmulation();
             return;
         }
+
+        // Create save state manager
+        mSaveStateManager = new SaveStateManager(this, romPath);
     }
 
     public void endEmulation() {
@@ -260,6 +265,32 @@ public class GameActivity extends AppCompatActivity {
         }
 
         finish();
+    }
+
+    public void saveStateAuto() {
+        try {
+            Bitmap bitmap = Bitmap.createBitmap(GBSystem.SCREEN_WIDTH, GBSystem.SCREEN_HEIGHT, Bitmap.Config.ARGB_8888);
+            byte[] stateData = gbSystem.saveState(bitmap);
+            mSaveStateManager.saveAuto(stateData, bitmap);
+            Toast.makeText(GameActivity.this, "State saved.", Toast.LENGTH_SHORT).show();
+        } catch (GBSystemException e) {
+            Toast.makeText(GameActivity.this, "Saving state failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    public void loadStateAuto() {
+        SaveStateManager.SaveState ss = mSaveStateManager.loadAuto();
+        if (ss == null) {
+            return;
+        }
+
+        try {
+            gbSystem.loadState(ss.getData());
+            Toast.makeText(GameActivity.this, "State loaded.", Toast.LENGTH_SHORT).show();
+        } catch (GBSystemException e) {
+            Toast.makeText(GameActivity.this, "Loading state failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            endEmulation();
+        }
     }
 
     private View.OnTouchListener mPadTouchListener = new View.OnTouchListener() {

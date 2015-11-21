@@ -2,12 +2,14 @@ package com.example.user.gbe;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
 import android.preference.PreferenceManager;
 import android.support.v7.widget.CardView;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import java.io.File;
@@ -29,6 +31,7 @@ public class GameListAdapter extends RecyclerView.Adapter<GameListAdapter.ViewHo
         private String mTitle;
         private String mFileTitle;
         private Date mLastSaveTime;
+        private Bitmap mLastSaveBitmap;
 
         public GameInfo(String path) {
             mPath = path;
@@ -39,8 +42,9 @@ public class GameListAdapter extends RecyclerView.Adapter<GameListAdapter.ViewHo
         final String getTitle() { return mTitle; }
         final String getFileTitle() { return mFileTitle; }
         final Date getLastSaveTime() { return mLastSaveTime; }
+        final Bitmap getLastSaveBitmap() { return mLastSaveBitmap; }
 
-        final void loadDetails() {
+        final void loadDetails(Context context) {
             if (mDetailsLoaded)
                 return;
 
@@ -48,11 +52,22 @@ public class GameListAdapter extends RecyclerView.Adapter<GameListAdapter.ViewHo
                 CartridgeInfo info = new CartridgeInfo(mPath);
                 mTitle = info.getTitle();
                 mLastSaveTime = null;
+                mLastSaveBitmap = null;
             } catch (CartridgeInfoException e) {
                 // TODO: notifyDataSetChanged when fail?
                 mTitle = "<invalid rom>";
                 mLastSaveTime = null;
+                mLastSaveBitmap = null;
                 return;
+            }
+
+            SaveStateManager.SaveState latestSaveState = SaveStateManager.getLatestSaveState(context, mPath);
+            if (latestSaveState != null) {
+                mLastSaveTime = latestSaveState.getDate();
+                mLastSaveBitmap = latestSaveState.getScreenshot();
+            } else {
+                mLastSaveTime = null;
+                mLastSaveBitmap = null;
             }
 
             mDetailsLoaded = true;
@@ -124,6 +139,7 @@ public class GameListAdapter extends RecyclerView.Adapter<GameListAdapter.ViewHo
     public final class ViewHolder extends RecyclerView.ViewHolder {
         private CardView mCardView;
         private GameInfo mGameInfo;
+        private ImageView mGameImageView;
         private TextView mGameTitleView;
         private TextView mGameFileView;
         private TextView mGameSummaryView;
@@ -131,6 +147,7 @@ public class GameListAdapter extends RecyclerView.Adapter<GameListAdapter.ViewHo
         public ViewHolder(View itemView) {
             super(itemView);
             mCardView = (CardView)itemView;
+            mGameImageView = (ImageView)mCardView.findViewById(R.id.game_image);
             mGameTitleView = (TextView)mCardView.findViewById(R.id.game_title);
             mGameFileView = (TextView)mCardView.findViewById(R.id.game_filename);
             mGameSummaryView = (TextView)mCardView.findViewById(R.id.game_details);
@@ -157,7 +174,7 @@ public class GameListAdapter extends RecyclerView.Adapter<GameListAdapter.ViewHo
         public void bindGameInfo(GameInfo gi) {
             mGameInfo = gi;
             if (gi != null) {
-                gi.loadDetails();
+                gi.loadDetails(mContext);
                 mGameTitleView.setText(gi.getTitle());
                 mGameFileView.setText(gi.getFileTitle());
 
@@ -169,6 +186,11 @@ public class GameListAdapter extends RecyclerView.Adapter<GameListAdapter.ViewHo
                     summaryText = "Never played";
                 }
                 mGameSummaryView.setText(summaryText);
+
+                if (gi.getLastSaveBitmap() != null)
+                    mGameImageView.setImageBitmap(gi.getLastSaveBitmap());
+                else
+                    mGameImageView.setImageDrawable(mCardView.getResources().getDrawable(android.R.drawable.sym_def_app_icon));
             }
         }
     }
