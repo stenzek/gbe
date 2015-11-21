@@ -370,3 +370,41 @@ extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeSetPa
     native->GetSystem()->SetPadButtonState((uint32)state);
 }
 
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_example_user_gbe_GBSystem_nativeSaveState(JNIEnv *env, jobject obj) {
+    GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
+
+    GrowableMemoryByteStream *pStream = ByteStream_CreateGrowableMemoryStream();
+    if (!native->GetSystem()->SaveState(pStream)) {
+        pStream->Release();
+        ThrowGBSystemException(env, "Saving state failed");
+        return nullptr;
+    }
+
+    uint32 size = (uint32)pStream->GetSize();
+    jbyteArray retArray = env->NewByteArray(size);
+    jbyte *retArrayData = env->GetByteArrayElements(retArray, nullptr);
+    Y_memcpy(retArrayData, pStream->GetMemoryPointer(), size);
+    env->ReleaseByteArrayElements(retArray, retArrayData, JNI_COMMIT);
+    pStream->Release();
+    return retArray;
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeLoadState(JNIEnv *env, jobject obj, jbyteArray data) {
+    GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
+
+    jbyte *pData = env->GetByteArrayElements(data, nullptr);
+    uint32 size = env->GetArrayLength(data);
+    ByteStream *pStream = ByteStream_CreateReadOnlyMemoryStream(pData, size);
+
+    Error error;
+    if (!native->GetSystem()->LoadState(pStream, &error)) {
+        pStream->Release();
+        env->ReleaseByteArrayElements(data, pData, JNI_ABORT);
+        ThrowGBSystemException(env, "Loading state failed: %s", error.GetErrorCodeAndDescription().GetCharArray());
+        return;
+    }
+
+    pStream->Release();
+    env->ReleaseByteArrayElements(data, pData, JNI_ABORT);
+}
+

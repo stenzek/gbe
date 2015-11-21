@@ -40,4 +40,16 @@
             android:title="Target Speed" />
     </PreferenceCategory>
 
+    <PreferenceCategory
+        android:title="Save Settings">
+
+        <EditTextPreference
+            android:title="Maximum Auto Save States"
+            android:summary="Maximum number of save states that will be created before the first is overwritten."
+            android:key="max_auto_save_states"
+            android:defaultValue="10"
+            android:inputType="numberDecimal" />
+
+    </PreferenceCategory>
+
 </PreferenceScreen>

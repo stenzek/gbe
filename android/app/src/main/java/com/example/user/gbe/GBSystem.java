@@ -52,6 +52,8 @@ public class GBSystem {
 	private native void nativeSetPaused(boolean paused);
 	private native void nativeSetPadDirectionState(int state);
 	private native void nativeSetPadButtonState(int state);
+	private native byte[] nativeSaveState();
+    private native void nativeLoadState(byte[] data);
 
 	/* Native callbacks */
 	private void onScreenBufferReady() {
@@ -199,6 +201,20 @@ public class GBSystem {
 		Log.d("GBSystem", String.format("setPadButton(%d, %s)", button, down ? "true" : "false"));
 		mPadButtonState = (down) ? (mPadButtonState | button) : (mPadButtonState & ~button);
 	}
+
+    public byte[] saveState(Bitmap screenshot) {
+        pause();
+        byte[] saveData = nativeSaveState();
+        nativeCopyScreenBuffer(screenshot);
+        resume();
+        return saveData;
+    }
+
+    public void loadState(byte[] data) {
+        pause();
+        nativeLoadState(data);
+        resume();
+    }
 
 	/*private View.OnTouchListener mTouchListener = new View.OnTouchListener() {
 		@Override

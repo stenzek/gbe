@@ -20,15 +20,22 @@ public class CartridgeInfo {
 
     public CartridgeInfo(String path) throws CartridgeInfoException {
         File file = new File(path);
+        FileInputStream stream = null;
         try {
-            FileInputStream stream = new FileInputStream(file);
+            stream = new FileInputStream(file);
             stream.skip(0x0100);
             parseHeader(stream);
-
         } catch (FileNotFoundException e) {
             throw new CartridgeInfoException("open error: " + e.getMessage());
         } catch (IOException e) {
             throw new CartridgeInfoException("read error: " + e.getMessage());
+        } finally {
+            if (stream != null) {
+                try {
+                    stream.close();
+                } catch (IOException e) {
+                }
+            }
         }
     }
 
