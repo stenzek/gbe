@@ -61,7 +61,7 @@ public class GameListAdapter extends RecyclerView.Adapter<GameListAdapter.ViewHo
                 return;
             }
 
-            SaveStateManager.SaveState latestSaveState = SaveStateManager.getLatestSaveState(context, mPath);
+            SaveStateManager.SaveState latestSaveState = SaveStateManager.getAutoSave(context, mPath);
             if (latestSaveState != null) {
                 mLastSaveTime = latestSaveState.getDate();
                 mLastSaveBitmap = latestSaveState.getScreenshot();

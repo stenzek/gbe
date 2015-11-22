@@ -6,6 +6,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Environment;
 import android.preference.PreferenceManager;
+import android.util.Log;
 import android.widget.Toast;
 
 import java.io.ByteArrayOutputStream;
@@ -35,15 +36,20 @@ public class SaveStateManager {
 
     public static String getSaveLocation(Context context) {
         File dir = context.getExternalFilesDir(null);
-        return (dir != null) ? (dir.getAbsolutePath() + "/saves") : (Environment.getExternalStorageDirectory() + "/saves");
+        String innerPath = (dir != null) ? (dir.getAbsolutePath() + "/saves") : (Environment.getExternalStorageDirectory() + "/saves");
+        File innerDir = new File(innerPath);
+        if (!innerDir.exists())
+            innerDir.mkdir();
+
+        return innerPath;
     }
 
     private static String getBaseFileTitle(String gamePath) {
         String fileTitle = (gamePath.lastIndexOf('/') > 0) ? gamePath.substring(gamePath.lastIndexOf('/') + 1) : gamePath;
         if (fileTitle.toLowerCase().endsWith(".gb"))
-            fileTitle = fileTitle.substring(0, fileTitle.length() - 4);
+            fileTitle = fileTitle.substring(0, fileTitle.length() - 3);
         else if (fileTitle.toLowerCase().endsWith(".gbc"))
-            fileTitle = fileTitle.substring(0, fileTitle.length() - 5);
+            fileTitle = fileTitle.substring(0, fileTitle.length() - 4);
 
         return fileTitle;
     }
@@ -79,7 +85,7 @@ public class SaveStateManager {
         Collections.sort(mSaveStateFiles, new Comparator<File>() {
             @Override
             public int compare(File lhs, File rhs) {
-                return (int) (lhs.lastModified() - rhs.lastModified());
+                return (int) (rhs.lastModified() - lhs.lastModified());
             }
         });
     }
@@ -91,48 +97,46 @@ public class SaveStateManager {
         file.delete();
     }
 
-    public boolean saveAuto(byte[] data, Bitmap screenshot) {
-        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(mContext);
-        //int maxStates = preferences.getInt("max_auto_save_states", 10);
-        int maxStates = 10;
-        if (maxStates <= 0)
-            maxStates = 1;
-
-        // Remove last if we have too many.
-        File toRemove = null;
-        if (mSaveStateFiles.size() >= maxStates)
-            toRemove = mSaveStateFiles.get(mSaveStateFiles.size() - 1);
-
-        // Generate filename.
-        Date date = new Date();
-        String newStateFileName = mSaveBaseFilePath + "_" + date.getTime() + ".sav";
+    public boolean createAutoSave(GBSystem gbSystem) {
         try {
-            SaveState.writeSaveState(newStateFileName, data, screenshot);
-            enumerateSaves();
+            Bitmap screenshot = Bitmap.createBitmap(GBSystem.SCREEN_WIDTH, GBSystem.SCREEN_HEIGHT, Bitmap.Config.ARGB_8888);
+            byte[] stateData = gbSystem.saveState(screenshot);
+
+            String autoSavePath = mSaveBaseFilePath + "_auto.sav";
+            SaveState.writeSaveState(autoSavePath, stateData, screenshot);
+            Log.d("createAutoSave", "Auto save written to " + autoSavePath);
+            return true;
+        } catch (GBSystemException e) {
+            Log.e("createAutoSave", "Creating auto save failed: " + e.getMessage());
+            e.printStackTrace();
+            return false;
         } catch (IOException e) {
+            Log.e("createAutoSave", "Writing auto save failed: " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
-
-        // Handle deferred remove.
-        if (toRemove != null)
-            removeSave(toRemove);
-
-        return true;
     }
 
-    public SaveState loadAuto() {
-        if (mSaveStateFiles.size() == 0) {
+    public static SaveState getAutoSave(Context context, String gamePath) {
+        String saveDirectory = getSaveLocation(context);
+        String basePath = getBaseFileTitle(gamePath);
+        String searchFile = basePath + "_auto.sav";
+        File file = new File(searchFile);
+        if (!file.exists()) {
+            Log.d("getAutoSave", "No auto save found for " + gamePath);
             return null;
         }
 
         try {
-            return new SaveState(mSaveStateFiles.get(0).getAbsolutePath());
+            return new SaveState(searchFile);
         } catch (IOException e) {
+            Log.e("getAutoSave", "Load auto save for " + gamePath + " failed: " + e.getMessage());
+            e.printStackTrace();
             return null;
         }
     }
 
-    public static SaveState getLatestSaveState(Context context, String gamePath) {
+    /*public static SaveState getLatestSave(Context context, String gamePath) {
         String saveDirectory = getSaveLocation(context);
         final String basePath = getBaseFileTitle(gamePath);
         File saveDirFile = new File(saveDirectory);
@@ -149,7 +153,7 @@ public class SaveStateManager {
         Arrays.sort(saveFiles, new Comparator<File>() {
             @Override
             public int compare(File lhs, File rhs) {
-                return (int) (lhs.lastModified() - rhs.lastModified());
+                return (int) (rhs.lastModified() - lhs.lastModified());
             }
         });
 
@@ -158,6 +162,61 @@ public class SaveStateManager {
         } catch (IOException e) {
             return null;
         }
+    }*/
+
+    public SaveState getLatestManualSave() {
+        for (File file : mSaveStateFiles) {
+            if (file.getName().endsWith("_auto.sav"))
+                continue;
+
+            try {
+                return new SaveState(file.getAbsolutePath());
+            } catch (IOException e) {
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    public boolean createManualSave(GBSystem gbSystem) {
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(mContext);
+        //int maxStates = preferences.getInt("max_auto_save_states", 10);
+        int maxStates = 10;
+        if (maxStates <= 0)
+            maxStates = 1;
+
+        // Remove last if we have too many.
+        File toRemove = null;
+        if (mSaveStateFiles.size() >= maxStates)
+            toRemove = mSaveStateFiles.get(mSaveStateFiles.size() - 1);
+
+        // Create save state
+        try {
+            Bitmap screenshot = Bitmap.createBitmap(GBSystem.SCREEN_WIDTH, GBSystem.SCREEN_HEIGHT, Bitmap.Config.ARGB_8888);
+            byte[] stateData = gbSystem.saveState(screenshot);
+
+            // Generate filename.
+            Date date = new Date();
+            String newStateFileName = mSaveBaseFilePath + "_manual_" + date.getTime() + ".sav";
+            SaveState.writeSaveState(newStateFileName, stateData, screenshot);
+            screenshot.recycle();
+        } catch (GBSystemException e) {
+            Log.e("createAutoSave", "Creating auto save failed: " + e.getMessage());
+            return false;
+        } catch (IOException e) {
+            Log.e("createAutoSave", "Writing auto save failed: " + e.getMessage());
+            return false;
+        }
+
+        // Handle deferred remove.
+        if (toRemove != null)
+            removeSave(toRemove);
+
+        // Update list
+        enumerateSaves();
+        return true;
     }
 
     public static class SaveState {

@@ -112,13 +112,28 @@ public class GameActivity extends AppCompatActivity {
         {
             // Save State
             case R.id.save_state: {
-                saveStateAuto();
+                if (mSaveStateManager.createManualSave(gbSystem)) {
+                    Toast.makeText(GameActivity.this, "Save created.", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(GameActivity.this, "Save failed.", Toast.LENGTH_SHORT).show();
+                }
                 return true;
             }
 
             // Load State
             case R.id.load_state: {
-                loadStateAuto();
+                try {
+                    SaveStateManager.SaveState saveState = mSaveStateManager.getLatestManualSave();
+                    if (saveState != null) {
+                        gbSystem.loadState(saveState.getData());
+                        Toast.makeText(GameActivity.this, "Save loaded.", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(GameActivity.this, "No save found.", Toast.LENGTH_SHORT).show();
+                    }
+                } catch (GBSystemException e) {
+                    e.printStackTrace();
+                    Toast.makeText(GameActivity.this, "Load failed.", Toast.LENGTH_SHORT).show();
+                }
                 return true;
             }
 
@@ -260,37 +275,18 @@ public class GameActivity extends AppCompatActivity {
     public void endEmulation() {
         Log.i("GameActivity", "Ending emulation.");
         if (gbSystem != null) {
+            // Save the state to the autostate save
+            if (mSaveStateManager != null) {
+                if (mSaveStateManager.createAutoSave(gbSystem))
+                    Toast.makeText(GameActivity.this, "Saved", Toast.LENGTH_SHORT).show();
+                else
+                    Toast.makeText(GameActivity.this, "Automatic save failed.", Toast.LENGTH_SHORT).show();
+            }
             gbSystem.close();
             gbSystem = null;
         }
 
         finish();
-    }
-
-    public void saveStateAuto() {
-        try {
-            Bitmap bitmap = Bitmap.createBitmap(GBSystem.SCREEN_WIDTH, GBSystem.SCREEN_HEIGHT, Bitmap.Config.ARGB_8888);
-            byte[] stateData = gbSystem.saveState(bitmap);
-            mSaveStateManager.saveAuto(stateData, bitmap);
-            Toast.makeText(GameActivity.this, "State saved.", Toast.LENGTH_SHORT).show();
-        } catch (GBSystemException e) {
-            Toast.makeText(GameActivity.this, "Saving state failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    public void loadStateAuto() {
-        SaveStateManager.SaveState ss = mSaveStateManager.loadAuto();
-        if (ss == null) {
-            return;
-        }
-
-        try {
-            gbSystem.loadState(ss.getData());
-            Toast.makeText(GameActivity.this, "State loaded.", Toast.LENGTH_SHORT).show();
-        } catch (GBSystemException e) {
-            Toast.makeText(GameActivity.this, "Loading state failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            endEmulation();
-        }
     }
 
     private View.OnTouchListener mPadTouchListener = new View.OnTouchListener() {
