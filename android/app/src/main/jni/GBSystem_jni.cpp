@@ -16,6 +16,7 @@
 #include "YBaseLib/BinaryWriter.h"
 #include <jni.h>
 #include <android/bitmap.h>
+#include <GLES2/gl2.h>
 Log_SetChannel(GBESystemNative);
 
 // method ids for callbacks
@@ -47,7 +48,7 @@ public:
         , m_cart(nullptr)
         , m_system(new System(this))
     {
-
+        Y_memzero(m_framebuffer, sizeof(m_framebuffer));
     }
 
     ~GBSystemNative()
@@ -95,15 +96,14 @@ public:
         if (env == nullptr)
             return;
 
-#if 0
-        jbyteArray pixelsArray = env->NewByteArray(row_stride * Display::SCREEN_HEIGHT);
-        jbyte *localPixelsArray = env->GetByteArrayElements(pixelsArray, nullptr);
-        Y_memcpy(localPixelsArray, pPixels, row_stride * Display::SCREEN_HEIGHT);
-        env->ReleaseByteArrayElements(pixelsArray, localPixelsArray, JNI_COMMIT);
+        DebugAssert(row_stride == Display::SCREEN_WIDTH * 4);
 
-        env->CallVoidMethod(m_jobject, GBSystem_Method_OnScreenBufferReady, pixelsArray, (int)row_stride);
-#endif
-        env->CallVoidMethod(m_jobject, GBSystem_Method_OnScreenBufferReady);
+        env->MonitorEnter(m_jobject);
+        {
+            Y_memcpy(m_framebuffer, pPixels, sizeof(m_framebuffer));
+            env->CallVoidMethod(m_jobject, GBSystem_Method_OnScreenBufferReady);
+        }
+        env->MonitorExit(m_jobject);
     }
 
     virtual bool LoadCartridgeRAM(void *pData, size_t expected_data_size) override final
@@ -170,10 +170,42 @@ public:
         env->CallVoidMethod(m_jobject, GBSystem_Method_SaveCartridgeRTC, dataArray, (int)data_size);
     }
 
+    void CopyFrameBufferToBitmap(JNIEnv *env, jobject destinationBitmap)
+    {
+        int res;
+
+        AndroidBitmapInfo info;
+        res = AndroidBitmap_getInfo(env, destinationBitmap, &info);
+        Assert(res == 0);
+        Assert(info.format == ANDROID_BITMAP_FORMAT_RGBA_8888);
+        Assert(info.width == Display::SCREEN_WIDTH && info.height == Display::SCREEN_HEIGHT);
+
+        void *bitmapPixels;
+        res = AndroidBitmap_lockPixels(env, destinationBitmap, &bitmapPixels);
+        Assert(res == 0);
+
+        uint32 ourStride = Display::SCREEN_WIDTH * 4;
+        if (info.stride == ourStride)
+            Y_memcpy(bitmapPixels, m_framebuffer, sizeof(m_framebuffer));
+        else
+            Y_memcpy_stride(bitmapPixels, info.stride, m_framebuffer, ourStride, sizeof(uint32) * Display::SCREEN_WIDTH, Display::SCREEN_HEIGHT);
+
+        res = AndroidBitmap_unlockPixels(env, destinationBitmap);
+        Assert(res == 0);
+    }
+
+    void CopyFrameBufferToGLTexture(int glTextureId)
+    {
+        glBindTexture(GL_TEXTURE_2D, glTextureId);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, Display::SCREEN_WIDTH, Display::SCREEN_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, m_framebuffer);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+
 private:
     jobject m_jobject;
     Cartridge *m_cart;
     System *m_system;
+    byte m_framebuffer[Display::SCREEN_WIDTH * Display::SCREEN_HEIGHT * 4];
 };
 
 static void ThrowGBSystemException(JNIEnv *env, const char *format, ...)
@@ -320,7 +352,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeBootS
     }
 
     system->SetAccurateTiming(false);
-    //system->SetFrameLimiter(false);
+    system->SetFrameLimiter(true);
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeSetPaused(JNIEnv *env, jobject obj, jboolean paused)
@@ -335,29 +367,16 @@ extern "C" JNIEXPORT jdouble JNICALL Java_com_example_user_gbe_GBSystem_nativeEx
     return native->GetSystem()->ExecuteFrame();
 }
 
-extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeCopyScreenBuffer(JNIEnv *env, jobject obj, jobject destinationBitmap)
+extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeCopyScreenBufferToBitmap(JNIEnv *env, jobject obj, jobject destinationBitmap)
 {
     GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
-    int res;
+    native->CopyFrameBufferToBitmap(env, destinationBitmap);
+}
 
-    AndroidBitmapInfo info;
-    res = AndroidBitmap_getInfo(env, destinationBitmap, &info);
-    Assert(res == 0);
-    Assert(info.format == ANDROID_BITMAP_FORMAT_RGBA_8888);
-    Assert(info.width == Display::SCREEN_WIDTH && info.height == Display::SCREEN_HEIGHT);
-
-    void *bitmapPixels;
-    res = AndroidBitmap_lockPixels(env, destinationBitmap, &bitmapPixels);
-    Assert(res == 0);
-
-    uint32 ourStride = Display::SCREEN_WIDTH * 4;
-    if (info.stride == ourStride)
-        Y_memcpy(bitmapPixels, native->GetSystem()->GetDisplay()->GetFrameBuffer(), ourStride * Display::SCREEN_HEIGHT);
-    else
-        Y_memcpy_stride(bitmapPixels, info.stride, native->GetSystem()->GetDisplay()->GetFrameBuffer(), ourStride, sizeof(uint32) * Display::SCREEN_WIDTH, Display::SCREEN_HEIGHT);
-
-    res = AndroidBitmap_unlockPixels(env, destinationBitmap);
-    Assert(res == 0);
+extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeCopyScreenBufferToTexture(JNIEnv *env, jobject obj, jint glTextureId)
+{
+    GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
+    native->CopyFrameBufferToGLTexture(glTextureId);
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeSetPadDirectionState(JNIEnv *env, jobject obj, jint state) {

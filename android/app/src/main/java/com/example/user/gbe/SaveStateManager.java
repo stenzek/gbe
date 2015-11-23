@@ -118,17 +118,15 @@ public class SaveStateManager {
     }
 
     public static SaveState getAutoSave(Context context, String gamePath) {
-        String saveDirectory = getSaveLocation(context);
-        String basePath = getBaseFileTitle(gamePath);
-        String searchFile = basePath + "_auto.sav";
-        File file = new File(searchFile);
+        String autoSaveFile = getSaveLocation(context) + "/saves/" + getBaseFileTitle(gamePath) + "_auto.sav";
+        File file = new File(autoSaveFile);
         if (!file.exists()) {
             Log.d("getAutoSave", "No auto save found for " + gamePath);
             return null;
         }
 
         try {
-            return new SaveState(searchFile);
+            return new SaveState(autoSaveFile);
         } catch (IOException e) {
             Log.e("getAutoSave", "Load auto save for " + gamePath + " failed: " + e.getMessage());
             e.printStackTrace();

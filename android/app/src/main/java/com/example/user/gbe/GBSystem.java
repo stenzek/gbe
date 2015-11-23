@@ -1,9 +1,19 @@
 package com.example.user.gbe;
 
 import android.graphics.Bitmap;
+import android.opengl.GLES20;
+import android.opengl.GLSurfaceView;
+import android.opengl.Matrix;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
+
+import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.opengles.GL10;
 
 public class GBSystem {
 	/* System modes */
@@ -25,8 +35,8 @@ public class GBSystem {
         System.loadLibrary("gbe");
     }
 
-	public GBSystem(GBDisplayView displayView) throws GBSystemException {
-		init(displayView);
+	public GBSystem(GLSurfaceView glSurfaceView) throws GBSystemException {
+		init(glSurfaceView);
 		nativeInit();
 	}
 
@@ -48,7 +58,8 @@ public class GBSystem {
 	private native String nativeGetCartridgeName() throws GBSystemException;
 	private native void nativeBootSystem(int systemMode) throws GBSystemException;
 	private native double nativeExecuteFrame();
-	private native void nativeCopyScreenBuffer(Bitmap destinationBitmap);
+	private native void nativeCopyScreenBufferToBitmap(Bitmap destinationBitmap);
+	private native void nativeCopyScreenBufferToTexture(int glTextureId);
 	private native void nativeSetPaused(boolean paused);
 	private native void nativeSetPadDirectionState(int state);
 	private native void nativeSetPadButtonState(int state);
@@ -57,22 +68,9 @@ public class GBSystem {
 
 	/* Native callbacks */
 	private void onScreenBufferReady() {
-		synchronized (this) {
-			nativeCopyScreenBuffer(currentPendingBuffer);
-			if (!presentPending) {
-				presentPending = true;
-				displayView.post(new Runnable() {
-					public void run() {
-						synchronized (GBSystem.this) {
-							Bitmap toPresent = currentPendingBuffer;
-							displayView.setDisplayBitmap(toPresent);
-							currentPendingBuffer = currentPresentingBuffer;
-							currentPresentingBuffer = toPresent;
-							presentPending = false;
-						}
-					}
-				});
-			}
+		if (mGBRenderer.mSurfaceReady) {
+			//Log.d("GBSystem", "onScreenBufferReady -> queueing render");
+			mGLSurfaceView.requestRender();
 		}
 	}
 	private boolean onLoadCartridgeRAM(byte[] data, int expectedDataSize) {
@@ -86,20 +84,244 @@ public class GBSystem {
 	private void onSaveCartridgeRTC(byte[] data, int dataSize) {
 	}
 
+	/* Renderer */
+	public class Renderer implements GLSurfaceView.Renderer {
+
+		private int mSurfaceWidth;
+		private int mSurfaceHeight;
+		private volatile boolean mSurfaceReady = false;
+
+		public Renderer() {
+			mGLSurfaceView.setEGLContextClientVersion(2);
+			mGLSurfaceView.setRenderer(this);
+			mGLSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+		}
+
+		@Override
+		public void onSurfaceCreated(GL10 gl, EGLConfig config) {
+			Log.d("GBRenderer", "onSurfaceCreated");
+			compileShaders();
+			createGLResources();
+
+			synchronized (this) {
+				mSurfaceWidth = mGLSurfaceView.getWidth();
+				mSurfaceHeight = mGLSurfaceView.getHeight();
+				mSurfaceReady = true;
+			}
+		}
+
+		@Override
+		public void onSurfaceChanged(GL10 gl, int width, int height) {
+			Log.d("GBRenderer", String.format("onSurfaceCreated: %dx%d", width, height));
+			synchronized (this) {
+				mSurfaceWidth = width;
+				mSurfaceHeight = height;
+			}
+		}
+
+		@Override
+		public void onDrawFrame(GL10 gl) {
+			//Log.d("GBRenderer", "onDrawFrame");
+
+			// Copy display buffer to GPU texture
+			synchronized (this) {
+				nativeCopyScreenBufferToTexture(mGLDisplayTexture);
+			}
+
+			// Clear screen
+			GLES20.glViewport(0, 0, mSurfaceWidth, mSurfaceHeight);
+			GLES20.glDepthFunc(GLES20.GL_ALWAYS);
+			GLES20.glDepthMask(false);
+			GLES20.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+			GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+			GLES20.glCullFace(GLES20.GL_NONE);
+
+			// Setup projection
+			float[] mvp = new float[16];
+			Matrix.orthoM(mvp, 0, 0, mSurfaceWidth - 1, mSurfaceHeight - 1, 0, 0, 1);
+			GLES20.glUseProgram(mGLProgramId);
+			GLES20.glUniformMatrix4fv(mGLProgramHandleMVP, 1, false, mvp, 0);
+			GLES20.glUniform1i(mGLProgramHandleTex, 0);
+
+			// Draw display
+			drawDisplayTexture();
+		}
+
+		private void drawTexturedQuad(int left, int right, int top, int bottom, int texture) {
+			ByteBuffer positionBuffer = ByteBuffer.allocateDirect(4 * 8);
+			ByteBuffer texCoordBuffer = ByteBuffer.allocateDirect(4 * 8);
+			positionBuffer.order(ByteOrder.nativeOrder());
+			texCoordBuffer.order(ByteOrder.nativeOrder());
+
+			FloatBuffer positionFloatBuffer = positionBuffer.asFloatBuffer();
+			FloatBuffer texCoordFloatBuffer = texCoordBuffer.asFloatBuffer();
+
+			positionFloatBuffer.put((float) left);
+			positionFloatBuffer.put((float) top);
+			texCoordFloatBuffer.put(0);
+			texCoordFloatBuffer.put(0);
+
+			positionFloatBuffer.put((float) left);
+			positionFloatBuffer.put((float) bottom);
+			texCoordFloatBuffer.put(0);
+			texCoordFloatBuffer.put(1);
+
+			positionFloatBuffer.put((float) right);
+			positionFloatBuffer.put((float) top);
+			texCoordFloatBuffer.put(1);
+			texCoordFloatBuffer.put(0);
+
+			positionFloatBuffer.put((float) right);
+			positionFloatBuffer.put((float) bottom);
+			texCoordFloatBuffer.put(1);
+			texCoordFloatBuffer.put(1);
+
+			positionFloatBuffer.position(0);
+			GLES20.glEnableVertexAttribArray(0);
+			GLES20.glVertexAttribPointer(0, 2, GLES20.GL_FLOAT, false, 8, positionFloatBuffer);
+			texCoordFloatBuffer.position(0);
+			GLES20.glEnableVertexAttribArray(1);
+			GLES20.glVertexAttribPointer(1, 2, GLES20.GL_FLOAT, false, 8, texCoordFloatBuffer);
+
+			GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texture);
+			GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+		}
+
+		private void drawDisplayTexture() {
+			int dstWidth, dstHeight;
+			if (mSurfaceWidth > mSurfaceHeight) {
+				// landscape mode
+				final float ratio = (float)GBSystem.SCREEN_WIDTH / (float)GBSystem.SCREEN_HEIGHT;
+				dstHeight = mSurfaceHeight;
+				dstWidth = (int)Math.floor((float)dstHeight * ratio);
+			} else {
+				// portrait mode
+				final float ratio = (float)GBSystem.SCREEN_HEIGHT / (float)GBSystem.SCREEN_WIDTH;
+				dstWidth = mSurfaceWidth;
+				dstHeight = (int)Math.floor((float)dstWidth * ratio);
+			}
+
+			//drawTexturedQuad(0, mSurfaceWidth - 1, 0, mSurfaceHeight - 1, mGLDisplayTexture);
+			//drawTexturedQuad(0, GBSystem.SCREEN_WIDTH - 1, 0, GBSystem.SCREEN_HEIGHT - 1, mGLDisplayTexture);
+			drawTexturedQuad(0, dstWidth, 0, dstHeight, mGLDisplayTexture);
+		}
+
+		private int mGLVertexShaderId = 0;
+		private int mGLFragmentShaderId = 0;
+		private int mGLProgramId = 0;
+		private int mGLProgramHandleMVP = 0;
+		private int mGLProgramHandleTex = 0;
+		private int mGLDisplayTexture = 0;
+
+		private boolean compileShaders() {
+			int mGLVertexShaderId = GLES20.glCreateShader(GLES20.GL_VERTEX_SHADER);
+			int mGLFragmentShaderId = GLES20.glCreateShader(GLES20.GL_FRAGMENT_SHADER);
+			if (mGLVertexShaderId < 0 || mGLFragmentShaderId < 0) {
+				GLES20.glDeleteShader(mGLVertexShaderId);
+				GLES20.glDeleteShader(mGLFragmentShaderId);
+				return false;
+			}
+
+			GLES20.glShaderSource(mGLVertexShaderId, VERTEX_SHADER_SOURCE);
+			GLES20.glCompileShader(mGLVertexShaderId);
+
+			GLES20.glShaderSource(mGLFragmentShaderId, FRAGMENT_SHADER_SOURCE);
+			GLES20.glCompileShader(mGLFragmentShaderId);
+
+			int[] compileStatus = new int[1];
+			GLES20.glGetShaderiv(mGLVertexShaderId, GLES20.GL_COMPILE_STATUS, compileStatus, 0);
+			if (compileStatus[0] != GLES20.GL_TRUE) {
+				Log.e("GBRenderer", "vertex shader failed compilation: " + GLES20.glGetShaderInfoLog(mGLVertexShaderId));
+				return false;
+			}
+			GLES20.glGetShaderiv(mGLFragmentShaderId, GLES20.GL_COMPILE_STATUS, compileStatus, 0);
+			if (compileStatus[0] != GLES20.GL_TRUE) {
+				Log.e("GBRenderer", "fragment shader failed compilation: " + GLES20.glGetShaderInfoLog(mGLFragmentShaderId));
+				return false;
+			}
+
+			mGLProgramId = GLES20.glCreateProgram();
+			GLES20.glAttachShader(mGLProgramId, mGLVertexShaderId);
+			GLES20.glAttachShader(mGLProgramId, mGLFragmentShaderId);
+			GLES20.glBindAttribLocation(mGLProgramId, 0, "vert_position");
+			GLES20.glBindAttribLocation(mGLProgramId, 1, "vert_texcoord");
+			GLES20.glLinkProgram(mGLProgramId);
+			GLES20.glGetProgramiv(mGLProgramId, GLES20.GL_LINK_STATUS, compileStatus, 0);
+			if (compileStatus[0] != GLES20.GL_TRUE) {
+				Log.e("GBRenderer", "program failed link: " + GLES20.glGetProgramInfoLog(mGLProgramId));
+				return false;
+			}
+
+			mGLProgramHandleMVP = GLES20.glGetUniformLocation(mGLProgramId, "mvp");
+			mGLProgramHandleTex = GLES20.glGetUniformLocation(mGLProgramId, "tex");
+			return true;
+		}
+
+		private void createGLResources() {
+			int[] textures = new int[1];
+			GLES20.glGenTextures(1, textures, 0);
+			GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textures[0]);
+			GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, GBSystem.SCREEN_WIDTH, GBSystem.SCREEN_HEIGHT, 0, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null);
+			GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
+			GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
+			GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+			mGLDisplayTexture = textures[0];
+		}
+
+		private void releaseGLResources() {
+			int ids[] = new int[0];
+			if (mGLDisplayTexture != 0) {
+				ids[0] = mGLDisplayTexture;
+				GLES20.glDeleteTextures(1, ids, 0);
+				mGLDisplayTexture = 0;
+			}
+			if (mGLProgramId != 0) {
+				GLES20.glDeleteProgram(mGLProgramId);
+				mGLProgramId = 0;
+			}
+			if (mGLFragmentShaderId != 0) {
+				GLES20.glDeleteShader(mGLFragmentShaderId);
+				mGLFragmentShaderId = 0;
+			}
+			if (mGLVertexShaderId != 0) {
+				GLES20.glDeleteShader(mGLVertexShaderId);
+				mGLVertexShaderId = 0;
+			}
+		}
+
+		private final String VERTEX_SHADER_SOURCE =
+						"#version 100\n" +
+						"uniform mat4 mvp;\n" +
+						"attribute vec2 vert_position;\n" +
+						"attribute vec2 vert_texcoord;\n" +
+						"varying vec2 varying_texcoord;\n" +
+						"void main() {\n" +
+						"   gl_Position = mvp * vec4(vert_position, 0.0, 1.0);\n" +
+						"   varying_texcoord = vert_texcoord;\n" +
+						"}\n";
+
+		private final String FRAGMENT_SHADER_SOURCE =
+						"#version 100\n" +
+						"uniform sampler2D tex;\n" +
+						"varying mediump vec2 varying_texcoord;\n" +
+						"void main() {" +
+						"   gl_FragColor = texture2D(tex, varying_texcoord);\n" +
+						//"   gl_FragColor += vec4(varying_texcoord.x, varying_texcoord.y, 0, 1.0);\n" +
+						"}\n";
+
+
+	}
+
+
 	/* Java Data */
-	private Bitmap currentPresentingBuffer = null;
-	private Bitmap currentPendingBuffer = null;
-	private boolean presentPending = false;
-	private GBDisplayView displayView = null;
+	private GLSurfaceView mGLSurfaceView;
+	private Renderer mGBRenderer;
 	private Thread workerThread = null;
 	private volatile boolean workerThreadRunning = false;
 
-	private void init(GBDisplayView displayView) {
-		currentPresentingBuffer = Bitmap.createBitmap(SCREEN_WIDTH, SCREEN_HEIGHT, Bitmap.Config.ARGB_8888);
-		currentPendingBuffer = Bitmap.createBitmap(SCREEN_WIDTH, SCREEN_HEIGHT, Bitmap.Config.ARGB_8888);
-		this.displayView = displayView;
-
-		// hook buttons
+	private void init(GLSurfaceView glSurfaceView) {
+		mGLSurfaceView = glSurfaceView;
+		mGBRenderer = new Renderer();
 	}
 
 	private void startWorkerThread() {
@@ -205,7 +427,7 @@ public class GBSystem {
     public byte[] saveState(Bitmap screenshot) throws GBSystemException {
         pause();
         byte[] saveData = nativeSaveState();
-        nativeCopyScreenBuffer(screenshot);
+        nativeCopyScreenBufferToBitmap(screenshot);
         resume();
         return saveData;
     }
