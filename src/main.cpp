@@ -14,7 +14,7 @@
 #include "YBaseLib/Platform.h"
 #include "YBaseLib/BinaryReader.h"
 #include "YBaseLib/BinaryWriter.h"
-#include <SDL/SDL.h>
+#include <SDL.h>
 #include <cstdio>
 Log_SetChannel(Main);
 

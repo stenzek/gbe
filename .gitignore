@@ -37,3 +37,6 @@ config.h
 # qt creator
 CMakeLists.txt.user
 
+# outputs
+/gbe
+
