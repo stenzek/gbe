@@ -353,6 +353,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeBootS
 
     system->SetAccurateTiming(false);
     system->SetFrameLimiter(true);
+    system->SetAudioEnabled(false);
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeSetPaused(JNIEnv *env, jobject obj, jboolean paused)

@@ -551,7 +551,7 @@ void CPU::ExecuteInstruction()
     // cpu disabled for memory transfer?
     if (m_disabled)
     {
-        m_system->AddCPUCycles(4);
+        DelayCycle();
         return;
     }
 
@@ -602,7 +602,7 @@ void CPU::ExecuteInstruction()
     // if halted, simulate a single cycle to keep the display/audio going
     if (m_halted)
     {
-        m_system->AddCPUCycles(4);
+        DelayCycle();
         return;
     }
 

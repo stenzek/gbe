@@ -289,23 +289,22 @@ double System::ExecuteFrame()
         }
         else
         {
-            // get difference in time
-            double time_diff = m_reset_timer.GetTimeSeconds();
-            m_reset_timer.Reset();
+            // exec until next vblank
+            uint64 target_clocks = uint64(70224 * m_speed_multiplier) - m_clocks_since_reset;
             m_clocks_since_reset = 0;
-
-            // get the number of cycles to execute
-            uint64 target_clocks = TimeToClocks(time_diff * m_speed_multiplier);
-
+                                  
             // attempt to execute this many cycles, bail out if we exceed vblank time
-            while (m_clocks_since_reset < target_clocks && m_reset_timer.GetTimeSeconds() < VBLANK_INTERVAL && !m_serial_pause)
+            while (m_clocks_since_reset < target_clocks && !m_serial_pause)
                 Step();
 
             // calculate the speed we're at
             m_current_speed = float((double)m_clocks_since_reset / (double)target_clocks) * m_speed_multiplier;
-
+            //Log_InfoPrintf("oc %u tc %u td %f", (uint32)m_clocks_since_reset, (uint32)target_clocks, m_reset_timer.GetTimeMilliseconds());
+            m_clocks_since_reset -= (m_serial_pause) ? m_clocks_since_reset : target_clocks;
+            
             // calculate the sleep time
             double sleep_time = Max((VBLANK_INTERVAL / m_speed_multiplier) - m_reset_timer.GetTimeSeconds(), 0.0);
+            m_reset_timer.Reset();
             return sleep_time;
         }
     }

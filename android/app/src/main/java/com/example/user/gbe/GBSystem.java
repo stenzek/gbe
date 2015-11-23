@@ -403,6 +403,7 @@ public class GBSystem {
 				//Log.d("GBSystem", String.format("sleepTime: %f, millis: %d", sleepTime, millis));
 				try {
 					Thread.sleep(millis);
+					//Log.d("GBSystem", "wake");
 				}
 				catch (InterruptedException e) {
 
