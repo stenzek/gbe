@@ -1,0 +1,8 @@
+#pragma once
+
+// Config header
+
+// Core defines
+#cmakedefine HAVE_LIBXML2
+#cmakedefine HAVE_ZLIB
+
