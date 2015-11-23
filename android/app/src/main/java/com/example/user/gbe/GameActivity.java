@@ -223,6 +223,7 @@ public class GameActivity extends Activity {
             gbSystem = null;
         }
 
+        setResult(RESULT_OK);
         finish();
     }
 

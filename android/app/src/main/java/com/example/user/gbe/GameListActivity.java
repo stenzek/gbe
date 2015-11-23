@@ -26,6 +26,7 @@ import java.util.Set;
 public class GameListActivity extends AppCompatActivity {
 
     static final int ACTIVITY_RESULT_UPDATE_SEARCH_PATHS = 1;
+    static final int ACTIVITY_RESULT_GAME_FINISHED = 2;
 
     private RecyclerView mGameListView;
     private GameListAdapter mGameListAdapter;
@@ -95,6 +96,14 @@ public class GameListActivity extends AppCompatActivity {
                 }
                 break;
             }
+
+            case ACTIVITY_RESULT_GAME_FINISHED: {
+                if (resultCode == RESULT_OK) {
+                    // Refresh the game list to update the save info.
+                    mGameListAdapter.refreshList();
+                }
+                break;
+            }
         }
     }
 
@@ -156,6 +165,6 @@ public class GameListActivity extends AppCompatActivity {
     {
         Intent intent = new Intent(this, GameActivity.class);
         intent.putExtra("romPath", path);
-        startActivity(intent);
+        startActivityForResult(intent, ACTIVITY_RESULT_UPDATE_SEARCH_PATHS);
     }
 }
