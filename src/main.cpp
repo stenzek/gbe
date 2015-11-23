@@ -385,7 +385,10 @@ static bool ParseArguments(int argc, char *argv[], ProgramArgs *out_args)
     out_args->bios_filename = nullptr;
     out_args->cart_filename = nullptr;
     out_args->disable_bios = false;
-    out_args->permissive_memory = true;
+    out_args->permissive_memory = false;
+    out_args->accurate_timing = true;
+    out_args->frame_limiter = true;
+    out_args->enable_audio = true;
 
     for (int i = 1; i < argc; i++)
     {
