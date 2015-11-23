@@ -183,10 +183,21 @@ public class GameActivity extends Activity {
             }
         }
 
+        // Search for an auto save.
+        SaveStateManager.SaveState autoSaveState = SaveStateManager.getAutoSave(this, romPath);
+        if (autoSaveState != null) {
+            Log.d("loadRomAndBoot", "Loading auto save state from " + autoSaveState.getDate().toString());
+            Toast.makeText(GameActivity.this, "Attempting to resume from save at " + autoSaveState.getDate().toString(), Toast.LENGTH_SHORT).show();
+        }
+
         // Boot system with rom
         try {
             gbSystem = new GBSystem(mGLSurfaceView);
             gbSystem.start(cartData);
+
+            // Load state if one exists.
+            if (autoSaveState != null)
+                gbSystem.loadState(autoSaveState.getData());
         } catch (GBSystemException e) {
             e.printStackTrace();
             Toast.makeText(GameActivity.this, "Booting failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();

@@ -30,6 +30,7 @@ import java.util.Date;
 public class SaveStateManager {
     private Context mContext;
     private String mGamePath;
+    private String mSaveLocation;
     private String mSaveBaseFileTitle;
     private String mSaveBaseFilePath;
     private ArrayList<File> mSaveStateFiles;
@@ -58,15 +59,16 @@ public class SaveStateManager {
         mContext = context;
         mGamePath = gamePath;
         mSaveStateFiles = new ArrayList<File>();
+        mSaveLocation = getSaveLocation(context);
         mSaveBaseFileTitle = getBaseFileTitle(gamePath);
-        mSaveBaseFilePath = getSaveLocation(context) + "/" + mSaveBaseFileTitle;
+        mSaveBaseFilePath = mSaveLocation + "/" + mSaveBaseFileTitle;
         enumerateSaves();
     }
 
     private void enumerateSaves() {
         mSaveStateFiles.clear();
 
-        File savesDir = new File(Environment.getExternalStorageDirectory() + "/saves");
+        File savesDir = new File(mSaveLocation);
         File[] saveFiles = savesDir.listFiles(new FilenameFilter() {
             @Override
             public boolean accept(File dir, String filename) {
@@ -118,7 +120,7 @@ public class SaveStateManager {
     }
 
     public static SaveState getAutoSave(Context context, String gamePath) {
-        String autoSaveFile = getSaveLocation(context) + "/saves/" + getBaseFileTitle(gamePath) + "_auto.sav";
+        String autoSaveFile = getSaveLocation(context) + "/" + getBaseFileTitle(gamePath) + "_auto.sav";
         File file = new File(autoSaveFile);
         if (!file.exists()) {
             Log.d("getAutoSave", "No auto save found for " + gamePath);
