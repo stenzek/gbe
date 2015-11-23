@@ -9,6 +9,7 @@
     </group>
     <group>
         <item android:id="@+id/enable_sound" android:checkable="true" android:title="Enable Sound" />
+        <item android:id="@+id/enable_frame_limiter" android:checkable="true" android:title="Enable Frame Limiter" />
         <item android:id="@+id/change_speed" android:title="Change Speed" />
     </group>
     <group>

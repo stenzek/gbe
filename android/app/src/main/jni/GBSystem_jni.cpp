@@ -428,3 +428,8 @@ extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeLoadS
     env->ReleaseByteArrayElements(data, pData, JNI_ABORT);
 }
 
+extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeSetFrameLimiterEnabled(JNIEnv *env, jobject obj, jboolean enabled) {
+    GBSystemNative *native = (GBSystemNative *)(uintptr_t)env->GetLongField(obj, GBSystem_Field_NativePointer);
+    native->GetSystem()->SetFrameLimiter(enabled);
+    Log_DevPrintf("frame limiter %s", enabled ? "on" : "off");
+}

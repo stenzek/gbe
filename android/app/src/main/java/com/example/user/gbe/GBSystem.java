@@ -5,8 +5,6 @@ import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
 import android.util.Log;
-import android.view.MotionEvent;
-import android.view.View;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -65,6 +63,7 @@ public class GBSystem {
 	private native void nativeSetPadButtonState(int state);
 	private native byte[] nativeSaveState() throws GBSystemException;
     private native void nativeLoadState(byte[] data) throws GBSystemException;
+	private native void nativeSetFrameLimiterEnabled(boolean enabled);
 
 	/* Native callbacks */
 	private void onScreenBufferReady() {
@@ -346,7 +345,7 @@ public class GBSystem {
 		workerThread = null;
 	}
 
-	public void start(byte[] cartData) throws GBSystemException {
+	public void start(byte[] cartData, boolean frameLimiterEnabled) throws GBSystemException {
 		int systemBootMode = GBSystem.SYSTEM_MODE_DMG;
 		if (cartData != null) {
 			Log.d("GBSystem", "Parsing cartridge");
@@ -360,6 +359,7 @@ public class GBSystem {
 
 		Log.i("GBSystem", "Booting system mode: " + systemBootMode);
 		nativeBootSystem(systemBootMode);
+		nativeSetFrameLimiterEnabled(frameLimiterEnabled);
 
 		Log.i("GBSystem", "Starting worker thread.");
 		startWorkerThread();
@@ -438,6 +438,12 @@ public class GBSystem {
         nativeLoadState(data);
         resume();
     }
+
+	public void setFrameLimiter(boolean enabled) {
+		pause();
+		nativeSetFrameLimiterEnabled(enabled);
+		resume();
+	}
 
 	/*private View.OnTouchListener mTouchListener = new View.OnTouchListener() {
 		@Override

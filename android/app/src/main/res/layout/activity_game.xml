@@ -87,8 +87,10 @@
             android:text="Select"
             android:id="@+id/button_pad_select"
             android:layout_alignParentBottom="true"
-            android:layout_toRightOf="@+id/button_pad_right"
-            android:layout_toEndOf="@+id/button_pad_right" />
+            android:layout_toRightOf="@+id/button_pad_down"
+            android:layout_toEndOf="@+id/button_pad_down"
+            android:layout_marginLeft="25dp"
+            android:layout_marginStart="25dp" />
 
         <Button
             style="?android:attr/buttonStyleSmall"

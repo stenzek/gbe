@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">GBE</string>
+    <string name="app_name">Another GameBoy Emulator</string>
     <string name="action_settings">Settings</string>
     <string name="title_activity_settings">Settings</string>
     <string name="title_activity_game">GameActivity</string>

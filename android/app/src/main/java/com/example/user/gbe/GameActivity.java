@@ -2,7 +2,10 @@ package com.example.user.gbe;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.opengl.GLSurfaceView;
+import android.preference.Preference;
+import android.preference.PreferenceManager;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -99,6 +102,13 @@ public class GameActivity extends Activity {
                 popupMenu.getMenuInflater().inflate(R.menu.menu_game, popupMenu.getMenu());
                 popupMenu.setOnMenuItemClickListener(mPopupMenuClickListener);
                 popupMenu.setOnDismissListener(mPopupMenuDismissListener);
+
+                // Set menu options according to preference state.
+                SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(GameActivity.this);
+                popupMenu.getMenu().findItem(R.id.enable_sound).setChecked(preferences.getBoolean("enable_sound", true));
+                popupMenu.getMenu().findItem(R.id.enable_frame_limiter).setChecked(preferences.getBoolean("frame_limiter", true));
+
+                // Show popup menu.
                 popupMenu.show();
             }
         });
@@ -159,6 +169,10 @@ public class GameActivity extends Activity {
 
     private void loadRomAndBoot(String romPath)
     {
+        // Load preferences.
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        boolean frameLimiterEnabled = preferences.getBoolean("frame_limiter", true);
+        
         // Read rom
         byte[] cartData = null;
         if (romPath != null) {
@@ -193,7 +207,7 @@ public class GameActivity extends Activity {
         // Boot system with rom
         try {
             gbSystem = new GBSystem(mGLSurfaceView);
-            gbSystem.start(cartData);
+            gbSystem.start(cartData, frameLimiterEnabled);
 
             // Load state if one exists.
             if (autoSaveState != null)
@@ -230,6 +244,8 @@ public class GameActivity extends Activity {
     private PopupMenu.OnMenuItemClickListener mPopupMenuClickListener = new PopupMenu.OnMenuItemClickListener() {
         @Override
         public boolean onMenuItemClick(MenuItem item) {
+            SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(GameActivity.this);
+
             int id = item.getItemId();
             switch (id)
             {
@@ -271,6 +287,16 @@ public class GameActivity extends Activity {
                     boolean soundEnabled = !item.isChecked();
                     Toast.makeText(GameActivity.this, soundEnabled ? "Sound Enabled" : "Sound Disabled", Toast.LENGTH_SHORT).show();
                     item.setChecked(soundEnabled);
+                    return true;
+                }
+
+                // Enable Frame Limiter
+                case R.id.enable_frame_limiter: {
+                    boolean frameLimiterEnabled = !preferences.getBoolean("frame_limiter", true);
+                    preferences.edit().remove("frame_limiter").putBoolean("frame_limiter", frameLimiterEnabled).commit();
+                    gbSystem.setFrameLimiter(frameLimiterEnabled);
+                    item.setChecked(frameLimiterEnabled);
+                    Toast.makeText(GameActivity.this, frameLimiterEnabled ? "Frame Limiter Enabled" : "Frame Limiter Disabled", Toast.LENGTH_SHORT).show();
                     return true;
                 }
 
