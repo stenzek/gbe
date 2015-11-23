@@ -7,6 +7,7 @@ import android.preference.PreferenceManager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.SimpleItemAnimator;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -22,6 +23,8 @@ import java.io.FilenameFilter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
+
+import jp.wasabeef.recyclerview.animators.SlideInLeftAnimator;
 
 public class GameListActivity extends AppCompatActivity {
 
@@ -40,16 +43,15 @@ public class GameListActivity extends AppCompatActivity {
 
         mGameListView = (RecyclerView)findViewById(R.id.gameListView);
         mGameListView.setLayoutManager(new LinearLayoutManager(this));
+        mGameListView.setItemAnimator(new SlideInLeftAnimator());
 
         mGameListAdapter = new GameListAdapter(this);
-        mGameListView.setAdapter(mGameListAdapter);
-        mGameListAdapter.refreshList();
-
         mGameListAdapter.setOnItemClickedListener(new GameListAdapter.OnItemClickedListener() {
             public void onClick(GameListAdapter.GameInfo gameInfo) {
                 launchGame(gameInfo.getPath());
             }
         });
+        mGameListView.setAdapter(mGameListAdapter);
     }
 
     @Override
