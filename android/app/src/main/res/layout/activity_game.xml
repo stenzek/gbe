@@ -87,10 +87,8 @@
             android:text="Select"
             android:id="@+id/button_pad_select"
             android:layout_alignParentBottom="true"
-            android:layout_toRightOf="@+id/button_pad_down"
-            android:layout_toEndOf="@+id/button_pad_down"
-            android:layout_marginLeft="25dp"
-            android:layout_marginStart="25dp" />
+            android:layout_toRightOf="@+id/button_pad_right"
+            android:layout_toEndOf="@+id/button_pad_right" />
 
         <Button
             style="?android:attr/buttonStyleSmall"
@@ -98,9 +96,19 @@
             android:layout_height="wrap_content"
             android:text="Start"
             android:id="@+id/button_pad_start"
-            android:layout_alignTop="@+id/button_pad_select"
+            android:layout_alignParentBottom="true"
             android:layout_toRightOf="@+id/button_pad_select"
             android:layout_toEndOf="@+id/button_pad_select" />
+
+        <Button
+            style="?android:attr/buttonStyleSmall"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Menu"
+            android:id="@+id/menu"
+            android:layout_alignParentBottom="true"
+            android:layout_alignParentRight="true"
+            android:layout_alignParentEnd="true" />
     </RelativeLayout>
 
 </FrameLayout>

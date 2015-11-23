@@ -1,5 +1,6 @@
 package com.example.user.gbe;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.opengl.GLSurfaceView;
 import android.support.v7.app.ActionBar;
@@ -10,6 +11,8 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.Button;
+import android.widget.PopupMenu;
 import android.widget.Toast;
 
 import java.io.File;
@@ -21,7 +24,7 @@ import java.io.IOException;
  * An example full-screen activity that shows and hides the system UI (i.e.
  * status bar and navigation/system bar) with user interaction.
  */
-public class GameActivity extends AppCompatActivity {
+public class GameActivity extends Activity {
     /**
      * Whether or not the system UI should be auto-hidden after
      * {@link #AUTO_HIDE_DELAY_MILLIS} milliseconds.
@@ -55,14 +58,14 @@ public class GameActivity extends AppCompatActivity {
         mGLSurfaceView = (GLSurfaceView)findViewById(R.id.gbDisplayView);
 
         // Set up the user interaction to manually showToolbar or hideToolbar the system UI.
-        mGLSurfaceView.setOnClickListener(new View.OnClickListener() {
+        /*mGLSurfaceView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 // re-hideToolbar the controls
                 if (mToolbarVisible)
                     hideToolbar();
             }
-        });
+        });*/
 
         // Pull parameters back from launcher.
         Intent intent = getIntent();
@@ -86,100 +89,34 @@ public class GameActivity extends AppCompatActivity {
         findViewById(R.id.button_pad_b).setOnTouchListener(mPadTouchListener);
         findViewById(R.id.button_pad_select).setOnTouchListener(mPadTouchListener);
         findViewById(R.id.button_pad_start).setOnTouchListener(mPadTouchListener);
+
+        // Hook up menu
+        final Button menuButton = (Button)findViewById(R.id.menu);
+        menuButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                PopupMenu popupMenu = new PopupMenu(GameActivity.this, menuButton);
+                popupMenu.getMenuInflater().inflate(R.menu.menu_game, popupMenu.getMenu());
+                popupMenu.setOnMenuItemClickListener(mPopupMenuClickListener);
+                popupMenu.setOnDismissListener(mPopupMenuDismissListener);
+                popupMenu.show();
+            }
+        });
     }
 
     @Override
     protected void onPostCreate(Bundle savedInstanceState) {
         super.onPostCreate(savedInstanceState);
-
-        // Trigger the initial hideToolbar() shortly after the activity has been
-        // created, to briefly hint to the user that UI controls
-        // are available.
-        //delayedHide(100);
-        hideToolbar();
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.menu_game, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        int id = item.getItemId();
-        switch (id)
-        {
-            // Save State
-            case R.id.save_state: {
-                if (mSaveStateManager.createManualSave(gbSystem)) {
-                    Toast.makeText(GameActivity.this, "Save created.", Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(GameActivity.this, "Save failed.", Toast.LENGTH_SHORT).show();
-                }
-                return true;
-            }
-
-            // Load State
-            case R.id.load_state: {
-                try {
-                    SaveStateManager.SaveState saveState = mSaveStateManager.getLatestManualSave();
-                    if (saveState != null) {
-                        gbSystem.loadState(saveState.getData());
-                        Toast.makeText(GameActivity.this, "Save loaded.", Toast.LENGTH_SHORT).show();
-                    } else {
-                        Toast.makeText(GameActivity.this, "No save found.", Toast.LENGTH_SHORT).show();
-                    }
-                } catch (GBSystemException e) {
-                    e.printStackTrace();
-                    Toast.makeText(GameActivity.this, "Load failed.", Toast.LENGTH_SHORT).show();
-                }
-                return true;
-            }
-
-            // Select Save State
-            case R.id.select_save_state: {
-                Toast.makeText(GameActivity.this, "Selecting save state", Toast.LENGTH_SHORT).show();
-                return true;
-            }
-
-            // Enable Sound
-            case R.id.enable_sound: {
-                boolean soundEnabled = !item.isChecked();
-                Toast.makeText(GameActivity.this, soundEnabled ? "Sound Enabled" : "Sound Disabled", Toast.LENGTH_SHORT).show();
-                item.setChecked(soundEnabled);
-                return true;
-            }
-
-            // Change speed
-            case R.id.change_speed: {
-                Toast.makeText(GameActivity.this, "Changing speed", Toast.LENGTH_SHORT).show();
-                return true;
-            }
-
-            // Settings
-            case R.id.settings: {
-                startActivity(new Intent(this, SettingsActivity.class));
-                return true;
-            }
-
-            // Exit
-            case R.id.exit: {
-                endEmulation();
-                return true;
-            }
-        }
-
-        return super.onOptionsItemSelected(item);
+        hideSystemUI();
     }
 
     @Override
     public void onBackPressed() {
-        // showToolbar menu if not visible, otherwise exit out
-        if (!mToolbarVisible)
-            showToolbar();
-        else
-            endEmulation();
+        // Restore system UI.
+        showSystemUI();
+
+        // End emulation.
+        endEmulation();
     }
 
     @Override
@@ -187,6 +124,8 @@ public class GameActivity extends AppCompatActivity {
         if (gbSystem != null && gbSystem.isRunning())
             gbSystem.pause();
 
+        // Restore the system UI.
+        showSystemUI();
         super.onPause();
     }
 
@@ -197,19 +136,13 @@ public class GameActivity extends AppCompatActivity {
         assert(gbSystem != null);
         if (!gbSystem.isRunning())
             gbSystem.resume();
+
+        // Hide the system UI.
+        hideSystemUI();
     }
 
-    private void hideToolbar() {
-        // Hide UI first
-        ActionBar actionBar = getSupportActionBar();
-        if (actionBar != null) {
-            actionBar.hide();
-        }
-        mToolbarVisible = false;
-
-        // Note that some of these constants are new as of API 16 (Jelly Bean)
-        // and API 19 (KitKat). It is safe to use them, as they are inlined
-        // at compile-time and do nothing on earlier devices.
+    private void hideSystemUI() {
+        // Hide the system UI.
         mGLSurfaceView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE
                 | View.SYSTEM_UI_FLAG_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
@@ -218,17 +151,10 @@ public class GameActivity extends AppCompatActivity {
                 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
     }
 
-    private void showToolbar() {
-        // Show the system bar
+    private void showSystemUI() {
+        // Restore the system UI.
         mGLSurfaceView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
-
-        mToolbarVisible = true;
-
-        ActionBar actionBar = getSupportActionBar();
-        if (actionBar != null) {
-            actionBar.show();
-        }
     }
 
     private void loadRomAndBoot(String romPath)
@@ -288,6 +214,83 @@ public class GameActivity extends AppCompatActivity {
 
         finish();
     }
+
+    private PopupMenu.OnMenuItemClickListener mPopupMenuClickListener = new PopupMenu.OnMenuItemClickListener() {
+        @Override
+        public boolean onMenuItemClick(MenuItem item) {
+            int id = item.getItemId();
+            switch (id)
+            {
+                // Save State
+                case R.id.save_state: {
+                    if (mSaveStateManager.createManualSave(gbSystem)) {
+                        Toast.makeText(GameActivity.this, "Save created.", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(GameActivity.this, "Save failed.", Toast.LENGTH_SHORT).show();
+                    }
+                    return true;
+                }
+
+                // Load State
+                case R.id.load_state: {
+                    try {
+                        SaveStateManager.SaveState saveState = mSaveStateManager.getLatestManualSave();
+                        if (saveState != null) {
+                            gbSystem.loadState(saveState.getData());
+                            Toast.makeText(GameActivity.this, "Save loaded.", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(GameActivity.this, "No save found.", Toast.LENGTH_SHORT).show();
+                        }
+                    } catch (GBSystemException e) {
+                        e.printStackTrace();
+                        Toast.makeText(GameActivity.this, "Load failed.", Toast.LENGTH_SHORT).show();
+                    }
+                    return true;
+                }
+
+                // Select Save State
+                case R.id.select_save_state: {
+                    Toast.makeText(GameActivity.this, "Selecting save state", Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+
+                // Enable Sound
+                case R.id.enable_sound: {
+                    boolean soundEnabled = !item.isChecked();
+                    Toast.makeText(GameActivity.this, soundEnabled ? "Sound Enabled" : "Sound Disabled", Toast.LENGTH_SHORT).show();
+                    item.setChecked(soundEnabled);
+                    return true;
+                }
+
+                // Change speed
+                case R.id.change_speed: {
+                    Toast.makeText(GameActivity.this, "Changing speed", Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+
+                // Settings
+                case R.id.settings: {
+                    startActivity(new Intent(GameActivity.this, SettingsActivity.class));
+                    return true;
+                }
+
+                // Exit
+                case R.id.exit: {
+                    endEmulation();
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    };
+    private PopupMenu.OnDismissListener mPopupMenuDismissListener = new PopupMenu.OnDismissListener() {
+        @Override
+        public void onDismiss(PopupMenu menu) {
+            // Re-hide the system UI after clicking the button shows it.
+            hideSystemUI();
+        }
+    };
 
     private View.OnTouchListener mPadTouchListener = new View.OnTouchListener() {
         @Override
