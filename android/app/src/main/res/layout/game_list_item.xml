@@ -5,7 +5,7 @@
     android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="80dp"
-    android:layout_margin="8dp"
+    android:layout_margin="4dp"
     android:clickable="true"
     android:foreground="?android:selectableItemBackground">
 
@@ -34,10 +34,10 @@
             android:layout_height="18dp"
             android:textSize="14dp"
             android:text="Never played"
-            android:layout_below="@+id/game_title"
+            android:textColor="@color/abc_primary_text_material_light"
+            android:layout_centerVertical="true"
             android:layout_alignLeft="@+id/game_title"
-            android:layout_alignStart="@+id/game_title"
-            android:textColor="@color/abc_primary_text_material_light" />
+            android:layout_alignStart="@+id/game_title" />
 
         <TextView android:id="@+id/game_filename"
             android:layout_width="match_parent"

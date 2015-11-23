@@ -306,6 +306,9 @@ public class GameActivity extends Activity {
     private View.OnTouchListener mPadTouchListener = new View.OnTouchListener() {
         @Override
         public boolean onTouch(View view, MotionEvent motionEvent) {
+            if (motionEvent.getAction() != MotionEvent.ACTION_UP && motionEvent.getAction() != MotionEvent.ACTION_DOWN)
+                return false;
+
             boolean isDown = (motionEvent.getAction() == MotionEvent.ACTION_DOWN);
             switch (view.getId()) {
                 case R.id.button_pad_left:
