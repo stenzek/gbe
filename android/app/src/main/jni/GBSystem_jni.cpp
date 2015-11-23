@@ -351,7 +351,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_example_user_gbe_GBSystem_nativeBootS
         return;
     }
 
-    system->SetAccurateTiming(false);
+    system->SetAccurateTiming(true);
     system->SetFrameLimiter(true);
     system->SetAudioEnabled(false);
 }
