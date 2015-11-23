@@ -238,6 +238,7 @@ public class SaveStateManager {
                 dstream.read(mData);
 
                 byte[] bitmapData = new byte[bitmapSize];
+                dstream.read(bitmapData);
                 mScreenshot = BitmapFactory.decodeByteArray(bitmapData, 0, bitmapData.length);
                 mDate = new Date(file.lastModified());
 
