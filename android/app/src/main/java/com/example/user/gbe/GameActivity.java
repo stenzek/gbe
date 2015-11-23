@@ -85,7 +85,7 @@ public class GameActivity extends AppCompatActivity {
         findViewById(R.id.button_pad_a).setOnTouchListener(mPadTouchListener);
         findViewById(R.id.button_pad_b).setOnTouchListener(mPadTouchListener);
         findViewById(R.id.button_pad_select).setOnTouchListener(mPadTouchListener);
-        findViewById(R.id.button_pad_select).setOnTouchListener(mPadTouchListener);
+        findViewById(R.id.button_pad_start).setOnTouchListener(mPadTouchListener);
     }
 
     @Override
