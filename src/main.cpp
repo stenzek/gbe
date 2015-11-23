@@ -464,9 +464,7 @@ static bool InitializeState(const ProgramArgs *args, State *state)
         return false;
 
     // create render window
-    SmallString window_title;
-    window_title.Format("gbe - %s", state->cart->GetName().GetCharArray());
-    state->window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, Display::SCREEN_WIDTH, Display::SCREEN_HEIGHT, 0);
+    state->window = SDL_CreateWindow("gbe", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, Display::SCREEN_WIDTH, Display::SCREEN_HEIGHT, 0);
     if (state->window == nullptr)
     {
         Log_ErrorPrintf("Failed to crate SDL window: %s", SDL_GetError());
@@ -774,7 +772,7 @@ static int Run(State *state)
 
             // update window title
             SmallString window_title;
-            window_title.Format("gbe - %s - Frame %u - %.0f%%", state->cart->GetName().GetCharArray(), state->system->GetFrameCounter() + 1, state->system->GetCurrentSpeed() * 100.0f);
+            window_title.Format("gbe - %s - Frame %u - %.0f%%", (state->cart != nullptr) ? state->cart->GetName().GetCharArray() : "NO CARTRIDGE", state->system->GetFrameCounter() + 1, state->system->GetCurrentSpeed() * 100.0f);
             SDL_SetWindowTitle(state->window, window_title);
         }
     }
