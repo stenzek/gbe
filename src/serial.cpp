@@ -190,8 +190,8 @@ void Serial::EndTransfer(uint32 clocks)
 
 void Serial::Synchronize()
 {
-    uint32 cycles_to_execute = m_system->CalculateCycleCount(m_last_cycle, m_system->GetDoubleSpeedCycleNumber());
-    m_last_cycle = m_system->GetDoubleSpeedCycleNumber();
+    uint32 cycles_to_execute = m_system->CalculateDoubleSpeedCycleCount(m_last_cycle);
+    m_last_cycle = m_system->GetCycleNumber();
 
     if (cycles_to_execute > 0)
     {

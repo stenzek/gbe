@@ -65,11 +65,12 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, uint32 bios_length, Cartri
     m_serial = new Serial(this);
 
     m_cycle_number = 0;
-    m_double_speed_cycle_number = 0;
     m_next_display_sync_cycle = 0;
     m_next_audio_sync_cycle = 0;
     m_next_serial_sync_cycle = 0;
     m_next_timer_sync_cycle = 0;
+    m_next_event_cycle = 0;
+    m_event = false;
 
     m_clocks_since_reset = 0;
     m_last_vblank_clocks = 0;
@@ -112,11 +113,12 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, uint32 bios_length, Cartri
 void System::Reset()
 {
     m_cycle_number = 0;
-    m_double_speed_cycle_number = 0;
     m_next_display_sync_cycle = 0;
     m_next_audio_sync_cycle = 0;
     m_next_serial_sync_cycle = 0;
     m_next_timer_sync_cycle = 0;
+    m_next_event_cycle = 0;
+    m_event = false;
 
     m_clocks_since_reset = 0;
     m_last_vblank_clocks = 0;
@@ -170,33 +172,36 @@ void System::Step()
     m_cpu->ExecuteInstruction();
 }
 
+void System::UpdateNextEventCycle()
+{
+    if (m_event)
+        return;
+
+    uint32 first_event = Min(m_next_timer_sync_cycle, Min(m_next_serial_sync_cycle, Min(m_next_display_sync_cycle, m_next_audio_sync_cycle)));
+    DebugAssert(first_event >= m_cycle_number);
+    if (m_memory_locked_cycles > 0)
+        first_event = Min(first_event, m_cycle_number + m_memory_locked_cycles);
+
+    uint32 clocks_to_event = (first_event - m_cycle_number);
+    m_next_event_cycle = (int32)clocks_to_event;
+}
+
 void System::AddCPUCycles(uint32 cpu_clocks)
 {
     // CPU clocks are always dividable by 4
     DebugAssert((cpu_clocks % 4) == 0);
+    m_cycle_number += cpu_clocks;
+    m_clocks_since_reset += (cpu_clocks >> GetDoubleSpeedDivider());
+    m_next_event_cycle -= (int32)cpu_clocks;
+    if (m_next_event_cycle > 0)
+        return;
 
     // what we will synchronize
-    bool sync_timers = false;
-    bool sync_serial = false;
-    bool sync_display = false;
-    bool sync_audio = false;
-
-    // fast clocks
-    m_double_speed_cycle_number += cpu_clocks;
-    sync_timers = (m_double_speed_cycle_number >= m_next_timer_sync_cycle);
-    sync_serial = (m_double_speed_cycle_number >= m_next_serial_sync_cycle);
-
-    // Make each instruction take half as long in double-speed mode.
-    uint32 slow_speed_shift = (m_cgb_speed_switch >> 7);
-    uint32 slow_speed_clocks = cpu_clocks >> slow_speed_shift;
-
-    // handle overflows here
-    m_cycle_number += slow_speed_clocks;
-    sync_display = (m_cycle_number >= m_next_display_sync_cycle);
-    sync_audio = (m_cycle_number >= m_next_audio_sync_cycle);
-
-    // update our counter [use the normal speed as a reference]
-    m_clocks_since_reset += slow_speed_clocks;
+    bool sync_timers = (m_cycle_number >= m_next_timer_sync_cycle);
+    bool sync_serial = (m_cycle_number >= m_next_serial_sync_cycle);
+    bool sync_display = (m_cycle_number >= m_next_display_sync_cycle);
+    bool sync_audio = (m_cycle_number >= m_next_audio_sync_cycle);
+    m_event = true;
 
     // Handle memory locking for OAM transfers [affected by double speed]
     if (m_memory_locked_cycles > 0)
@@ -217,6 +222,10 @@ void System::AddCPUCycles(uint32 cpu_clocks)
     // Simulate timers [affected by double speed]
     if (sync_timers)
         SynchronizeTimers();
+
+    // Update time to next event
+    m_event = false;
+    UpdateNextEventCycle();
 }
 
 void System::SetSerialPause(bool enabled)
@@ -260,58 +269,67 @@ double System::ExecuteFrame()
     if (m_frame_limiter)
     {
         // using "accurate" timing?
+        Timer exec_timer;
+        uint64 clocks_executed;
+        double sleep_time;
         if (m_accurate_timing)
         {
             // determine the number of cycles we should be at
             double frame_start_time = m_reset_timer.GetTimeSeconds();
             uint64 target_clocks = TimeToClocks(frame_start_time);
             uint64 current_clocks = m_clocks_since_reset;
-            m_current_speed = 1.0f;
 
             // check that we're not ahead (is perfectly possible since each instruction takes a minimum of 4 clocks)
             if (target_clocks > current_clocks)
             {
                 // keep executing until we meet our target
+                clocks_executed = target_clocks - current_clocks;
                 while (m_clocks_since_reset < target_clocks && !m_serial_pause)
                     Step();
             }
+            else
+            {
+                clocks_executed = 0;
+            }
 
             // find the number of clocks to next vblank
-            uint64 next_vblank_clocks = m_last_vblank_clocks + 65664;
+            uint64 next_vblank_clocks = m_last_vblank_clocks + 70224;
             uint64 sleep_clocks = (next_vblank_clocks > m_clocks_since_reset) ? (next_vblank_clocks - m_clocks_since_reset) : 0;
-            double sleep_time = ClocksToTime(sleep_clocks);
+            sleep_time = ClocksToTime(sleep_clocks);
 
             // calculate the ideal time we want to hit the next frame
             double frame_end_time = m_reset_timer.GetTimeSeconds();
             double execution_time = frame_end_time - frame_start_time;
             TRACE("execution_time = %f, sleep time: %f", execution_time, sleep_time);
-            return Max(0.0, sleep_time - execution_time);
+            sleep_time = Max(0.0, sleep_time - execution_time);
         }
         else
         {
-            // exec until next vblank
+            // execute one frame worth of cycles
+            DebugAssert(m_clocks_since_reset <= 70224);
             uint64 target_clocks = uint64(70224 * m_speed_multiplier) - m_clocks_since_reset;
             m_clocks_since_reset = 0;
                                   
-            // attempt to execute this many cycles, bail out if we exceed vblank time
+            // exec cycles
             while (m_clocks_since_reset < target_clocks && !m_serial_pause)
                 Step();
 
-            // calculate the speed we're at
-            m_current_speed = float((double)m_clocks_since_reset / (double)target_clocks) * m_speed_multiplier;
             //Log_InfoPrintf("oc %u tc %u td %f", (uint32)m_clocks_since_reset, (uint32)target_clocks, m_reset_timer.GetTimeMilliseconds());
             m_clocks_since_reset -= (m_serial_pause) ? m_clocks_since_reset : target_clocks;
-            
+            clocks_executed = target_clocks;
+
             // calculate the sleep time
-            double sleep_time = Max((VBLANK_INTERVAL / m_speed_multiplier) - m_reset_timer.GetTimeSeconds(), 0.0);
-            m_reset_timer.Reset();
-            return sleep_time;
+            sleep_time = Max((VBLANK_INTERVAL / m_speed_multiplier) - exec_timer.GetTimeSeconds(), 0.0);
         }
+
+        // calculate the speed we're at
+        m_current_speed = float(double(clocks_executed) / double(TimeToClocks(exec_timer.GetTimeSeconds())));
+        return sleep_time;
     }
     else
     {
         // framelimiter off, just execute as many as quickly as possible, say, 16ms worth at a time
-        uint64 target_clocks = m_clocks_since_reset + TimeToClocks((double)VBLANK_INTERVAL);
+        uint64 target_clocks = m_clocks_since_reset + 70224;
         while (m_clocks_since_reset < target_clocks && !m_serial_pause)
             Step();
 
@@ -623,12 +641,19 @@ void System::DMATransfer(uint16 source_address, uint16 destination_address, uint
     // give it a few extra cycles.
     //m_memory_locked_cycles = 671;
     m_memory_locked_cycles = 640;
+    UpdateNextEventCycle();
 }
 
 bool System::SwitchCGBSpeed()
 {
     if (!(m_cgb_speed_switch & (1 << 0)))
         return false;
+
+    // synchronize all clocks at the current clock speed
+    m_display->Synchronize();
+    m_audio->Synchronize();
+    m_serial->Synchronize();
+    SynchronizeTimers();
 
     // Flips the switch bit off at the same time.
     m_cgb_speed_switch ^= 0x81;
@@ -640,6 +665,13 @@ bool System::SwitchCGBSpeed()
     // reset timing - so that accurate timing doesn't break
     //m_clocks_since_reset = 0;
     //m_reset_timer.Reset();
+
+    // re-synchronize all clocks again to fix the cycle counters
+    m_display->Synchronize();
+    m_audio->Synchronize();
+    m_serial->Synchronize();
+    SynchronizeTimers();
+    UpdateNextEventCycle();    
     return true;
 }
 
@@ -725,8 +757,8 @@ void System::SetPostBootstrapState()
 
 void System::SynchronizeTimers()
 {
-    uint32 cycles_to_execute = CalculateCycleCount(m_timer_last_cycle, m_double_speed_cycle_number);
-    m_timer_last_cycle = m_double_speed_cycle_number;
+    uint32 cycles_to_execute = CalculateDoubleSpeedCycleCount(m_timer_last_cycle);
+    m_timer_last_cycle = GetCycleNumber();
 
     // cpu runs at 4,194,304hz
     // timer runs at 16,384hz

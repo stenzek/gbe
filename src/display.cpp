@@ -482,7 +482,7 @@ void Display::ExecuteHDMATransferBlock(uint32 bytes)
 
 void Display::Synchronize()
 {
-    uint32 cycles_to_execute = m_system->CalculateCycleCount(m_last_cycle, m_system->GetCycleNumber());
+    uint32 cycles_to_execute = m_system->CalculateCycleCount(m_last_cycle);
     m_last_cycle = m_system->GetCycleNumber();
 
     // Handle HDMA transfers blocking of cpu.

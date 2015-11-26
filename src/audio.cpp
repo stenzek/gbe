@@ -111,7 +111,7 @@ void Audio::SaveState(ByteStream *pStream, BinaryWriter &binaryWriter)
 
 void Audio::Synchronize()
 {
-    uint32 cycles_to_execute = m_system->CalculateCycleCount(m_last_cycle, m_system->GetCycleNumber());
+    uint32 cycles_to_execute = m_system->CalculateCycleCount(m_last_cycle);
     m_last_cycle = m_system->GetCycleNumber();
     m_cycles_since_frame += cycles_to_execute;
 
@@ -162,18 +162,18 @@ void Audio::Synchronize()
         }
     }
 
-    m_system->SetNextAudioSyncCycle(PUSH_FREQUENCY_IN_CYCLES - m_last_cycle);
+    m_system->SetNextAudioSyncCycle(PUSH_FREQUENCY_IN_CYCLES - m_cycles_since_frame);
 }
 
 uint8 Audio::CPUReadRegister(uint8 index) const
 {
-    uint32 op_time = m_cycles_since_frame + m_system->CalculateCycleCount(m_last_cycle, m_system->GetCycleNumber());
+    uint32 op_time = m_cycles_since_frame + m_system->CalculateCycleCount(m_last_cycle);
     return (uint8)m_apu->read_register(op_time, 0xFF00 | index);
 }
 
 void Audio::CPUWriteRegister(uint8 index, uint8 value)
 {
-    uint32 op_time = m_cycles_since_frame + m_system->CalculateCycleCount(m_last_cycle, m_system->GetCycleNumber());
+    uint32 op_time = m_cycles_since_frame + m_system->CalculateCycleCount(m_last_cycle);
     return m_apu->write_register(op_time, 0xFF00 | index, value);
 }
 

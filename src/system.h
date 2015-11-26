@@ -134,14 +134,16 @@ private:
     // synchronization
     // yeah this'll overflow, but it just means we'll synchronize too early, then correct it afterwards
     uint32 GetCycleNumber() const { return m_cycle_number; }
-    uint32 GetDoubleSpeedCycleNumber() const { return m_double_speed_cycle_number; }
-    void SetNextDisplaySyncCycle(uint32 cycles) { m_next_display_sync_cycle = (m_cycle_number < m_next_display_sync_cycle) ? Min(m_next_display_sync_cycle, m_cycle_number + cycles) : (m_cycle_number + cycles); }
-    void SetNextAudioSyncCycle(uint32 cycles) { m_next_audio_sync_cycle = (m_cycle_number < m_next_audio_sync_cycle) ? Min(m_next_audio_sync_cycle, m_cycle_number + cycles) : (m_cycle_number + cycles); }
-    void SetNextSerialSyncCycle(uint32 cycles) { m_next_serial_sync_cycle = (m_double_speed_cycle_number < m_next_serial_sync_cycle) ? Min(m_next_serial_sync_cycle, m_double_speed_cycle_number + cycles) : (m_double_speed_cycle_number + cycles); }
-    void SetNextTimerSyncCycle(uint32 cycles) { m_next_timer_sync_cycle = (m_double_speed_cycle_number < m_next_timer_sync_cycle) ? Min(m_next_timer_sync_cycle, m_double_speed_cycle_number + cycles) : (m_double_speed_cycle_number + cycles); }
+    uint32 GetDoubleSpeedDivider() const { return (m_cgb_speed_switch >> 7); }
+    void SetNextDisplaySyncCycle(uint32 cycles) { m_next_display_sync_cycle = m_cycle_number + (cycles >> GetDoubleSpeedDivider()); UpdateNextEventCycle(); }
+    void SetNextAudioSyncCycle(uint32 cycles) { m_next_audio_sync_cycle = m_cycle_number + (cycles >> GetDoubleSpeedDivider()); UpdateNextEventCycle(); }
+    void SetNextSerialSyncCycle(uint32 cycles) { m_next_serial_sync_cycle = m_cycle_number + cycles; UpdateNextEventCycle(); }
+    void SetNextTimerSyncCycle(uint32 cycles) { m_next_timer_sync_cycle = m_cycle_number + cycles; UpdateNextEventCycle(); }
+    void UpdateNextEventCycle();
 
     // helper to calculate difference
-    static inline uint32 CalculateCycleCount(uint32 oldCycleNumber, uint32 newCycleNumber) { return (oldCycleNumber > newCycleNumber) ? (0xFFFFFFFF - oldCycleNumber + newCycleNumber) : (newCycleNumber - oldCycleNumber); }
+    inline uint32 CalculateCycleCount(uint32 oldCycleNumber) { return ((oldCycleNumber > m_cycle_number) ? (0xFFFFFFFF - oldCycleNumber + m_cycle_number) : (m_cycle_number - oldCycleNumber)) >> GetDoubleSpeedDivider(); }
+    inline uint32 CalculateDoubleSpeedCycleCount(uint32 oldCycleNumber) { return (oldCycleNumber > m_cycle_number) ? (0xFFFFFFFF - oldCycleNumber + m_cycle_number) : (m_cycle_number - oldCycleNumber); }
 
     // execute other processors while the cpu is reading memory
     void AddCPUCycles(uint32 cpu_clocks);
@@ -170,13 +172,15 @@ private:
 
     // synchronization
     uint32 m_cycle_number;
-    uint32 m_double_speed_cycle_number;
     uint32 m_next_display_sync_cycle;
     uint32 m_next_audio_sync_cycle;
     uint32 m_next_serial_sync_cycle;
     uint32 m_next_timer_sync_cycle;
+    int32 m_next_event_cycle;
+    bool m_event;
 
     Timer m_reset_timer;
+    Timer m_speed_timer;
 
     uint64 m_clocks_since_reset;
     uint64 m_last_vblank_clocks;
