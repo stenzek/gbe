@@ -489,7 +489,8 @@ void Display::Synchronize()
     // This would be better placed elsewhere.
     if (m_HDMATransferClocksRemaining > 0)
     {
-        if (cycles_to_execute >= m_HDMATransferClocksRemaining)
+        uint32 hdma_clocks = (cycles_to_execute << m_system->GetDoubleSpeedDivider());
+        if (hdma_clocks >= m_HDMATransferClocksRemaining)
         {
             // Re-enable the CPU.
             m_system->DisableCPU(false);
@@ -498,7 +499,7 @@ void Display::Synchronize()
         else
         {
             // Still going.
-            m_HDMATransferClocksRemaining -= cycles_to_execute;
+            m_HDMATransferClocksRemaining -= hdma_clocks;
         }
     }
 
