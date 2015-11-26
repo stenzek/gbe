@@ -65,6 +65,7 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, uint32 bios_length, Cartri
     m_serial = new Serial(this);
 
     m_cycle_number = 0;
+    m_last_sync_cycle = 0;
     m_next_display_sync_cycle = 0;
     m_next_audio_sync_cycle = 0;
     m_next_serial_sync_cycle = 0;
@@ -113,6 +114,7 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, uint32 bios_length, Cartri
 void System::Reset()
 {
     m_cycle_number = 0;
+    m_last_sync_cycle = 0;
     m_next_display_sync_cycle = 0;
     m_next_audio_sync_cycle = 0;
     m_next_serial_sync_cycle = 0;
@@ -201,11 +203,13 @@ void System::AddCPUCycles(uint32 cpu_clocks)
     bool sync_serial = (m_cycle_number >= m_next_serial_sync_cycle);
     bool sync_display = (m_cycle_number >= m_next_display_sync_cycle);
     bool sync_audio = (m_cycle_number >= m_next_audio_sync_cycle);
+    uint32 cycles_since_sync = CalculateDoubleSpeedCycleCount(m_last_sync_cycle);
+    m_last_sync_cycle = m_cycle_number;
     m_event = true;
 
     // Handle memory locking for OAM transfers [affected by double speed]
     if (m_memory_locked_cycles > 0)
-        m_memory_locked_cycles = (cpu_clocks > m_memory_locked_cycles) ? 0 : (m_memory_locked_cycles - cpu_clocks);
+        m_memory_locked_cycles = (cycles_since_sync > m_memory_locked_cycles) ? 0 : (m_memory_locked_cycles - cycles_since_sync);
 
     // Simulate display [not affected by double speed]
     if (sync_display)
@@ -417,6 +421,14 @@ void System::SetTargetSpeed(float multiplier)
     m_speed_multiplier = multiplier;
     m_reset_timer.Reset();
     m_clocks_since_reset = 0;
+    m_last_vblank_clocks = 0;
+}
+
+void System::SetFrameLimiter(bool on)
+{
+    m_frame_limiter = on; 
+    m_reset_timer.Reset(); 
+    m_clocks_since_reset = 0; 
     m_last_vblank_clocks = 0;
 }
 
@@ -635,11 +647,7 @@ void System::DMATransfer(uint16 source_address, uint16 destination_address, uint
     for (uint32 i = 0; i < bytes; i++, current_source_address++, current_destination_address++)
         CPUWrite(current_destination_address, CPURead(current_source_address));
 
-    // Stall memory access for 160 microseconds
-    // This number here should be 671, but because part of the time of an instruction
-    // can be consumed by another memory read, and we're not handling that yet, we'll
-    // give it a few extra cycles.
-    //m_memory_locked_cycles = 671;
+    // Stall memory access for ~160 microseconds
     m_memory_locked_cycles = 640;
     UpdateNextEventCycle();
 }

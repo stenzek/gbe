@@ -79,7 +79,7 @@ public:
 
     // framelimiter on/off
     bool GetFrameLimiter() const { return m_frame_limiter; }
-    void SetFrameLimiter(bool on) { m_frame_limiter = on; }
+    void SetFrameLimiter(bool on);
 
     // accurate timing
     bool GetAccurateTiming() const { return m_accurate_timing; }
@@ -172,6 +172,7 @@ private:
 
     // synchronization
     uint32 m_cycle_number;
+    uint32 m_last_sync_cycle;
     uint32 m_next_display_sync_cycle;
     uint32 m_next_audio_sync_cycle;
     uint32 m_next_serial_sync_cycle;
