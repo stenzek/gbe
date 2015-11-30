@@ -15,6 +15,7 @@ class Cartridge;
 class CPU
 {
     friend System;
+    friend class JitX86Emitter;
 
 public:
     enum Reg8
@@ -166,13 +167,13 @@ public:
     void Reset();
 
     // step
-    void ExecuteInstruction();
+    virtual void ExecuteInstruction();
 
     // disassemble an instruction
     static bool Disassemble(String *pDestination, System *memory, uint16 address);
     static void DisassembleFrom(System *system, uint16 address, uint16 count, ByteStream *pStream);
 
-private:
+protected:
     // memory read/writes
     inline void DelayCycle() { m_system->AddCPUCycles(4); }
     inline void DelayCycles(uint32 count) { m_system->AddCPUCycles(count); }
@@ -180,6 +181,12 @@ private:
     inline void MemWriteByte(uint16 address, uint8 value) { DelayCycle(); m_system->CPUWrite(address, value); }
     inline uint16 MemReadWord(uint16 address) { return ((uint16)MemReadByte(address)) | ((uint16)MemReadByte(address + 1) << 8); }
     inline void MemWriteWord(uint16 address, uint16 value) { MemWriteByte(address, (uint8)(value)); MemWriteByte(address + 1, (uint8)(value >> 8)); }
+
+    // test for interrupts
+    void InterruptTest();
+
+    // interpreter
+    void InterpreterExecuteInstruction();
 
     // stack push/pop with protection
     void Push(uint8 value);
@@ -212,7 +219,7 @@ private:
     // halted during memory transfer, cannot break out of this
     bool m_disabled;
 
-private:
+protected:
     uint8 ReadOperandByte();
     uint16 ReadOperandWord();
     int8 ReadOperandSignedByte();

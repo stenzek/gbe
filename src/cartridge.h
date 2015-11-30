@@ -54,6 +54,8 @@ public:
 
     const byte *GetROMBank(uint32 bank) const { DebugAssert(bank < m_num_rom_banks); return m_rom_banks[bank]; }
     const uint32 GetROMBankCount() const { return m_num_rom_banks; }
+    const uint8 ReadRomBank(uint32 bank, uint16 offset) const { DebugAssert(bank < m_num_rom_banks); return m_rom_banks[bank][offset]; }
+    const uint32 GetActiveROMBank1() const;
 
     bool Load(ByteStream *pStream, Error *pError);
 

@@ -9,6 +9,9 @@
     <ClInclude Include="src\audio.h" />
     <ClInclude Include="src\serial.h" />
     <ClInclude Include="src\link.h" />
+    <ClInclude Include="src\jit_table.h" />
+    <ClInclude Include="src\jit_base.h" />
+    <ClInclude Include="src\jit_x86.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
@@ -21,5 +24,8 @@
     <ClCompile Include="src\audio.cpp" />
     <ClCompile Include="src\serial.cpp" />
     <ClCompile Include="src\link.cpp" />
+    <ClCompile Include="src\jit_table.cpp" />
+    <ClCompile Include="src\jit_base.cpp" />
+    <ClCompile Include="src\jit_x86.cpp" />
   </ItemGroup>
 </Project>

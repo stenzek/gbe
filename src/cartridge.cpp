@@ -423,6 +423,19 @@ void Cartridge::Reset()
     }
 }
 
+const uint32 Cartridge::GetActiveROMBank1() const
+{
+    switch (m_mbc)
+    {
+    case MBC_NONE:  return 0;
+    case MBC_MBC1:  return m_mbc_data.mbc1.active_rom_bank;
+    case MBC_MBC3:  return m_mbc_data.mbc3.rom_bank_number;
+    case MBC_MBC5:  return m_mbc_data.mbc5.rom_bank_number;
+    }
+
+    return 0;
+}
+
 uint8 Cartridge::CPURead(uint16 address)
 {
     switch (m_mbc)

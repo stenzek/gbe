@@ -4,6 +4,7 @@
 #include "display.h"
 #include "audio.h"
 #include "serial.h"
+#include "jit_base.h"
 #include "YBaseLib/Memory.h"
 #include "YBaseLib/Thread.h"
 #include "YBaseLib/Log.h"
@@ -59,7 +60,12 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, uint32 bios_length, Cartri
         }
     }
 
+#if 1
+    m_cpu = JitBase::CreateJitCPU(this);
+#else
     m_cpu = new CPU(this);
+#endif
+
     m_display = new Display(this);
     m_audio = new Audio(this);
     m_serial = new Serial(this);

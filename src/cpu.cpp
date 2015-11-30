@@ -133,6 +133,30 @@ void CPU::SaveState(ByteStream *pStream, BinaryWriter &binaryWriter)
     binaryWriter.WriteBool(m_disabled);
 }
 
+void CPU::ExecuteInstruction()
+{
+    // cpu disabled for memory transfer?
+    if (m_disabled)
+    {
+        DelayCycle();
+        return;
+    }
+
+    // interrupts enabled?
+    if (m_registers.IME)
+        InterruptTest();
+
+    // if halted, simulate a single cycle to keep the display/audio going
+    if (m_halted)
+    {
+        DelayCycle();
+        return;
+    }
+
+    // good to execute instruction
+    InterpreterExecuteInstruction();
+}
+
 uint8 CPU::ReadOperandByte()
 {
     return MemReadByte(m_registers.PC++);
@@ -574,66 +598,51 @@ void CPU::CheckOAMBug(uint16 current_value)
         m_system->TriggerOAMBug();
 }
 
-void CPU::ExecuteInstruction()
+void CPU::InterruptTest()
 {
-    // cpu disabled for memory transfer?
-    if (m_disabled)
+    // have we got a pending interrupt?
+    uint8 interrupt_mask = ((1 << (NUM_CPU_INT)) - 1) & m_registers.IF & m_registers.IE;
+    if (interrupt_mask != 0)
     {
-        DelayCycle();
-        return;
-    }
-
-    // interrupts enabled?
-    if (m_registers.IME)
-    {
-        // have we got a pending interrupt?
-        uint8 interrupt_mask = ((1 << (NUM_CPU_INT)) - 1) & m_registers.IF & m_registers.IE;
-        if (interrupt_mask != 0)
+        // http://bgb.bircd.org/pandocs.htm#interrupts
+        // find the first interrupt pending in priority (0 = highest)
+        for (uint32 i = 0; i < NUM_CPU_INT; i++)
         {
-            // http://bgb.bircd.org/pandocs.htm#interrupts
-            // find the first interrupt pending in priority (0 = highest)
-            for (uint32 i = 0; i < NUM_CPU_INT; i++)
+            if (interrupt_mask & (1 << i))
             {
-                if (interrupt_mask & (1 << i))
-                {
-                    // trigger this interrupt
-                    // clear flag
-                    m_registers.IF &= ~(1 << i);
+                // trigger this interrupt
+                // clear flag
+                m_registers.IF &= ~(1 << i);
 
-                    // disable interrupts
-                    m_registers.IME = false;
+                // disable interrupts
+                m_registers.IME = false;
 
-                    // Jump to vector
-                    static const uint16 jump_locations[] = {
-                        0x0040,     // vblank
-                        0x0048,     // lcdc
-                        0x0050,     // timer
-                        0x0058,     // serial
-                        0x0060,     // joypad
-                    };
+                // Jump to vector
+                static const uint16 jump_locations[] = {
+                    0x0040,     // vblank
+                    0x0048,     // lcdc
+                    0x0050,     // timer
+                    0x0058,     // serial
+                    0x0060,     // joypad
+                };
 
-                    TRACE("Entering interrupt handler $%04X, PC was $%04X", jump_locations[i], m_registers.PC);
-                    //DisassembleFrom(m_system, m_registers.PC, 10);
+                TRACE("Entering interrupt handler $%04X, PC was $%04X", jump_locations[i], m_registers.PC);
+                //DisassembleFrom(m_system, m_registers.PC, 10);
 
-                    PushWord(m_registers.PC);
-                    m_registers.PC = jump_locations[i];
-                    m_halted = false;
+                PushWord(m_registers.PC);
+                m_registers.PC = jump_locations[i];
+                m_halted = false;
 
-                    // interrupt takes 20 cycles total, 2 memory writes
-                    m_system->AddCPUCycles(20 - 4 - 4);
-                    return;
-                }
+                // interrupt takes 20 cycles total, 2 memory writes
+                m_system->AddCPUCycles(20 - 4 - 4);
+                return;
             }
         }
     }
+}
 
-    // if halted, simulate a single cycle to keep the display/audio going
-    if (m_halted)
-    {
-        DelayCycle();
-        return;
-    }
-
+void CPU::InterpreterExecuteInstruction()
+{
 #ifdef Y_BUILD_CONFIG_DEBUG
     // debug
     static bool disasm_enabled = false;

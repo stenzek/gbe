@@ -58,7 +58,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>HQX_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>$(SolutionDir)dep\win\include;$(SolutionDir)dep\win\include\SDL;$(SolutionDir)dep\YBaseLib\Include;$(SolutionDir)dep\YRenderLib\Include;$(SolutionDir)dep\hqx\src;$(SolutionDir)src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)dep\win\include;$(SolutionDir)dep\win\include\SDL;$(SolutionDir)dep\YBaseLib\Include;$(SolutionDir)dep\YRenderLib\Include;$(SolutionDir)dep\hqx\src;$(SolutionDir)dep\xbyak\xbyak;$(SolutionDir)src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MinimalRebuild>false</MinimalRebuild>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -83,8 +83,17 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
+<<<<<<< db478a1f46688cc281fe81e98812cc89274bd7c8
       <PreprocessorDefinitions>HQX_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+<<<<<<< 0e50241983bfc821519b3311269e13a3150ea8e2
       <AdditionalIncludeDirectories>$(SolutionDir)dep\win\include;$(SolutionDir)dep\win\include\SDL;$(SolutionDir)dep\YBaseLib\Include;$(SolutionDir)dep\YRenderLib\Include;$(SolutionDir)dep\hqx\src;$(SolutionDir)src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+=======
+      <AdditionalIncludeDirectories>$(SolutionDir)dep\win\include;$(SolutionDir)dep\win\include\SDL;$(SolutionDir)dep\YBaseLib\Include;$(SolutionDir)dep\hqx\src;$(SolutionDir)src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+=======
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)dep\win\include;$(SolutionDir)dep\win\include\SDL;$(SolutionDir)dep\YBaseLib\Include;$(SolutionDir)dep\xbyak\xbyak;$(SolutionDir)src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+>>>>>>> cpu: add base jit, x86 jit basic framework (still massive work in progress)
+>>>>>>> cpu: add base jit, x86 jit basic framework (still massive work in progress)
       <MinimalRebuild>false</MinimalRebuild>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <AdditionalOptions>/Zo %(AdditionalOptions)</AdditionalOptions>
@@ -127,6 +136,9 @@
   <ItemGroup>
     <ClInclude Include="src\audio.h" />
     <ClInclude Include="src\cartridge.h" />
+    <ClInclude Include="src\jit_base.h" />
+    <ClInclude Include="src\jit_table.h" />
+    <ClInclude Include="src\jit_x86.h" />
     <ClInclude Include="src\link.h" />
     <ClInclude Include="src\serial.h" />
     <ClInclude Include="src\structures.h" />
@@ -140,6 +152,9 @@
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(SolutionDir)dep\Gb_Snd_Emu;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <ClCompile Include="src\cartridge.cpp" />
+    <ClCompile Include="src\jit_base.cpp" />
+    <ClCompile Include="src\jit_table.cpp" />
+    <ClCompile Include="src\jit_x86.cpp" />
     <ClCompile Include="src\link.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\serial.cpp" />
