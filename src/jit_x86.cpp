@@ -42,11 +42,17 @@ public:
 
     void end_block()
     {
+        L(".block_exit");
         mov(esp, ebp);
         pop(edi);
         pop(CPU_STATE_REGISTER);
         pop(ebp);
         ret();
+    }
+
+    void jump_to_end()
+    {
+        jmp(".block_exit");
     }
 
     void interpreter_fallback()
@@ -132,6 +138,11 @@ public:
     void memory_write_word(uint16 address, const Xbyak::Operand &src)
     {
 
+    }
+
+    void compile_nop(const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    {
+        begin_instruction(instruction);
     }
 
     void compile_inc16(const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
@@ -316,6 +327,21 @@ public:
             break;
         }
     }
+
+    void compile_jp(const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    {
+        if (instruction->predicate != JitTable::Instruction::Predicate_Always)
+        {
+            interpreter_fallback();
+            return;
+        }
+
+        begin_instruction(instruction);
+        mov(ax, buffer->operand16);
+        store_regpair(CPU::Reg16_PC, ax);
+        delay_cycle();
+        jump_to_end();
+    }
 };
 
 JitX86::JitX86(System *system)
@@ -374,19 +400,21 @@ bool JitX86::CompileBlock(Block *block)
         else
         {
             if (instruction->length == 2)
-                buffer.operand8 = ReadVirtualAddress(current_virtual_address + 2);
+                buffer.operand8 = ReadVirtualAddress(current_virtual_address + 1);
             else if (instruction->length == 3)
-                buffer.operand16 = (uint16)ReadVirtualAddress(current_virtual_address + 2) | ((uint16)ReadVirtualAddress(current_virtual_address + 3) << 8);
+                buffer.operand16 = (uint16)ReadVirtualAddress(current_virtual_address + 1) | ((uint16)ReadVirtualAddress(current_virtual_address + 2) << 8);
         }        
 
         // main code generator
         switch (instruction->type)
         {
+        case JitTable::Instruction::Type_Nop:       emitter->compile_nop(instruction, &buffer);         break;
 //         case JitTable::Instruction::Type_Load:      emitter->compile_load(instruction, &buffer);        break;
 //         case JitTable::Instruction::Type_Store:     emitter->compile_store(instruction, &buffer);       break;
-//         case JitTable::Instruction::Type_Move:      emitter->compile_move(instruction, &buffer);        break;
-//         case JitTable::Instruction::Type_INC16:     emitter->compile_inc16(instruction, &buffer);       break;
-//         case JitTable::Instruction::Type_DEC16:     emitter->compile_dec16(instruction, &buffer);       break;
+        case JitTable::Instruction::Type_Move:      emitter->compile_move(instruction, &buffer);        break;
+        case JitTable::Instruction::Type_INC16:     emitter->compile_inc16(instruction, &buffer);       break;
+        case JitTable::Instruction::Type_DEC16:     emitter->compile_dec16(instruction, &buffer);       break;
+        case JitTable::Instruction::Type_JP:        emitter->compile_jp(instruction, &buffer);          break;
         default:                                    emitter->interpreter_fallback();                    break;
         }
 

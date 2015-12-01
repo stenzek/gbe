@@ -1,5 +1,6 @@
 #include "cpu.h"
 #include "YBaseLib/HashTable.h"
+#include "YBaseLib/MemArray.h"
 
 class JitBase : public CPU
 {
@@ -12,12 +13,20 @@ public:
     static JitBase *CreateJitCPU(System *system);
 
 protected:
+    struct JumpEntry
+    {
+        uint16 JumpTarget;
+        uint16 JumpSource;
+    };
+
     struct Block
     {
         uint32 StartVirtualAddress;
         uint16 StartRealAddress;
         uint32 InstructionCount;
         uint32 ByteCount;
+
+        MemArray<JumpEntry> Jumps;
     };
 
     static bool InJittableRange(uint16 real_address);

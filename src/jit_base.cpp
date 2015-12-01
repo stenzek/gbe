@@ -127,12 +127,22 @@ JitBase::Block *JitBase::CreateBlock(uint32 virtual_address, uint16 real_address
     Block *block = AllocateBlock(virtual_address, real_address);    
     if (AnalyseBlock(block))
     {
-        // compile block
-        if (!CompileBlock(block))
+        // skip blocks with jumps for now
+        if (block->Jumps.GetSize() > 0)
         {
-            Log_ErrorPrintf("jit: address 0x%05X failed compiling", virtual_address);
+            Log_WarningPrintf("jit: address 0x%05X has jumps, skipping", virtual_address);
             DestroyBlock(block);
             block = nullptr;
+        }
+        else
+        {
+            // compile block
+            if (!CompileBlock(block))
+            {
+                Log_ErrorPrintf("jit: address 0x%05X failed compiling", virtual_address);
+                DestroyBlock(block);
+                block = nullptr;
+            }
         }
     }
     else
@@ -154,6 +164,7 @@ bool JitBase::AnalyseBlock(Block *block)
     block->InstructionCount = 0;
     block->ByteCount = 0;
 
+    uint16 current_real_address = block->StartRealAddress;
     uint32 current_virtual_address = block->StartVirtualAddress;
     uint32 last_virtual_address = current_virtual_address;
     for (;;)
@@ -188,8 +199,20 @@ bool JitBase::AnalyseBlock(Block *block)
             return nullptr;
         }
 
+        // jump instructions
+        if (instruction->type == JitTable::Instruction::Type_JR)
+        {
+            // jumps are always two bytes
+            int8 displacement = (int8)ReadVirtualAddress(current_virtual_address + 1);
+            JumpEntry entry;
+            entry.JumpSource = current_real_address;
+            entry.JumpTarget = (displacement < 0) ? (current_real_address - (uint8)-displacement) : (current_real_address + (uint8)displacement);
+            block->Jumps.Add(entry);
+        }
+
         Log_DevPrintf("  0x%05x: %u", current_virtual_address, instruction->type);
         last_virtual_address = current_virtual_address;
+        current_real_address += (uint16)instruction_length;
         current_virtual_address += instruction_length;
         block->ByteCount += instruction_length;
         block->InstructionCount++;
