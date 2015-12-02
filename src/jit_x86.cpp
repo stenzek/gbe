@@ -86,10 +86,13 @@ public:
         mov(ptr[CPU_STATE_REGISTER + pc_class_offset], ax);
     }
 
-    void load_reg(const Xbyak::Operand &dst, CPU::Reg8 reg)
+    void load_reg(const Xbyak::Reg &dst, CPU::Reg8 reg)
     {
         uint32 class_offset = offsetof(CPU, m_registers.reg8[0]) + reg * sizeof(uint8);
-        mov(dst, ptr[CPU_STATE_REGISTER + class_offset]);
+        if (dst.isBit(32))
+            movzx(dst, word[CPU_STATE_REGISTER + class_offset]);
+        else
+            mov(dst, ptr[CPU_STATE_REGISTER + class_offset]);
     }
 
     void store_reg(CPU::Reg8 reg, const Xbyak::Operand &src)
@@ -98,10 +101,13 @@ public:
         mov(ptr[CPU_STATE_REGISTER + class_offset], src);
     }
 
-    void load_regpair(const Xbyak::Operand &dst, CPU::Reg16 reg)
+    void load_regpair(const Xbyak::Reg &dst, CPU::Reg16 reg)
     {
         uint32 class_offset = offsetof(CPU, m_registers.reg16[0]) + reg * sizeof(uint16);
-        mov(dst, ptr [CPU_STATE_REGISTER + class_offset]);
+        if (dst.isBit(32))
+            movzx(dst, word[CPU_STATE_REGISTER + class_offset]);
+        else
+            mov(dst, ptr [CPU_STATE_REGISTER + class_offset]);
     }
 
     void store_regpair(CPU::Reg16 reg, const Xbyak::Operand &src)
@@ -110,34 +116,68 @@ public:
         mov(ptr[CPU_STATE_REGISTER + class_offset], src);
     }
 
-    void memory_read_addr_from_reg(const Xbyak::Operand &dst, CPU::Reg16 address_register)
+    // memory -> al
+    void memory_read_addr_from_reg(CPU::Reg16 address_register)
     {
-
+        load_regpair(eax, address_register);
+        push(eax);
+        push(CPU_STATE_REGISTER);
+        call(&JitX86::MemoryReadTrampoline);
+        add(esp, 6);
     }
 
-    void memory_read_addr(const Xbyak::Operand &dst, uint16 address)
+    // memory -> al
+    void memory_read_addr(uint16 address)
     {
-
+        push(address);
+        push(CPU_STATE_REGISTER);
+        call(&JitX86::MemoryReadTrampoline);
+        add(esp, 6);
     }
 
+    // reg -> memory
     void memory_write_addr_from_reg(CPU::Reg16 address_register, const Xbyak::Operand &src)
     {
-
+        // push only takes ax, eax, rax, abi says parameters must be word size
+        DebugAssert(src.isBit(32));
+        push(src);
+        load_regpair(eax, address_register);
+        push(eax);
+        push(CPU_STATE_REGISTER);
+        call(&JitX86::MemoryWriteTrampoline);
+        add(esp, 7);
     }
 
+    // reg -> memory
     void memory_write_addr(uint16 address, const Xbyak::Operand &src)
     {
-
+        // push only takes ax, eax, rax, abi says parameters must be word size
+        DebugAssert(src.isBit(32));
+        push(src);
+        push(address);
+        push(CPU_STATE_REGISTER);
+        call(&JitX86::MemoryWriteTrampoline);
+        add(esp, 12);
     }
 
-    void memory_read_word(const Xbyak::Operand &dst, uint16 address)
+    // memory -> ax
+    void memory_read_word(uint16 address)
     {
-
+        push(address);
+        push(CPU_STATE_REGISTER);
+        call(&JitX86::MemoryReadWordTrampoline);
+        add(esp, 8);
     }
 
+    // reg -> memory
     void memory_write_word(uint16 address, const Xbyak::Operand &src)
     {
-
+        DebugAssert(src.isBit(32));
+        push(src);
+        push(address);
+        push(CPU_STATE_REGISTER);
+        call(&JitX86::MemoryReadWordTrampoline);
+        add(esp, 12);
     }
 
     void compile_nop(const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
@@ -178,13 +218,15 @@ public:
                 {
                     // 8-bit load immediate
                 case JitTable::Instruction::AddressMode_Imm8:
-                    mov(ah, buffer->operand8);
+                    mov(al, buffer->operand8);
+                    store_reg(destination->reg8, al);
                     break;
 
                     // 8-bit load from memory location in register
                 case JitTable::Instruction::AddressMode_Mem16:
                     {
-                        memory_read_addr_from_reg(ah, source->reg16);
+                        memory_read_addr_from_reg(source->reg16);
+                        store_reg(destination->reg8, al);
 
                         // ldi/ldd TODO optimize
                         if (instruction->load_action == JitTable::Instruction::LoadStoreAction_IncrementAddress)
@@ -204,16 +246,14 @@ public:
 
                     // 8-bit load from absolute memory location
                 case JitTable::Instruction::AddressMode_Addr16:
-                    memory_read_addr(ah, buffer->operand16);
+                    memory_read_addr(buffer->operand16);
+                    store_reg(destination->reg8, al);
                     break;
 
                 default:
                     UnreachableCode();
                     break;
                 }
-
-                // store to register state
-                store_reg(destination->reg8, ah);
             }
             break;
 
@@ -222,7 +262,7 @@ public:
             {
                 // only can load bytes not words
                 DebugAssert(source->mode == JitTable::Instruction::AddressMode_Imm16);
-                memory_read_addr(ax, buffer->operand16);
+                mov(ax, buffer->operand16);
                 store_regpair(destination->reg16, ax);
             }
             break;
@@ -246,17 +286,18 @@ public:
         case JitTable::Instruction::AddressMode_Imm8:
             {
                 // register -> memory, immediate -> memory
+                // load and sign extend because it has to be written to memory
                 if (source->mode == JitTable::Instruction::AddressMode_Reg8)
-                    load_reg(ah, source->reg8);
+                    load_reg(eax, source->reg8);
                 else
-                    mov(ah, buffer->operand8);
+                    mov(eax, buffer->operand8);
 
                 // write to memory
                 switch (destination->mode)
                 {
                 case JitTable::Instruction::AddressMode_Mem16:
                     {
-                        memory_write_addr_from_reg(destination->reg16, ah);
+                        memory_write_addr_from_reg(destination->reg16, eax);
 
                         // ldi/ldd TODO optimize
                         if (instruction->load_action == JitTable::Instruction::LoadStoreAction_IncrementAddress)
@@ -276,7 +317,7 @@ public:
                     }
 
                 case JitTable::Instruction::AddressMode_Addr16:
-                    memory_write_addr(buffer->operand16, ah);
+                    memory_write_addr(buffer->operand16, eax);
                     break;
 
                 default:
@@ -409,8 +450,8 @@ bool JitX86::CompileBlock(Block *block)
         switch (instruction->type)
         {
         case JitTable::Instruction::Type_Nop:       emitter->compile_nop(instruction, &buffer);         break;
-//         case JitTable::Instruction::Type_Load:      emitter->compile_load(instruction, &buffer);        break;
-//         case JitTable::Instruction::Type_Store:     emitter->compile_store(instruction, &buffer);       break;
+        case JitTable::Instruction::Type_Load:      emitter->compile_load(instruction, &buffer);        break;
+        case JitTable::Instruction::Type_Store:     emitter->compile_store(instruction, &buffer);       break;
         case JitTable::Instruction::Type_Move:      emitter->compile_move(instruction, &buffer);        break;
         case JitTable::Instruction::Type_INC16:     emitter->compile_inc16(instruction, &buffer);       break;
         case JitTable::Instruction::Type_DEC16:     emitter->compile_dec16(instruction, &buffer);       break;
@@ -445,6 +486,26 @@ void JitX86::AddCyclesTrampoline(JitX86 *this_ptr, uint32 cycles)
 void JitX86::InterpreterFallbackTrampoline(JitX86 *this_ptr)
 {
     this_ptr->InterpreterExecuteInstruction();
+}
+
+uint8 JitX86::MemoryReadTrampoline(JitX86 *this_ptr, uint16 address)
+{
+    return this_ptr->MemReadByte(address);
+}
+
+void JitX86::MemoryWriteTrampoline(JitX86 *this_ptr, uint16 address, uint8 data)
+{
+    this_ptr->MemWriteByte(address, data);
+}
+
+uint16 JitX86::MemoryReadWordTrampoline(JitX86 *this_ptr, uint16 address)
+{
+    return this_ptr->MemReadWord(address);
+}
+
+void JitX86::MemoryWriteWordTrampoline(JitX86 *this_ptr, uint16 address, uint16 data)
+{
+    this_ptr->MemWriteWord(address, data);
 }
 
 JitBase *JitBase::CreateJitCPU(System *system)
