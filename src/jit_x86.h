@@ -23,6 +23,7 @@ protected:
 
     static void __cdecl AddCyclesTrampoline(JitX86 *this_ptr, uint32 cycles);
     static void __cdecl InterpreterFallbackTrampoline(JitX86 *this_ptr);
+    static void __cdecl InterruptFireTrampoline(JitX86 *this_ptr);
     static uint8 __cdecl MemoryReadTrampoline(JitX86 *this_ptr, uint16 address);
     static void __cdecl MemoryWriteTrampoline(JitX86 *this_ptr, uint16 address, uint8 data);
     static uint16 __cdecl MemoryReadWordTrampoline(JitX86 *this_ptr, uint16 address);

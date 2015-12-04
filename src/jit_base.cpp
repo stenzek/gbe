@@ -127,22 +127,12 @@ JitBase::Block *JitBase::CreateBlock(uint32 virtual_address, uint16 real_address
     Block *block = AllocateBlock(virtual_address, real_address);    
     if (AnalyseBlock(block))
     {
-        // skip blocks with jumps for now
-        if (block->Jumps.GetSize() > 0)
+        // compile block
+        if (!CompileBlock(block))
         {
-            Log_WarningPrintf("jit: address 0x%05X has jumps, skipping", virtual_address);
+            Log_ErrorPrintf("jit: address 0x%05X failed compiling", virtual_address);
             DestroyBlock(block);
             block = nullptr;
-        }
-        else
-        {
-            // compile block
-            if (!CompileBlock(block))
-            {
-                Log_ErrorPrintf("jit: address 0x%05X failed compiling", virtual_address);
-                DestroyBlock(block);
-                block = nullptr;
-            }
         }
     }
     else
@@ -206,7 +196,10 @@ bool JitBase::AnalyseBlock(Block *block)
             int8 displacement = (int8)ReadVirtualAddress(current_virtual_address + 1);
             JumpEntry entry;
             entry.JumpSource = current_real_address;
-            entry.JumpTarget = (displacement < 0) ? ((current_real_address + instruction_length) - (uint8)-displacement) : (current_real_address + instruction_length + (uint8)displacement);
+            entry.JumpTarget = (displacement < 0) ? 
+                ((current_real_address + (uint16)instruction_length) - (uint8)-displacement) : 
+                ((current_real_address + (uint16)instruction_length) + (uint8)displacement);
+
             block->Jumps.Add(entry);
         }
 
@@ -235,6 +228,10 @@ bool JitBase::AnalyseBlock(Block *block)
             break;
         }
     }
+
+    // update end addresses
+    block->EndRealAddress = current_real_address - 1;
+    block->EndVirtualAddress = current_virtual_address - 1;
 
     Log_DevPrintf("----------------");
     Log_DevPrintf("end of block, %u bytes", block->ByteCount);

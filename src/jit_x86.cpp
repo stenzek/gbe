@@ -54,11 +54,28 @@ public:
 
     void jump_to_end()
     {
-        jmp(".block_exit");
+        jmp(".block_exit", CodeGenerator::T_NEAR);
     }
 
-    void interpreter_fallback()
+    void emit_jump_label(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
+        uint16 addr = buffer->real_address;
+        for (const auto &jump : block->Jumps)
+        {
+            if (jump.JumpTarget == addr)
+            {
+                SmallString jump_label;
+                jump_label.Format(".JT_0x%04X", addr);
+                L(jump_label.GetCharArray());
+                break;
+            }
+        }
+    }
+
+    void interpreter_fallback(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    {
+        emit_jump_label(block, instruction, buffer);
+
         push(CPU_STATE_REGISTER);
         call(&JitX86::InterpreterFallbackTrampoline);
         add(esp, 4);
@@ -77,10 +94,35 @@ public:
         add(esp, 8);
     }
 
-    void begin_instruction(JitX86::Block *block, const JitTable::Instruction *instruction)
+    void interrupt_test(uint16 address)
     {
-        uint32 pc_class_offset = offsetof(CPU, m_registers.PC);
+        SmallString ime_disabled_label;
+        SmallString no_interrupt_label;
+        ime_disabled_label.Format(".ime_disabled_0x%04X", address);
+        no_interrupt_label.Format(".no_interrupt_0x%04X", address);
 
+        // test for interrupts
+        // todo: optimize
+        mov(al, byte[CPU_STATE_REGISTER + offsetof(CPU, m_registers.IME)]);
+        test(al, al);
+        jz(ime_disabled_label.GetCharArray());
+        mov(al, byte[CPU_STATE_REGISTER + offsetof(CPU, m_registers.IE)]);
+        mov(ah, byte[CPU_STATE_REGISTER + offsetof(CPU, m_registers.IF)]);
+        test(al, ah);
+        jz(no_interrupt_label.GetCharArray());
+        push(CPU_STATE_REGISTER);
+        call(&JitX86::InterruptFireTrampoline);
+        add(esp, 4);
+        jump_to_end();
+        L(no_interrupt_label.GetCharArray());
+    }
+
+    void begin_instruction(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    {
+        const uint32 pc_class_offset = offsetof(CPU, m_registers.PC);       
+
+        emit_jump_label(block, instruction, buffer);
+        interrupt_test(buffer->real_address);
         cycles(instruction->length * 4);
         //add(ptr[CPU_STATE_REGISTER + pc_class_offset], instruction->length);
         mov(ax, ptr[CPU_STATE_REGISTER + pc_class_offset]);
@@ -92,7 +134,7 @@ public:
     {
         uint32 class_offset = offsetof(CPU, m_registers.reg8[0]) + reg * sizeof(uint8);
         if (dst.isBit(32))
-            movzx(dst, word[CPU_STATE_REGISTER + class_offset]);
+            movzx(dst, byte[CPU_STATE_REGISTER + class_offset]);
         else
             mov(dst, ptr[CPU_STATE_REGISTER + class_offset]);
     }
@@ -100,7 +142,7 @@ public:
     void store_reg(CPU::Reg8 reg, const Xbyak::Operand &src)
     {
         uint32 class_offset = offsetof(CPU, m_registers.reg8[0]) + reg * sizeof(uint8);
-        mov(ptr[CPU_STATE_REGISTER + class_offset], src);
+        mov(byte[CPU_STATE_REGISTER + class_offset], src);
     }
 
     void load_regpair(const Xbyak::Reg &dst, CPU::Reg16 reg)
@@ -109,13 +151,13 @@ public:
         if (dst.isBit(32))
             movzx(dst, word[CPU_STATE_REGISTER + class_offset]);
         else
-            mov(dst, ptr [CPU_STATE_REGISTER + class_offset]);
+            mov(dst, word[CPU_STATE_REGISTER + class_offset]);
     }
 
     void store_regpair(CPU::Reg16 reg, const Xbyak::Operand &src)
     {
         uint32 class_offset = offsetof(CPU, m_registers.reg16[0]) + reg * sizeof(uint16);
-        mov(ptr[CPU_STATE_REGISTER + class_offset], src);
+        mov(word[CPU_STATE_REGISTER + class_offset], src);
     }
 
     // memory -> al
@@ -125,7 +167,7 @@ public:
         push(eax);
         push(CPU_STATE_REGISTER);
         call(&JitX86::MemoryReadTrampoline);
-        add(esp, 6);
+        add(esp, 8);
     }
 
     // memory -> al
@@ -134,7 +176,7 @@ public:
         push(address);
         push(CPU_STATE_REGISTER);
         call(&JitX86::MemoryReadTrampoline);
-        add(esp, 6);
+        add(esp, 8);
     }
 
     // reg -> memory
@@ -147,7 +189,7 @@ public:
         push(eax);
         push(CPU_STATE_REGISTER);
         call(&JitX86::MemoryWriteTrampoline);
-        add(esp, 7);
+        add(esp, 12);
     }
 
     // reg -> memory
@@ -184,12 +226,12 @@ public:
 
     void compile_nop(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
-        begin_instruction(block, instruction);
+        begin_instruction(block, instruction, buffer);
     }
 
     void compile_inc16(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
-        begin_instruction(block, instruction);
+        begin_instruction(block, instruction, buffer);
         load_regpair(ax, instruction->operand.reg16);
         inc(ax);
         store_regpair(instruction->operand.reg16, ax);
@@ -198,7 +240,7 @@ public:
 
     void compile_dec16(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
-        begin_instruction(block, instruction);
+        begin_instruction(block, instruction, buffer);
         load_regpair(ax, instruction->operand.reg16);
         dec(ax);
         store_regpair(instruction->operand.reg16, ax);
@@ -207,7 +249,7 @@ public:
 
     void compile_load(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
-        begin_instruction(block, instruction);
+        begin_instruction(block, instruction, buffer);
 
         const JitTable::Instruction::Operand *destination = &instruction->operand;
         const JitTable::Instruction::Operand *source = &instruction->operand2;
@@ -277,7 +319,7 @@ public:
 
     void compile_store(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
-        begin_instruction(block, instruction);
+        begin_instruction(block, instruction, buffer);
 
         const JitTable::Instruction::Operand *destination = &instruction->operand;
         const JitTable::Instruction::Operand *source = &instruction->operand2;
@@ -348,7 +390,7 @@ public:
 
     void compile_move(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
-        begin_instruction(block, instruction);
+        begin_instruction(block, instruction, buffer);
 
         const JitTable::Instruction::Operand *destination = &instruction->operand;
         const JitTable::Instruction::Operand *source = &instruction->operand2;
@@ -375,11 +417,11 @@ public:
     {
         if (instruction->predicate != JitTable::Instruction::Predicate_Always)
         {
-            interpreter_fallback();
+            interpreter_fallback(block, instruction, buffer);
             return;
         }
 
-        begin_instruction(block, instruction);
+        begin_instruction(block, instruction, buffer);
         mov(ax, buffer->operand16);
         store_regpair(CPU::Reg16_PC, ax);
         delay_cycle();
@@ -388,7 +430,7 @@ public:
 
     void compile_jr(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
-        begin_instruction(block, instruction);
+        begin_instruction(block, instruction, buffer);
 
         // work out where in the compiled code to jump to
         SmallString target_label;
@@ -404,40 +446,51 @@ public:
             target_label.Format(".JT_0x%04X", effective_address);
         }
 
-        // test predicate, jump
-        switch (instruction->predicate)
+        // always jumps are easy
+        if (instruction->predicate == JitTable::Instruction::Predicate_Always)
         {
-        case JitTable::Instruction::Predicate_Always:
-            jmp(target_label.GetCharArray());
-            break;
+            mov(ax, effective_address);
+            store_regpair(CPU::Reg16_PC, ax);
+            jmp(target_label.GetCharArray(), CodeGenerator::T_NEAR);
+            delay_cycle();
+        }
+        else
+        {
+            // setup skipped label
+            SmallString skip_label;
+            skip_label.Format(".SKIP_0x%04X", buffer->real_address);
 
-        case JitTable::Instruction::Predicate_Zero:
-            load_reg(al, CPU::Reg8_F);
-            and(al, CPU::FLAG_Z);
-            jnz(target_label.GetCharArray());
-            break;
+            // load flags register
+            load_reg(eax, CPU::Reg8_F);
 
-        case JitTable::Instruction::Predicate_NotZero:
-            load_reg(al, CPU::Reg8_F);
-            and (al, CPU::FLAG_Z);
-            jz(target_label.GetCharArray());
-            break;
+            // test predicate, jump if failed
+            switch (instruction->predicate)
+            {
+            case JitTable::Instruction::Predicate_Zero:
+            case JitTable::Instruction::Predicate_NotZero:
+                test(eax, CPU::FLAG_Z);
+                (instruction->predicate == JitTable::Instruction::Predicate_Zero) ? jz(skip_label.GetCharArray(), CodeGenerator::T_SHORT) : jnz(skip_label.GetCharArray(), CodeGenerator::T_SHORT);
+                break;
 
-        case JitTable::Instruction::Predicate_Carry:
-            load_reg(al, CPU::Reg8_F);
-            and (al, CPU::FLAG_C);
-            jnz(target_label.GetCharArray());
-            break;
+            case JitTable::Instruction::Predicate_Carry:
+            case JitTable::Instruction::Predicate_NotCarry:
+                test(eax, CPU::FLAG_C);
+                (instruction->predicate == JitTable::Instruction::Predicate_Carry) ? jz(skip_label.GetCharArray(), CodeGenerator::T_SHORT) : jnz(skip_label.GetCharArray(), CodeGenerator::T_SHORT);
+                break;
 
-        case JitTable::Instruction::Predicate_NotCarry:
-            load_reg(al, CPU::Reg8_F);
-            and (al, CPU::FLAG_C);
-            jz(target_label.GetCharArray());
-            break;
+            default:
+                UnreachableCode();
+                break;
+            }
 
-        default:
-            UnreachableCode();
-            break;
+            // code executed when jump is taken
+            mov(ax, effective_address);
+            store_regpair(CPU::Reg16_PC, ax);
+            delay_cycle();
+            jmp(target_label.GetCharArray(), CodeGenerator::T_NEAR);
+
+            // create skip label after it
+            L(skip_label.GetCharArray());
         }
     }
 };
@@ -517,7 +570,7 @@ bool JitX86::CompileBlock(Block *block)
         case JitTable::Instruction::Type_DEC16:     emitter->compile_dec16(block, instruction, &buffer);        break;
         case JitTable::Instruction::Type_JP:        emitter->compile_jp(block, instruction, &buffer);           break;
         case JitTable::Instruction::Type_JR:        emitter->compile_jr(block, instruction, &buffer);           break;
-        default:                                    emitter->interpreter_fallback();                            break;
+        default:                                    emitter->interpreter_fallback(block, instruction, &buffer); break;
         }
 
         // update address
@@ -548,6 +601,11 @@ void JitX86::AddCyclesTrampoline(JitX86 *this_ptr, uint32 cycles)
 void JitX86::InterpreterFallbackTrampoline(JitX86 *this_ptr)
 {
     this_ptr->InterpreterExecuteInstruction();
+}
+
+void JitX86::InterruptFireTrampoline(JitX86 *this_ptr)
+{
+    this_ptr->InterruptTest();
 }
 
 uint8 JitX86::MemoryReadTrampoline(JitX86 *this_ptr, uint16 address)
