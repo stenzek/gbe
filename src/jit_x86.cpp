@@ -746,6 +746,51 @@ public:
         }
     }
 
+    void compile_binops(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    {
+        begin_instruction(block, instruction, buffer);
+       
+        // load rhs
+        switch (instruction->operand.mode)
+        {
+        case JitTable::Instruction::AddressMode_Imm8:
+            mov(al, buffer->operand8);
+            break;
+        case JitTable::Instruction::AddressMode_Reg8:
+            load_reg(al, instruction->operand.reg8);
+            break;
+        case JitTable::Instruction::AddressMode_Mem16:
+            memory_read_addr_from_reg(instruction->operand.reg16);
+            break;
+        default:
+            UnreachableCode();
+            break;
+        }
+
+        // load lhs
+        load_reg(cl, CPU::Reg8_A);
+
+        // do op, this is reversed because update_flags trashes ecx/edx.
+        switch (instruction->type)
+        {
+        case JitTable::Instruction::Type_AND:
+            and(al, cl);
+            update_flags(CPU::FLAG_Z | CPU::FLAG_N | CPU::FLAG_H | CPU::FLAG_C, CPU::FLAG_Z | CPU::FLAG_N);
+            break;
+        case JitTable::Instruction::Type_OR:
+            or(al, cl);
+            update_flags(CPU::FLAG_Z | CPU::FLAG_N | CPU::FLAG_H | CPU::FLAG_C, CPU::FLAG_Z);
+            break;
+        case JitTable::Instruction::Type_XOR:
+            xor(al, cl);
+            update_flags(CPU::FLAG_Z | CPU::FLAG_N | CPU::FLAG_H | CPU::FLAG_C, CPU::FLAG_Z);
+            break;
+        }
+
+        // store result to A
+        store_reg(CPU::Reg8_A, al);
+    }
+
 
 };
 
@@ -831,6 +876,9 @@ bool JitX86::CompileBlock(Block *block)
         case JitTable::Instruction::Type_DEC:       emitter->compile_inc_dec(block, instruction, &buffer);      break;
         case JitTable::Instruction::Type_INC16:     emitter->compile_inc16(block, instruction, &buffer);        break;
         case JitTable::Instruction::Type_DEC16:     emitter->compile_dec16(block, instruction, &buffer);        break;
+        case JitTable::Instruction::Type_AND:       emitter->compile_binops(block, instruction, &buffer);       break;
+        //case JitTable::Instruction::Type_OR:        emitter->compile_binops(block, instruction, &buffer);       break;
+        //case JitTable::Instruction::Type_XOR:       emitter->compile_binops(block, instruction, &buffer);       break;
         default:                                    emitter->interpreter_fallback(block, instruction, &buffer); break;
         }
 
