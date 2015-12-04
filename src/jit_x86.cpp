@@ -36,10 +36,11 @@ public:
         // ABI notes: trash EAX, ECX, EDX
         // ESI = cpu struct
         push(ebp);
+        push(ebx);
         push(CPU_STATE_REGISTER);
         push(edi);
         mov(ebp, esp);
-        mov(CPU_STATE_REGISTER, ptr[ebp + 16]);
+        mov(CPU_STATE_REGISTER, ptr[ebp + 20]);
     }
 
     void end_block()
@@ -48,6 +49,7 @@ public:
         mov(esp, ebp);
         pop(edi);
         pop(CPU_STATE_REGISTER);
+        pop(ebx);
         pop(ebp);
         ret();
     }
@@ -550,6 +552,57 @@ public:
         L(skip_label.GetCharArray());
     }
 
+    void compile_cp(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    {
+        begin_instruction(block, instruction, buffer);
+        inLocalLabel();
+
+        // load rhs
+        switch (instruction->operand.mode)
+        {
+        case JitTable::Instruction::AddressMode_Imm8:
+            mov(al, buffer->operand8);
+            break;
+        case JitTable::Instruction::AddressMode_Reg8:
+            load_reg(al, instruction->operand.reg8);
+            break;
+        case JitTable::Instruction::AddressMode_Mem16:
+            memory_read_addr_from_reg(instruction->operand.reg16);
+            break;
+        default:
+            UnreachableCode();
+            break;
+        }
+
+        // load lhs, flags, compare
+        load_reg(bl, CPU::Reg8_A);
+        mov(cl, CPU::FLAG_N);
+        cmp(bl, al);
+
+        // set zero flag
+        jne(".not_equal");
+        or(cl, CPU::FLAG_Z);
+        L(".not_equal");
+
+        // set carry flag
+        cmp(bl, al);
+        jae(".not_carry");
+        or(cl, CPU::FLAG_C);
+        L(".not_carry");
+
+        // set half-carry flag
+        and(bl, 0xf);
+        and(al, 0xF);
+        cmp(bl, al);
+        jae(".not_half");
+        or(cl, CPU::FLAG_H);
+        L(".not_half");
+
+        // store flags
+        store_reg(CPU::Reg8_F, cl);
+        outLocalLabel();
+    }
+
     void compile_call(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
         begin_instruction(block, instruction, buffer);
@@ -877,8 +930,9 @@ bool JitX86::CompileBlock(Block *block)
         case JitTable::Instruction::Type_INC16:     emitter->compile_inc16(block, instruction, &buffer);        break;
         case JitTable::Instruction::Type_DEC16:     emitter->compile_dec16(block, instruction, &buffer);        break;
         case JitTable::Instruction::Type_AND:       emitter->compile_binops(block, instruction, &buffer);       break;
-        //case JitTable::Instruction::Type_OR:        emitter->compile_binops(block, instruction, &buffer);       break;
-        //case JitTable::Instruction::Type_XOR:       emitter->compile_binops(block, instruction, &buffer);       break;
+        case JitTable::Instruction::Type_OR:        emitter->compile_binops(block, instruction, &buffer);       break;
+        case JitTable::Instruction::Type_XOR:       emitter->compile_binops(block, instruction, &buffer);       break;
+        case JitTable::Instruction::Type_CP:       emitter->compile_cp(block, instruction, &buffer);            break;
         default:                                    emitter->interpreter_fallback(block, instruction, &buffer); break;
         }
 
