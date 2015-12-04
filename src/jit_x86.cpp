@@ -141,6 +141,7 @@ public:
 
     void store_reg(CPU::Reg8 reg, const Xbyak::Operand &src)
     {
+        DebugAssert(src.isBit(8));
         uint32 class_offset = offsetof(CPU, m_registers.reg8[0]) + reg * sizeof(uint8);
         mov(byte[CPU_STATE_REGISTER + class_offset], src);
     }
@@ -156,6 +157,7 @@ public:
 
     void store_regpair(CPU::Reg16 reg, const Xbyak::Operand &src)
     {
+        DebugAssert(src.isBit(16));
         uint32 class_offset = offsetof(CPU, m_registers.reg16[0]) + reg * sizeof(uint16);
         mov(word[CPU_STATE_REGISTER + class_offset], src);
     }
@@ -224,27 +226,79 @@ public:
         add(esp, 12);
     }
 
+    // push byte, blows away eax
+    void push_byte(const Xbyak::Operand &src)
+    {
+        if (!src.isBit(32))
+        {
+            movzx(eax, src);
+            push(eax);
+        }
+        else
+        {
+            push(src);
+        }
+
+        // careful here to sign-extend but only increment lower 16 bits
+        load_regpair(eax, CPU::Reg16_SP);
+        dec(ax);
+        store_regpair(CPU::Reg16_SP, ax);
+        push(eax);
+        push(CPU_STATE_REGISTER);
+        call(&JitX86::MemoryWriteTrampoline);
+        add(esp, 12);
+    }
+
+    // push word, blows away eax
+    void push_word(const Xbyak::Operand &src)
+    {
+        if (!src.isBit(32))
+        {
+            movzx(eax, src);
+            push(eax);
+        }
+        else
+        {
+            push(src);
+        }
+
+        // careful here to sign-extend but only increment lower 16 bits
+        load_regpair(eax, CPU::Reg16_SP);
+        sub(ax, 2);
+        store_regpair(CPU::Reg16_SP, ax);
+        push(eax);
+        push(CPU_STATE_REGISTER);
+        call(&JitX86::MemoryWriteWordTrampoline);
+        add(esp, 12);
+    }
+
+    // pop byte -> al
+    void pop_byte()
+    {
+        load_regpair(eax, CPU::Reg16_SP);
+        push(eax);
+        inc(ax);
+        store_regpair(CPU::Reg16_SP, ax);
+        push(CPU_STATE_REGISTER);
+        call(&JitX86::MemoryReadTrampoline);
+        add(esp, 8);
+    }
+
+    // pop word -> ax
+    void pop_word()
+    {
+        load_regpair(eax, CPU::Reg16_SP);
+        push(eax);
+        add(ax, 2);
+        store_regpair(CPU::Reg16_SP, ax);
+        push(CPU_STATE_REGISTER);
+        call(&JitX86::MemoryReadWordTrampoline);
+        add(esp, 8);
+    }
+
     void compile_nop(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
         begin_instruction(block, instruction, buffer);
-    }
-
-    void compile_inc16(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
-    {
-        begin_instruction(block, instruction, buffer);
-        load_regpair(ax, instruction->operand.reg16);
-        inc(ax);
-        store_regpair(instruction->operand.reg16, ax);
-        delay_cycle();
-    }
-
-    void compile_dec16(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
-    {
-        begin_instruction(block, instruction, buffer);
-        load_regpair(ax, instruction->operand.reg16);
-        dec(ax);
-        store_regpair(instruction->operand.reg16, ax);
-        delay_cycle();
     }
 
     void compile_load(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
@@ -413,26 +467,61 @@ public:
         }
     }
 
+    // blows away eax
+    void predicate_test(JitTable::Instruction::Predicate predicate, String &skip_label)
+    {
+        // emit nothing for always
+        if (predicate == JitTable::Instruction::Predicate_Always)
+            return;
+
+        // load flags register
+        load_reg(ax, CPU::Reg8_F);
+
+        // skip when predicate is not true
+        switch (predicate)
+        {
+        case JitTable::Instruction::Predicate_Zero:
+        case JitTable::Instruction::Predicate_NotZero:
+            test(eax, CPU::FLAG_Z);
+            (predicate == JitTable::Instruction::Predicate_Zero) ? jz(skip_label.GetCharArray(), CodeGenerator::T_SHORT) : jnz(skip_label.GetCharArray(), CodeGenerator::T_SHORT);
+            break;
+
+        case JitTable::Instruction::Predicate_Carry:
+        case JitTable::Instruction::Predicate_NotCarry:
+            test(eax, CPU::FLAG_C);
+            (predicate == JitTable::Instruction::Predicate_Carry) ? jz(skip_label.GetCharArray(), CodeGenerator::T_SHORT) : jnz(skip_label.GetCharArray(), CodeGenerator::T_SHORT);
+            break;
+
+        default:
+            UnreachableCode();
+            break;
+        }
+    }
+
     void compile_jp(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
-        if (instruction->predicate != JitTable::Instruction::Predicate_Always)
-        {
-            interpreter_fallback(block, instruction, buffer);
-            return;
-        }
-
         begin_instruction(block, instruction, buffer);
+
+        // test the predicate
+        SmallString skip_label;
+        skip_label.Format(".SKIP_0x%04X", buffer->real_address);
+        predicate_test(instruction->predicate, skip_label);
+
+        // code executed when jump is taken
         mov(ax, buffer->operand16);
         store_regpair(CPU::Reg16_PC, ax);
         delay_cycle();
         jump_to_end();
+
+        // create skip label after it
+        L(skip_label.GetCharArray());
     }
 
     void compile_jr(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
         begin_instruction(block, instruction, buffer);
 
-        // work out where in the compiled code to jump to
+        // work out where in the compiled code to jump to, if it lies outside the block, exit the block early
         SmallString target_label;
         uint16 effective_address = (buffer->operands8 < 0) ? (buffer->real_address + instruction->length - uint8(-buffer->operands8)) : (buffer->real_address + instruction->length + uint8(buffer->operands8));
         if (effective_address < block->StartRealAddress || effective_address > block->EndRealAddress)
@@ -446,53 +535,218 @@ public:
             target_label.Format(".JT_0x%04X", effective_address);
         }
 
-        // always jumps are easy
-        if (instruction->predicate == JitTable::Instruction::Predicate_Always)
+        // test the predicate
+        SmallString skip_label;
+        skip_label.Format(".SKIP_0x%04X", buffer->real_address);
+        predicate_test(instruction->predicate, skip_label);
+
+        // code executed when jump is taken
+        mov(ax, effective_address);
+        store_regpair(CPU::Reg16_PC, ax);
+        delay_cycle();
+        jmp(target_label.GetCharArray(), CodeGenerator::T_NEAR);
+
+        // create skip label after it
+        L(skip_label.GetCharArray());
+    }
+
+    void compile_call(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    {
+        begin_instruction(block, instruction, buffer);
+
+        // test the predicate
+        SmallString skip_label;
+        skip_label.Format(".SKIP_0x%04X", buffer->real_address);
+        predicate_test(instruction->predicate, skip_label);
+
+        // code executed when jump is taken
+        load_regpair(ax, CPU::Reg16_PC);
+        push_word(ax);
+        mov(ax, buffer->operand16);
+        store_regpair(CPU::Reg16_PC, ax);
+        delay_cycle();
+        jump_to_end();
+
+        // create skip label after it
+        L(skip_label.GetCharArray());
+    }
+
+    void compile_ret(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    {
+        begin_instruction(block, instruction, buffer);
+
+        // test the predicate
+        SmallString skip_label;
+        skip_label.Format(".SKIP_0x%04X", buffer->real_address);
+        predicate_test(instruction->predicate, skip_label);
+
+        // code executed when jump is taken
+        pop_word();
+        store_regpair(CPU::Reg16_PC, ax);
+        delay_cycle();
+        jump_to_end();
+
+        // create skip label after it
+        L(skip_label.GetCharArray());
+    }
+
+    void compile_push(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    {
+        begin_instruction(block, instruction, buffer);
+        load_regpair(ax, instruction->operand2.reg16);
+        push_word(ax);
+    }
+
+    void compile_pop(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    {
+        begin_instruction(block, instruction, buffer);
+        pop_word();
+
+        // drop lower 4 bits of F
+        if (instruction->operand.reg16 == CPU::Reg16_AF)
+            and(eax, 0xFFF0);
+
+        store_regpair(instruction->operand.reg16, ax);
+    }
+
+    void compile_inc16(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    {
+        begin_instruction(block, instruction, buffer);
+        load_regpair(ax, instruction->operand.reg16);
+        inc(ax);
+        store_regpair(instruction->operand.reg16, ax);
+        delay_cycle();
+    }
+
+    void compile_dec16(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    {
+        begin_instruction(block, instruction, buffer);
+        load_regpair(ax, instruction->operand.reg16);
+        dec(ax);
+        store_regpair(instruction->operand.reg16, ax);
+        delay_cycle();
+    }
+
+    // update flags based on value in al, for carry/zero, must be executed directly after the ALU op
+    void update_flags(uint8 modify_mask, uint8 set_mask)
+    {
+        // http://reverseengineering.stackexchange.com/questions/9348/why-are-pushf-and-popf-so-slow
+        // possibly use lahf/sahf instead of pushf?
+        if (set_mask & (CPU::FLAG_Z | CPU::FLAG_C))
+            pushf();
+
+        // load old flags, clear out the ones we're modifying
+        load_reg(ecx, CPU::Reg8_F);
+        and(ecx, ~modify_mask);
+        if (set_mask & CPU::FLAG_N)
+            or(ecx, CPU::FLAG_N);
+
+        // eax: value, ecx: Z80 flags, edx: temp
+        if (set_mask & CPU::FLAG_Z)
         {
-            mov(ax, effective_address);
-            store_regpair(CPU::Reg16_PC, ax);
-            jmp(target_label.GetCharArray(), CodeGenerator::T_NEAR);
-            delay_cycle();
+            mov(edx, dword[esp]);
+            and(edx, (1 << 6)); // ZF
+            shl(edx, 1);        // 6 -> 7 (FLAG_Z)
+            or(ecx, edx);       // insert FLAG_Z
+        }
+        if (set_mask & CPU::FLAG_C)
+        {
+            mov(edx, dword[esp]);
+            and(edx, (1 << 0)); // CF
+            shl(edx, 4);        // 0 -> 4 (FLAG_C)
+            or (ecx, edx);      // insert FLAG_C
+        }
+        if (set_mask & CPU::FLAG_H)
+        {
+            mov(dl, al);
+            and(dl, 0xF);
+            cmp(dl, 0xF);
+            pushf();
+            pop(edx);
+            and(edx, (1 << 6)); // ZF
+            shr(edx, 1);        // 6 -> 5 (FLAG_H)
+            or(ecx, edx);       // insert FLAG_H
+        }
+
+        if (set_mask & (CPU::FLAG_Z | CPU::FLAG_C))
+            add(esp, 4);
+
+        // write flags, write value
+        store_reg(CPU::Reg8_F, cl);
+    }
+
+    void compile_inc_dec(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    {
+        begin_instruction(block, instruction, buffer);
+
+        switch (instruction->operand.mode)
+        {
+        case JitTable::Instruction::AddressMode_Reg8:
+            load_reg(al, instruction->operand.reg8);
+            break;
+        case JitTable::Instruction::AddressMode_Mem16:
+            memory_read_addr_from_reg(instruction->operand.reg16);
+            break;
+        default:
+            UnreachableCode();
+            break;
+        }
+
+#if 0
+
+        // load old flags
+        load_reg(ecx, CPU::Reg8_F);
+
+        // eax: value, ecx: Z80 flags, edx: temp
+        inc(al);
+        pushf();
+        pop(edx);
+        and(edx, (1 << 6)); // ZF
+        shl(edx, 1);        // 6 -> 7 (FLAG_Z)
+        and(ecx, 0x1F);     // clear old FLAG_Z, FLAG_N, FLAG_H
+        or(ecx, edx);       // insert FLAG_Z
+        mov(dl, al);
+        and(dl, 0xF);
+        cmp(dl, 0xF);
+        pushf();
+        pop(edx);
+        and(edx, (1 << 6)); // ZF
+        shr(edx, 1);        // 6 -> 5 (FLAG_H)
+        or(ecx, edx);       // insert FLAG_H
+
+        // write flags, write value
+        store_reg(CPU::Reg8_F, cl);
+
+#else
+
+        if (instruction->type == JitTable::Instruction::Type_INC)
+        {
+            inc(al);
+            update_flags(CPU::FLAG_Z | CPU::FLAG_N | CPU::FLAG_H, CPU::FLAG_Z | CPU::FLAG_H);
         }
         else
         {
-            // setup skipped label
-            SmallString skip_label;
-            skip_label.Format(".SKIP_0x%04X", buffer->real_address);
+            dec(al);
+            update_flags(CPU::FLAG_Z | CPU::FLAG_N | CPU::FLAG_H, CPU::FLAG_Z | CPU::FLAG_N | CPU::FLAG_H);
+        }
 
-            // load flags register
-            load_reg(eax, CPU::Reg8_F);
+#endif
 
-            // test predicate, jump if failed
-            switch (instruction->predicate)
-            {
-            case JitTable::Instruction::Predicate_Zero:
-            case JitTable::Instruction::Predicate_NotZero:
-                test(eax, CPU::FLAG_Z);
-                (instruction->predicate == JitTable::Instruction::Predicate_Zero) ? jz(skip_label.GetCharArray(), CodeGenerator::T_SHORT) : jnz(skip_label.GetCharArray(), CodeGenerator::T_SHORT);
-                break;
-
-            case JitTable::Instruction::Predicate_Carry:
-            case JitTable::Instruction::Predicate_NotCarry:
-                test(eax, CPU::FLAG_C);
-                (instruction->predicate == JitTable::Instruction::Predicate_Carry) ? jz(skip_label.GetCharArray(), CodeGenerator::T_SHORT) : jnz(skip_label.GetCharArray(), CodeGenerator::T_SHORT);
-                break;
-
-            default:
-                UnreachableCode();
-                break;
-            }
-
-            // code executed when jump is taken
-            mov(ax, effective_address);
-            store_regpair(CPU::Reg16_PC, ax);
-            delay_cycle();
-            jmp(target_label.GetCharArray(), CodeGenerator::T_NEAR);
-
-            // create skip label after it
-            L(skip_label.GetCharArray());
+        switch (instruction->operand.mode)
+        {
+        case JitTable::Instruction::AddressMode_Reg8:
+            store_reg(instruction->operand.reg8, al);
+            break;
+        case JitTable::Instruction::AddressMode_Mem16:
+            memory_write_addr_from_reg(instruction->operand.reg16, eax);
+            break;
+        default:
+            UnreachableCode();
+            break;
         }
     }
+
+
 };
 
 JitX86::JitX86(System *system)
@@ -527,7 +781,8 @@ void JitX86::DestroyBlock(Block *block)
 
 bool JitX86::CompileBlock(Block *block)
 {
-    JitX86Emitter *emitter = new JitX86Emitter();
+    // fixme: allocators..
+    JitX86Emitter *emitter = new JitX86Emitter(Xbyak::DEFAULT_MAX_CODE_SIZE * 2);
     emitter->start_block();
 
     uint16 current_real_address = block->StartRealAddress;
@@ -566,10 +821,16 @@ bool JitX86::CompileBlock(Block *block)
         case JitTable::Instruction::Type_Load:      emitter->compile_load(block, instruction, &buffer);         break;
         case JitTable::Instruction::Type_Store:     emitter->compile_store(block, instruction, &buffer);        break;
         case JitTable::Instruction::Type_Move:      emitter->compile_move(block, instruction, &buffer);         break;
-        case JitTable::Instruction::Type_INC16:     emitter->compile_inc16(block, instruction, &buffer);        break;
-        case JitTable::Instruction::Type_DEC16:     emitter->compile_dec16(block, instruction, &buffer);        break;
         case JitTable::Instruction::Type_JP:        emitter->compile_jp(block, instruction, &buffer);           break;
         case JitTable::Instruction::Type_JR:        emitter->compile_jr(block, instruction, &buffer);           break;
+        case JitTable::Instruction::Type_CALL:      emitter->compile_call(block, instruction, &buffer);         break;
+        case JitTable::Instruction::Type_RET:       emitter->compile_ret(block, instruction, &buffer);          break;
+        case JitTable::Instruction::Type_PUSH:      emitter->compile_push(block, instruction, &buffer);         break;
+        case JitTable::Instruction::Type_POP:       emitter->compile_pop(block, instruction, &buffer);          break;
+        case JitTable::Instruction::Type_INC:       emitter->compile_inc_dec(block, instruction, &buffer);      break;
+        case JitTable::Instruction::Type_DEC:       emitter->compile_inc_dec(block, instruction, &buffer);      break;
+        case JitTable::Instruction::Type_INC16:     emitter->compile_inc16(block, instruction, &buffer);        break;
+        case JitTable::Instruction::Type_DEC16:     emitter->compile_dec16(block, instruction, &buffer);        break;
         default:                                    emitter->interpreter_fallback(block, instruction, &buffer); break;
         }
 
