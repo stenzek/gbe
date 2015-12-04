@@ -6,6 +6,8 @@
 
 struct InstructionBuffer
 {
+    uint16 real_address;
+    uint32 virtual_address;
     uint8 opcode;
     union
     {
@@ -75,7 +77,7 @@ public:
         add(esp, 8);
     }
 
-    void begin_instruction(const JitTable::Instruction *instruction)
+    void begin_instruction(JitX86::Block *block, const JitTable::Instruction *instruction)
     {
         uint32 pc_class_offset = offsetof(CPU, m_registers.PC);
 
@@ -180,32 +182,32 @@ public:
         add(esp, 12);
     }
 
-    void compile_nop(const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    void compile_nop(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
-        begin_instruction(instruction);
+        begin_instruction(block, instruction);
     }
 
-    void compile_inc16(const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    void compile_inc16(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
-        begin_instruction(instruction);
+        begin_instruction(block, instruction);
         load_regpair(ax, instruction->operand.reg16);
         inc(ax);
         store_regpair(instruction->operand.reg16, ax);
         delay_cycle();
     }
 
-    void compile_dec16(const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    void compile_dec16(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
-        begin_instruction(instruction);
+        begin_instruction(block, instruction);
         load_regpair(ax, instruction->operand.reg16);
         dec(ax);
         store_regpair(instruction->operand.reg16, ax);
         delay_cycle();
     }
 
-    void compile_load(const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    void compile_load(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
-        begin_instruction(instruction);
+        begin_instruction(block, instruction);
 
         const JitTable::Instruction::Operand *destination = &instruction->operand;
         const JitTable::Instruction::Operand *source = &instruction->operand2;
@@ -273,9 +275,9 @@ public:
         }
     }
 
-    void compile_store(const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    void compile_store(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
-        begin_instruction(instruction);
+        begin_instruction(block, instruction);
 
         const JitTable::Instruction::Operand *destination = &instruction->operand;
         const JitTable::Instruction::Operand *source = &instruction->operand2;
@@ -344,9 +346,9 @@ public:
         }
     }
 
-    void compile_move(const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    void compile_move(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
-        begin_instruction(instruction);
+        begin_instruction(block, instruction);
 
         const JitTable::Instruction::Operand *destination = &instruction->operand;
         const JitTable::Instruction::Operand *source = &instruction->operand2;
@@ -369,7 +371,7 @@ public:
         }
     }
 
-    void compile_jp(const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    void compile_jp(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
     {
         if (instruction->predicate != JitTable::Instruction::Predicate_Always)
         {
@@ -377,11 +379,66 @@ public:
             return;
         }
 
-        begin_instruction(instruction);
+        begin_instruction(block, instruction);
         mov(ax, buffer->operand16);
         store_regpair(CPU::Reg16_PC, ax);
         delay_cycle();
         jump_to_end();
+    }
+
+    void compile_jr(JitX86::Block *block, const JitTable::Instruction *instruction, const InstructionBuffer *buffer)
+    {
+        begin_instruction(block, instruction);
+
+        // work out where in the compiled code to jump to
+        SmallString target_label;
+        uint16 effective_address = (buffer->operands8 < 0) ? (buffer->real_address + instruction->length - uint8(-buffer->operands8)) : (buffer->real_address + instruction->length + uint8(buffer->operands8));
+        if (effective_address < block->StartRealAddress || effective_address > block->EndRealAddress)
+        {
+            // exit block
+            target_label.Assign(".block_exit");
+        }
+        else
+        {
+            // jump to target
+            target_label.Format(".JT_0x%04X", effective_address);
+        }
+
+        // test predicate, jump
+        switch (instruction->predicate)
+        {
+        case JitTable::Instruction::Predicate_Always:
+            jmp(target_label.GetCharArray());
+            break;
+
+        case JitTable::Instruction::Predicate_Zero:
+            load_reg(al, CPU::Reg8_F);
+            and(al, CPU::FLAG_Z);
+            jnz(target_label.GetCharArray());
+            break;
+
+        case JitTable::Instruction::Predicate_NotZero:
+            load_reg(al, CPU::Reg8_F);
+            and (al, CPU::FLAG_Z);
+            jz(target_label.GetCharArray());
+            break;
+
+        case JitTable::Instruction::Predicate_Carry:
+            load_reg(al, CPU::Reg8_F);
+            and (al, CPU::FLAG_C);
+            jnz(target_label.GetCharArray());
+            break;
+
+        case JitTable::Instruction::Predicate_NotCarry:
+            load_reg(al, CPU::Reg8_F);
+            and (al, CPU::FLAG_C);
+            jz(target_label.GetCharArray());
+            break;
+
+        default:
+            UnreachableCode();
+            break;
+        }
     }
 };
 
@@ -420,6 +477,7 @@ bool JitX86::CompileBlock(Block *block)
     JitX86Emitter *emitter = new JitX86Emitter();
     emitter->start_block();
 
+    uint16 current_real_address = block->StartRealAddress;
     uint32 current_virtual_address = block->StartVirtualAddress;
     uint32 last_virtual_address = current_virtual_address;
     for (uint32 instruction_count = 0; instruction_count < block->InstructionCount; instruction_count++)
@@ -427,6 +485,8 @@ bool JitX86::CompileBlock(Block *block)
         InstructionBuffer buffer;
         Y_memzero(&buffer, sizeof(buffer));
 
+        buffer.real_address = current_real_address;
+        buffer.virtual_address = current_virtual_address;
         buffer.opcode = ReadVirtualAddress(current_virtual_address);
         const JitTable::Instruction *instruction = &JitTable::instructions[buffer.opcode];
         if (instruction->type == JitTable::Instruction::Type_Prefix)
@@ -449,19 +509,21 @@ bool JitX86::CompileBlock(Block *block)
         // main code generator
         switch (instruction->type)
         {
-        case JitTable::Instruction::Type_Nop:       emitter->compile_nop(instruction, &buffer);         break;
-        case JitTable::Instruction::Type_Load:      emitter->compile_load(instruction, &buffer);        break;
-        case JitTable::Instruction::Type_Store:     emitter->compile_store(instruction, &buffer);       break;
-        case JitTable::Instruction::Type_Move:      emitter->compile_move(instruction, &buffer);        break;
-        case JitTable::Instruction::Type_INC16:     emitter->compile_inc16(instruction, &buffer);       break;
-        case JitTable::Instruction::Type_DEC16:     emitter->compile_dec16(instruction, &buffer);       break;
-        case JitTable::Instruction::Type_JP:        emitter->compile_jp(instruction, &buffer);          break;
-        default:                                    emitter->interpreter_fallback();                    break;
+        case JitTable::Instruction::Type_Nop:       emitter->compile_nop(block, instruction, &buffer);          break;
+        case JitTable::Instruction::Type_Load:      emitter->compile_load(block, instruction, &buffer);         break;
+        case JitTable::Instruction::Type_Store:     emitter->compile_store(block, instruction, &buffer);        break;
+        case JitTable::Instruction::Type_Move:      emitter->compile_move(block, instruction, &buffer);         break;
+        case JitTable::Instruction::Type_INC16:     emitter->compile_inc16(block, instruction, &buffer);        break;
+        case JitTable::Instruction::Type_DEC16:     emitter->compile_dec16(block, instruction, &buffer);        break;
+        case JitTable::Instruction::Type_JP:        emitter->compile_jp(block, instruction, &buffer);           break;
+        case JitTable::Instruction::Type_JR:        emitter->compile_jr(block, instruction, &buffer);           break;
+        default:                                    emitter->interpreter_fallback();                            break;
         }
 
         // update address
         last_virtual_address = current_virtual_address;
         current_virtual_address += instruction->length;
+        current_real_address += instruction->length;
     }
 
     emitter->end_block();

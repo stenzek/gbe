@@ -22,7 +22,9 @@ protected:
     struct Block
     {
         uint32 StartVirtualAddress;
+        uint32 EndVirtualAddress;
         uint16 StartRealAddress;
+        uint16 EndRealAddress;
         uint32 InstructionCount;
         uint32 ByteCount;
 

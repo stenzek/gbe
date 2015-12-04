@@ -206,7 +206,7 @@ bool JitBase::AnalyseBlock(Block *block)
             int8 displacement = (int8)ReadVirtualAddress(current_virtual_address + 1);
             JumpEntry entry;
             entry.JumpSource = current_real_address;
-            entry.JumpTarget = (displacement < 0) ? (current_real_address - (uint8)-displacement) : (current_real_address + (uint8)displacement);
+            entry.JumpTarget = (displacement < 0) ? ((current_real_address + instruction_length) - (uint8)-displacement) : (current_real_address + instruction_length + (uint8)displacement);
             block->Jumps.Add(entry);
         }
 
