@@ -76,12 +76,12 @@ Cartridge::Cartridge(System *system)
     , m_mbc(NUM_MBC_TYPES)
     , m_crc(0)
     , m_typeinfo(nullptr)
+    , m_rom_banks(nullptr)
     , m_num_rom_banks(0)
     , m_external_ram(nullptr)
     , m_external_ram_size(0)
     , m_external_ram_modified(false)
 {
-    Y_memzero(m_rom_banks, sizeof(m_rom_banks));
     Y_memzero(&m_mbc_data, sizeof(m_mbc_data));
 }
 
@@ -89,6 +89,7 @@ Cartridge::~Cartridge()
 {
     for (uint32 i = 0; i < m_num_rom_banks; i++)
         Y_free(m_rom_banks[i]);
+    delete[] m_rom_banks;
 }
 
 bool Cartridge::ParseHeader(ByteStream *pStream, Error *pError)
@@ -195,6 +196,18 @@ bool Cartridge::ParseHeader(ByteStream *pStream, Error *pError)
 //     if (m_mbc == MBC_MBC2)
 //         m_external_ram_size = 512;
 
+    size_t extra_bytes = size_t(pStream->GetSize() - pStream->GetPosition());
+    DebugAssert(extra_bytes >= (ROM_BANK_SIZE * m_num_rom_banks));
+    if (extra_bytes > (ROM_BANK_SIZE * m_num_rom_banks))
+    {
+        Log_WarningPrintf("  ROM has %u extra bytes at end of bank space", extra_bytes);
+        if (m_mbc != MBC_NONE)
+        {
+            m_num_rom_banks = extra_bytes / ROM_BANK_SIZE;
+            Log_WarningPrintf("    Recalculated ROM banks: %u", m_num_rom_banks);
+        }
+    }
+
     return true;
 
 }
@@ -222,6 +235,8 @@ bool Cartridge::Load(ByteStream *pStream, Error *pError)
     }
 
     // read rom banks
+    DebugAssert(m_num_rom_banks > 0);
+    m_rom_banks = new byte *[m_num_rom_banks];
     for (uint32 i = 0; i < m_num_rom_banks; i++)
     {
         m_rom_banks[i] = (byte *)Y_malloc(ROM_BANK_SIZE);
@@ -1066,7 +1081,7 @@ uint8 Cartridge::MBC_MBC5_Read(uint16 address)
     case 0x5000:
     case 0x6000:
     case 0x7000:
-        return m_rom_banks[m_mbc_data.mbc5.rom_bank_number][address & 0x3FFF];
+        return m_rom_banks[m_mbc_data.mbc5.active_rom_bank][address & 0x3FFF];
 
         // eram
     case 0xA000:
@@ -1107,7 +1122,7 @@ void Cartridge::MBC_MBC5_Write(uint16 address, uint8 value)
         return;
 
     case 0x3000:
-        m_mbc_data.mbc5.rom_bank_number = (m_mbc_data.mbc5.rom_bank_number & 0xFF) | ((uint16)(value & 0x01) << 9);
+        m_mbc_data.mbc5.rom_bank_number = (m_mbc_data.mbc5.rom_bank_number & 0xFF) | ((uint16)(value & 0x01) << 8);
         MBC_MBC5_UpdateActiveBanks();
         return;
 
@@ -1143,10 +1158,11 @@ void Cartridge::MBC_MBC5_Write(uint16 address, uint8 value)
 
 bool Cartridge::MBC_MBC5_LoadState(ByteStream *pStream, BinaryReader &binaryReader)
 {
+    m_mbc_data.mbc5.active_rom_bank = binaryReader.ReadUInt16();
     m_mbc_data.mbc5.rom_bank_number = binaryReader.ReadUInt16();
     m_mbc_data.mbc5.ram_bank_number = binaryReader.ReadUInt8();
     m_mbc_data.mbc5.ram_enable = binaryReader.ReadBool();
-    if (m_mbc_data.mbc5.rom_bank_number >= m_num_rom_banks)
+    if (m_mbc_data.mbc5.active_rom_bank >= m_num_rom_banks)
         return false;
 
     return true;
@@ -1154,6 +1170,7 @@ bool Cartridge::MBC_MBC5_LoadState(ByteStream *pStream, BinaryReader &binaryRead
 
 void Cartridge::MBC_MBC5_SaveState(ByteStream *pStream, BinaryWriter &binaryWriter)
 {
+    binaryWriter.WriteUInt16(m_mbc_data.mbc5.active_rom_bank);
     binaryWriter.WriteUInt16(m_mbc_data.mbc5.rom_bank_number);
     binaryWriter.WriteUInt8(m_mbc_data.mbc5.ram_bank_number);
     binaryWriter.WriteBool(m_mbc_data.mbc5.ram_enable);
@@ -1162,10 +1179,12 @@ void Cartridge::MBC_MBC5_SaveState(ByteStream *pStream, BinaryWriter &binaryWrit
 void Cartridge::MBC_MBC5_UpdateActiveBanks()
 {
     // Same as for MBC1, except that accessing up to bank 1E0h is supported now. Also, bank 0 is actually bank 0.
-    if (m_mbc_data.mbc5.rom_bank_number >= m_num_rom_banks)
+    m_mbc_data.mbc5.active_rom_bank = m_mbc_data.mbc5.rom_bank_number;
+    if (m_mbc_data.mbc5.active_rom_bank >= m_num_rom_banks)
     {
-        Log_WarningPrintf("ROM bank out of range (%u / %u)", m_mbc_data.mbc5.rom_bank_number, m_num_rom_banks);
-        m_mbc_data.mbc5.rom_bank_number = (uint8)m_num_rom_banks - 1;
+        // since this is written as two different values, provided PC isn't in cart space,
+        // it may be temporarily out of range, and this is okay, it'll be fixed afterwards
+        m_mbc_data.mbc5.active_rom_bank = (uint8)m_num_rom_banks - 1;
     }
 
     TRACE("MBC5 ROM bank: %u", m_mbc_data.mbc5.rom_bank_number);

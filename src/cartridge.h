@@ -13,7 +13,7 @@ class Error;
 class System;
 
 #define ROM_BANK_SIZE (16384)
-#define MAX_NUM_ROM_BANKS (256)
+#define MAX_NUM_ROM_BANKS (4096)
 
 enum MBC
 {
@@ -82,7 +82,7 @@ private:
 
     const CartridgeTypeInfo *m_typeinfo;
 
-    byte *m_rom_banks[MAX_NUM_ROM_BANKS];
+    byte **m_rom_banks;
     uint32 m_num_rom_banks;
 
     byte *m_external_ram;
@@ -115,6 +115,7 @@ private:
 
         struct
         {
+            uint16 active_rom_bank;
             uint16 rom_bank_number;
             uint8 ram_bank_number;
             bool ram_enable;
