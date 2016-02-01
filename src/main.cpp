@@ -15,6 +15,7 @@
 #include "YBaseLib/BinaryReader.h"
 #include "YBaseLib/BinaryWriter.h"
 #include <SDL.h>
+#include <hqx.h>
 #include <cstdio>
 Log_SetChannel(Main);
 
@@ -40,6 +41,7 @@ struct State : public System::CallbackInterface
     SDL_Window *window;
     SDL_Surface *surface;
     SDL_Surface *offscreen_surface;
+    uint32 offscreen_surface_scale;
 
     SDL_AudioDeviceID audio_device_id;
 
@@ -92,8 +94,17 @@ struct State : public System::CallbackInterface
 
         if (scale > 1)
         {
-            offscreen_surface = SDL_CreateRGBSurface(0, 160, 144, 32, 0xff, 0xff00, 0xff0000, 0);
+            if (scale <= 4)
+                offscreen_surface = SDL_CreateRGBSurface(0, 160 * scale, 144 * scale, 32, 0xff, 0xff00, 0xff0000, 0);
+            else
+                offscreen_surface = SDL_CreateRGBSurface(0, 160, 144, 32, 0xff, 0xff00, 0xff0000, 0);
+
             DebugAssert(offscreen_surface != nullptr);
+            offscreen_surface_scale = scale;
+        }
+        else
+        {
+            offscreen_surface_scale = 1;
         }
 
         SDL_SetWindowSize(window, 160 * scale, 144 * scale);
@@ -161,10 +172,29 @@ struct State : public System::CallbackInterface
             if (SDL_MUSTLOCK(offscreen_surface))
                 SDL_LockSurface(offscreen_surface);
 
-            if (row_stride == (uint32)offscreen_surface->pitch)
-                Y_memcpy(offscreen_surface->pixels, pixels, row_stride * Display::SCREEN_HEIGHT);
-            else
-                Y_memcpy_stride(offscreen_surface->pixels, offscreen_surface->pitch, pixels, row_stride, sizeof(uint32) * Display::SCREEN_WIDTH, Display::SCREEN_HEIGHT);
+            switch (offscreen_surface_scale)
+            {
+            case 2:
+                hq2x_32_rb((uint32_t *)pixels, row_stride, (uint32_t *)offscreen_surface->pixels, offscreen_surface->pitch, 160, 144);
+                break;
+
+            case 3:
+                hq3x_32_rb((uint32_t *)pixels, row_stride, (uint32_t *)offscreen_surface->pixels, offscreen_surface->pitch, 160, 144);
+                break;
+
+            case 4:
+                hq4x_32_rb((uint32_t *)pixels, row_stride, (uint32_t *)offscreen_surface->pixels, offscreen_surface->pitch, 160, 144);
+                break;
+
+            default:
+                {
+                    if (row_stride == (uint32)offscreen_surface->pitch)
+                        Y_memcpy(offscreen_surface->pixels, pixels, row_stride * Display::SCREEN_HEIGHT);
+                    else
+                        Y_memcpy_stride(offscreen_surface->pixels, offscreen_surface->pitch, pixels, row_stride, sizeof(uint32) * Display::SCREEN_WIDTH, Display::SCREEN_HEIGHT);
+                }
+                break;
+            }
 
             if (SDL_MUSTLOCK(surface))
                 SDL_LockSurface(surface);
@@ -458,6 +488,7 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     state->window = nullptr;
     state->surface = nullptr;
     state->offscreen_surface = nullptr;
+    state->offscreen_surface_scale = 1;
     state->audio_device_id = 0;
     state->running = true;
 
@@ -812,6 +843,9 @@ extern "C" int main(int argc, char *argv[])
     // init sdl audio
     if (SDL_Init(SDL_INIT_AUDIO) < 0)
         Log_WarningPrintf("Failed to initialize SDL audio subsystem: %s", SDL_GetError());
+
+    // hqx init
+    hqxInit();
 
     // parse args
     ProgramArgs args;

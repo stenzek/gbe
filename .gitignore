@@ -19,6 +19,7 @@ ipch/*
 *.sdf
 *.suo
 *.vcxproj.user
+*.VC.opendb
 
 # cmake stuff
 CMakeCache.txt

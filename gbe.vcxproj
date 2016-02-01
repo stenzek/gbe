@@ -57,9 +57,9 @@
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>HQX_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>$(SolutionDir)dep\win\include;$(SolutionDir)dep\win\include\SDL;$(SolutionDir)dep\YBaseLib\Include;$(SolutionDir)src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)dep\win\include;$(SolutionDir)dep\win\include\SDL;$(SolutionDir)dep\YBaseLib\Include;$(SolutionDir)dep\hqx\src;$(SolutionDir)src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MinimalRebuild>false</MinimalRebuild>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -84,8 +84,8 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)dep\win\include;$(SolutionDir)dep\win\include\SDL;$(SolutionDir)dep\YBaseLib\Include;$(SolutionDir)src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>HQX_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)dep\win\include;$(SolutionDir)dep\win\include\SDL;$(SolutionDir)dep\YBaseLib\Include;$(SolutionDir)dep\hqx\src;$(SolutionDir)src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MinimalRebuild>false</MinimalRebuild>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <AdditionalOptions>/Zo %(AdditionalOptions)</AdditionalOptions>
@@ -108,6 +108,9 @@
   <ItemGroup>
     <ProjectReference Include="dep\Gb_Snd_Emu.vcxproj">
       <Project>{bac757b9-c0db-411d-b534-a6be0407fdf5}</Project>
+    </ProjectReference>
+    <ProjectReference Include="dep\hqx.vcxproj">
+      <Project>{41cd3c7b-1ad8-4fce-8b38-8bec000d80a6}</Project>
     </ProjectReference>
     <ProjectReference Include="dep\YBaseLib.vcxproj">
       <Project>{d05b6e35-3c9f-45fc-b294-ef56d3da7eaf}</Project>
