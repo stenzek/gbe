@@ -196,7 +196,7 @@ bool Cartridge::ParseHeader(ByteStream *pStream, Error *pError)
 //     if (m_mbc == MBC_MBC2)
 //         m_external_ram_size = 512;
 
-    size_t extra_bytes = size_t(pStream->GetSize() - pStream->GetPosition());
+    size_t extra_bytes = static_cast<size_t>(pStream->GetSize());
     DebugAssert(extra_bytes >= (ROM_BANK_SIZE * m_num_rom_banks));
     if (extra_bytes > (ROM_BANK_SIZE * m_num_rom_banks))
     {
