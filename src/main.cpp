@@ -789,26 +789,26 @@ static int Run(State *state)
             }
         }
 
-        // run a frame
-        double sleep_time_seconds = state->system->ExecuteFrame();
-        if (sleep_time_seconds >= 0.001)
+        // report statistics (done first so to not interfere with sleep time calc)
+        if (time_since_last_report.GetTimeSeconds() >= 1.0)
         {
-            // round down to the next millisecond (fix when usleep is implemented)
-            uint32 sleep_time_ms = (uint32)std::floor(sleep_time_seconds * 1000.0);
-            Thread::Sleep(sleep_time_ms);
-        }
-
-        // report statistics
-        if (time_since_last_report.GetTimeSeconds() > 1.0)
-        {
-            Log_DevPrintf("Current frame: %u, emulation speed: %.3f%%, target emulation speed: %.3f%%", state->system->GetFrameCounter() + 1, state->system->GetCurrentSpeed() * 100.0f, state->system->GetTargetSpeed() * 100.0f);
+            state->system->CalculateCurrentSpeed();
+            Log_DevPrintf("Current frame: %u, emulation speed: %.3f%% (%.2f FPS), target emulation speed: %.3f%%", state->system->GetFrameCounter() + 1, state->system->GetCurrentSpeed() * 100.0f, state->system->GetCurrentFPS(), state->system->GetTargetSpeed() * 100.0f);
             time_since_last_report.Reset();
 
             // update window title
             SmallString window_title;
-            window_title.Format("gbe - %s - Frame %u - %.0f%%", (state->cart != nullptr) ? state->cart->GetName().GetCharArray() : "NO CARTRIDGE", state->system->GetFrameCounter() + 1, state->system->GetCurrentSpeed() * 100.0f);
+            window_title.Format("gbe - %s - Frame %u - %.0f%% (%.2f FPS)", (state->cart != nullptr) ? state->cart->GetName().GetCharArray() : "NO CARTRIDGE", state->system->GetFrameCounter() + 1, state->system->GetCurrentSpeed() * 100.0f, state->system->GetCurrentFPS());
             SDL_SetWindowTitle(state->window, window_title);
         }
+
+        // run a frame
+        double sleep_time_seconds = state->system->ExecuteFrame();
+
+        // sleep until the next frame
+        uint32 sleep_time_ms = (uint32)std::floor(sleep_time_seconds * 1000.0);
+        if (sleep_time_ms > 0)
+            Thread::Sleep(sleep_time_ms);
     }
 
     // pause audio

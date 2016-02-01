@@ -355,19 +355,17 @@ double System::ExecuteFrame()
         sleep_time = 0.0;
     }
 
-    // calculate execution speed
-    float speed_diff = float(m_speed_timer.GetTimeSeconds());
-    if (speed_diff >= 1.0f)
-    {
-        float speed_mul = 1.0f / speed_diff;
-        m_current_speed = float(m_cycles_since_speed_update) / (4194304 * speed_mul);
-        m_current_fps = float(m_frames_since_speed_update) * speed_mul;
-        m_cycles_since_speed_update = 0;
-        m_frames_since_speed_update = 0;
-        m_speed_timer.Reset();
-    }
-
     return sleep_time;
+}
+
+void System::CalculateCurrentSpeed()
+{
+    float diff = float(m_speed_timer.GetTimeSeconds());
+    m_current_speed = float(m_cycles_since_speed_update) / (4194304 * diff);
+    m_current_fps = float(m_frames_since_speed_update) / diff;
+    m_cycles_since_speed_update = 0;
+    m_frames_since_speed_update = 0;
+    m_speed_timer.Reset();
 }
 
 void System::SetPadDirection(PAD_DIRECTION direction)

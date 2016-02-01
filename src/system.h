@@ -71,7 +71,9 @@ public:
     uint32 GetFrameCounter() const { return m_frame_counter; }
 
     // current speed
+    void CalculateCurrentSpeed();
     float GetCurrentSpeed() const { return m_current_speed; }
+    float GetCurrentFPS() const { return m_current_fps; }
 
     // emulation speed multiplier
     float GetTargetSpeed() const { return m_speed_multiplier; }
