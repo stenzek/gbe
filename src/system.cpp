@@ -73,8 +73,15 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, uint32 bios_length, Cartri
     m_next_event_cycle = 0;
     m_event = false;
 
+    m_reset_timer.Reset();
     m_clocks_since_reset = 0;
     m_last_vblank_clocks = 0;
+
+    m_speed_timer.Reset();
+    m_cycles_since_speed_update = 0;
+    m_frames_since_speed_update = 0;
+    m_current_fps = 0;
+
     m_speed_multiplier = 1.0f;
 
     m_frame_limiter = true;
@@ -122,9 +129,15 @@ void System::Reset()
     m_next_event_cycle = 0;
     m_event = false;
 
+    m_reset_timer.Reset();
     m_clocks_since_reset = 0;
     m_last_vblank_clocks = 0;
-    m_reset_timer.Reset();
+
+    m_speed_timer.Reset();
+    m_cycles_since_speed_update = 0;
+    m_frames_since_speed_update = 0;
+    m_current_fps = 0;
+
     m_frame_counter = 0;
 
     m_memory_locked_cycles = 0;
@@ -159,6 +172,9 @@ void System::SetPaused(bool paused)
         m_reset_timer.Reset();
         m_clocks_since_reset = 0;
         m_last_vblank_clocks = 0;
+
+        m_speed_timer.Reset();
+        m_cycles_since_speed_update = 0;
     }
 }
 
@@ -194,6 +210,7 @@ void System::AddCPUCycles(uint32 cpu_clocks)
     DebugAssert((cpu_clocks % 4) == 0);
     m_cycle_number += cpu_clocks;
     m_clocks_since_reset += (cpu_clocks >> GetDoubleSpeedDivider());
+    m_cycles_since_speed_update += (cpu_clocks >> GetDoubleSpeedDivider());
     m_next_event_cycle -= (int32)cpu_clocks;
     if (m_next_event_cycle > 0)
         return;
@@ -270,12 +287,12 @@ double System::ExecuteFrame()
     }
 
     // framelimiter on?
+    double sleep_time;
     if (m_frame_limiter)
     {
         // using "accurate" timing?
         Timer exec_timer;
         uint64 clocks_executed;
-        double sleep_time;
         if (m_accurate_timing)
         {
             // determine the number of cycles we should be at
@@ -325,10 +342,6 @@ double System::ExecuteFrame()
             // calculate the sleep time
             sleep_time = Max((VBLANK_INTERVAL / m_speed_multiplier) - exec_timer.GetTimeSeconds(), 0.0);
         }
-
-        // calculate the speed we're at
-        m_current_speed = float(double(clocks_executed) / double(TimeToClocks(exec_timer.GetTimeSeconds())));
-        return sleep_time;
     }
     else
     {
@@ -337,18 +350,24 @@ double System::ExecuteFrame()
         while (m_clocks_since_reset < target_clocks && !m_serial_pause)
             Step();
 
-        // update speed every 100ms
-        if (m_reset_timer.GetTimeSeconds() > 0.1f)
-        {
-            uint64 fullspeed_clocks = TimeToClocks(m_reset_timer.GetTimeSeconds());
-            m_current_speed = float(double(m_clocks_since_reset) / double(fullspeed_clocks));
-            m_clocks_since_reset = 0;
-            m_reset_timer.Reset();
-        }
 
         // don't sleep
-        return 0.0;
+        sleep_time = 0.0;
     }
+
+    // calculate execution speed
+    float speed_diff = float(m_speed_timer.GetTimeSeconds());
+    if (speed_diff >= 1.0f)
+    {
+        float speed_mul = 1.0f / speed_diff;
+        m_current_speed = float(m_cycles_since_speed_update) / (4194304 * speed_mul);
+        m_current_fps = float(m_frames_since_speed_update) * speed_mul;
+        m_cycles_since_speed_update = 0;
+        m_frames_since_speed_update = 0;
+        m_speed_timer.Reset();
+    }
+
+    return sleep_time;
 }
 
 void System::SetPadDirection(PAD_DIRECTION direction)
@@ -421,7 +440,11 @@ void System::SetTargetSpeed(float multiplier)
     m_speed_multiplier = multiplier;
     m_reset_timer.Reset();
     m_clocks_since_reset = 0;
+    m_cycles_since_speed_update = 0;
     m_last_vblank_clocks = 0;
+
+    m_speed_timer.Reset();
+    m_cycles_since_speed_update = 0;
 }
 
 void System::SetFrameLimiter(bool on)
@@ -430,6 +453,9 @@ void System::SetFrameLimiter(bool on)
     m_reset_timer.Reset(); 
     m_clocks_since_reset = 0; 
     m_last_vblank_clocks = 0;
+
+    m_speed_timer.Reset();
+    m_cycles_since_speed_update = 0;
 }
 
 void System::SetAccurateTiming(bool on)
@@ -438,6 +464,9 @@ void System::SetAccurateTiming(bool on)
     m_reset_timer.Reset();
     m_clocks_since_reset = 0;
     m_last_vblank_clocks = 0;
+
+    m_speed_timer.Reset();
+    m_cycles_since_speed_update = 0;
 }
 
 bool System::GetAudioEnabled() const

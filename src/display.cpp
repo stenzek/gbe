@@ -1073,6 +1073,7 @@ void Display::PushFrame()
         m_system->m_callbacks->PresentDisplayBuffer(m_frameBuffer, SCREEN_WIDTH * 4);
 
     m_system->m_frame_counter++;
+    m_system->m_frames_since_speed_update++;
     m_system->m_last_vblank_clocks = m_system->m_clocks_since_reset;
     //Log_DevPrintf("SCX: %u, SCY: %u", m_registers.SCX, m_registers.SCY);
 

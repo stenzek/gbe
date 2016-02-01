@@ -180,13 +180,16 @@ private:
     int32 m_next_event_cycle;
     bool m_event;
 
-    Timer m_reset_timer;
     Timer m_speed_timer;
+    uint64 m_cycles_since_speed_update;
+    uint32 m_frames_since_speed_update;
+    float m_current_speed;
+    float m_current_fps;
 
+    Timer m_reset_timer;
     uint64 m_clocks_since_reset;
     uint64 m_last_vblank_clocks;
     float m_speed_multiplier;
-    float m_current_speed;
     uint32 m_frame_counter;
     bool m_frame_limiter;
     bool m_accurate_timing;
