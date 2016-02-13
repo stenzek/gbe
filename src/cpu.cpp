@@ -41,6 +41,10 @@ void CPU::Push(uint8 value)
 
 void CPU::PushWord(uint16 value)
 {
+    // OAM bug triggers due to this acting as two decrements
+    CheckOAMBug(m_registers.SP);
+    CheckOAMBug(m_registers.SP - 1);
+
     //DebugAssert(m_registers.SP >= 0xC002);
     //m_registers.SP--;
     //m_mmu->Write8(m_registers.SP, (value >> 8) & 0xFF);
@@ -60,8 +64,11 @@ uint8 CPU::PopByte()
 
 uint16 CPU::PopWord()
 {
-    //DebugAssert(m_registers.SP < 0xFFFE);
+    // OAM bug triggers due to this acting as two increments
+    CheckOAMBug(m_registers.SP);
+    CheckOAMBug(m_registers.SP + 1);
 
+    //DebugAssert(m_registers.SP < 0xFFFE);
     //uint16 value = (uint16)(m_mmu->Read8(m_registers.SP + 1) << 8) | (uint16)(m_mmu->Read8(m_registers.SP));
     uint16 value = MemReadWord(m_registers.SP);
     m_registers.SP += 2;
@@ -546,6 +553,27 @@ void CPU::INSTR_daa()
 
 }
 
+void CPU::CheckOAMBug(uint16 current_value)
+{
+    // There is a flaw in the GameBoy hardware that causes trash to be written to OAM RAM if the following commands
+    // are used while their 16-bit content is in the range of $FE00 to $FEFF :
+    //
+    // inc xx(xx = bc, de, or hl)
+    // dec xx
+    // ldi a, (hl)
+    // ldd a, (hl)
+    // ldi(hl), a
+    // ldd(hl), a
+    //
+    // Only sprites 1 & 2 ($FE00 & $FE04) are not affected
+    // by these instructions.
+    //
+    // Source: http://www.devrs.com/gb/files/gbspec.txt
+
+    if (current_value >= 0xFE00 && current_value <= 0xFEFF)
+        m_system->TriggerOAMBug();
+}
+
 void CPU::ExecuteInstruction()
 {
     // cpu disabled for memory transfer?
@@ -632,7 +660,7 @@ void CPU::ExecuteInstruction()
     case 0x00:                                                                                                              break;  // NOP
     case 0x01:  m_registers.BC = ReadOperandWord();                                                                         break;  // LD BC, d16
     case 0x02:  MemWriteByte(m_registers.BC, m_registers.A);                                                                break;  // LD (BC), A
-    case 0x03:  m_registers.BC++; DelayCycle();                                                                             break;  // INC BC
+    case 0x03:  CheckOAMBug(m_registers.BC); m_registers.BC++; DelayCycle();                                                break;  // INC BC
     case 0x04:  m_registers.B = INSTR_inc(m_registers.B);                                                                   break;  // INC B
     case 0x05:  m_registers.B = INSTR_dec(m_registers.B);                                                                   break;  // DEC B
     case 0x06:  m_registers.B = ReadOperandByte();                                                                          break;  // LD B, d8
@@ -640,7 +668,7 @@ void CPU::ExecuteInstruction()
     case 0x08:  MemWriteWord(ReadOperandWord(), m_registers.SP);                                                            break;  // LD (a16), SP
     case 0x09:  INSTR_addhl(m_registers.BC);                                                                                break;  // ADD HL, BC
     case 0x0A:  m_registers.A = MemReadByte(m_registers.BC);                                                                break;  // LD A, (BC)
-    case 0x0B:  m_registers.BC--; DelayCycle();                                                                             break;  // DEC BC
+    case 0x0B:  CheckOAMBug(m_registers.BC); m_registers.BC--; DelayCycle();                                                break;  // DEC BC
     case 0x0C:  m_registers.C = INSTR_inc(m_registers.C);                                                                   break;  // INC C
     case 0x0D:  m_registers.C = INSTR_dec(m_registers.C);                                                                   break;  // DEC C
     case 0x0E:  m_registers.C = ReadOperandByte();                                                                          break;  // LD C, d8
@@ -648,7 +676,7 @@ void CPU::ExecuteInstruction()
     case 0x10:  INSTR_stop();                                                                                               break;  // STOP 0
     case 0x11:  m_registers.DE = ReadOperandWord();                                                                         break;  // LD DE, d16
     case 0x12:  MemWriteByte(m_registers.DE, m_registers.A);                                                                break;  // LD (DE), A
-    case 0x13:  m_registers.DE++; DelayCycle();                                                                             break;  // INC DE
+    case 0x13:  CheckOAMBug(m_registers.DE); m_registers.DE++; DelayCycle();                                                break;  // INC DE
     case 0x14:  m_registers.D = INSTR_inc(m_registers.D);                                                                   break;  // INC D
     case 0x15:  m_registers.D = INSTR_dec(m_registers.D);                                                                   break;  // DEC D
     case 0x16:  m_registers.D = ReadOperandByte();                                                                          break;  // LD D, d8
@@ -656,39 +684,39 @@ void CPU::ExecuteInstruction()
     case 0x18:  displacement = ReadOperandByte(); INSTR_jr(displacement);                                                   break;  // JR r8
     case 0x19:  INSTR_addhl(m_registers.DE);                                                                                break;  // ADD HL, DE
     case 0x1A:  m_registers.A = MemReadByte(m_registers.DE);                                                                break;  // LD A, (DE)
-    case 0x1B:  m_registers.DE--; DelayCycle();                                                                             break;  // DEC DE
+    case 0x1B:  CheckOAMBug(m_registers.DE); m_registers.DE--; DelayCycle();                                                break;  // DEC DE
     case 0x1C:  m_registers.E = INSTR_inc(m_registers.E);                                                                   break;  // INC E
     case 0x1D:  m_registers.E = INSTR_dec(m_registers.E);                                                                   break;  // DEC E
     case 0x1E:  m_registers.E = ReadOperandByte();                                                                          break;  // LD E, d8
     case 0x1F:  m_registers.A = INSTR_rr(m_registers.A, false);                                                             break;  // RRA
     case 0x20:  displacement = ReadOperandByte(); if (!m_registers.GetFlagZ()) { INSTR_jr(displacement); }                  break;  // JR NZ, r8
     case 0x21:  m_registers.HL = ReadOperandWord();                                                                         break;  // LD HL, d16
-    case 0x22:  MemWriteByte(m_registers.HL++, m_registers.A);                                                              break;  // LD (HL+), A
-    case 0x23:  m_registers.HL++; DelayCycle();                                                                             break;  // INC HL
+    case 0x22:  CheckOAMBug(m_registers.HL); MemWriteByte(m_registers.HL++, m_registers.A);                                 break;  // LD (HL+), A
+    case 0x23:  CheckOAMBug(m_registers.HL); m_registers.HL++; DelayCycle();                                                break;  // INC HL
     case 0x24:  m_registers.H = INSTR_inc(m_registers.H);                                                                   break;  // INC H
     case 0x25:  m_registers.H = INSTR_dec(m_registers.H);                                                                   break;  // DEC H
     case 0x26:  m_registers.H = ReadOperandByte();                                                                          break;  // LD H, d8
     case 0x27:  INSTR_daa();                                                                                                break;  // DAA
     case 0x28:  displacement = ReadOperandByte(); if (m_registers.GetFlagZ()) { INSTR_jr(displacement); }                   break;  // JR Z, r8
     case 0x29:  INSTR_addhl(m_registers.HL);                                                                                break;  // ADD HL, HL
-    case 0x2A:  m_registers.A = MemReadByte(m_registers.HL++);                                                              break;  // LD A, (HL+)
-    case 0x2B:  m_registers.HL--; DelayCycle();                                                                             break;  // DEC HL
+    case 0x2A:  CheckOAMBug(m_registers.HL); m_registers.A = MemReadByte(m_registers.HL++);                                 break;  // LD A, (HL+)
+    case 0x2B:  CheckOAMBug(m_registers.HL); m_registers.HL--; DelayCycle();                                                break;  // DEC HL
     case 0x2C:  m_registers.L = INSTR_inc(m_registers.L);                                                                   break;  // INC L
     case 0x2D:  m_registers.L = INSTR_dec(m_registers.L);                                                                   break;  // DEC L
     case 0x2E:  m_registers.L = ReadOperandByte();                                                                          break;  // LD L, d8
     case 0x2F:  m_registers.A = ~m_registers.A; m_registers.SetFlagN(true); m_registers.SetFlagH(true);                     break;  // CPL
     case 0x30:  displacement = ReadOperandByte(); if (!m_registers.GetFlagC()) { INSTR_jr(displacement); }                  break;  // JR NC, r8
     case 0x31:  m_registers.SP = ReadOperandWord();                                                                         break;  // LD SP, d16
-    case 0x32:  MemWriteByte(m_registers.HL--, m_registers.A);                                                              break;  // LD (HL-), A
-    case 0x33:  m_registers.SP++; DelayCycle();                                                                             break;  // INC SP
+    case 0x32:  CheckOAMBug(m_registers.HL); MemWriteByte(m_registers.HL--, m_registers.A);                                 break;  // LD (HL-), A
+    case 0x33:  CheckOAMBug(m_registers.SP); m_registers.SP++; DelayCycle();                                                break;  // INC SP
     case 0x34:  MemWriteByte(m_registers.HL, INSTR_inc(MemReadByte(m_registers.HL)));                                       break;  // INC (HL)
     case 0x35:  MemWriteByte(m_registers.HL, INSTR_dec(MemReadByte(m_registers.HL)));                                       break;  // DEC (HL)
     case 0x36:  MemWriteByte(m_registers.HL, ReadOperandByte());                                                            break;  // LD (HL), d8
     case 0x37:  m_registers.SetFlagN(false); m_registers.SetFlagH(false); m_registers.SetFlagC(true);                       break;  // SCF
     case 0x38:  displacement = ReadOperandByte(); if (m_registers.GetFlagC()) { INSTR_jr(displacement); }                   break;  // JR C, r8
     case 0x39:  INSTR_addhl(m_registers.SP);                                                                                break;  // ADD HL, SP
-    case 0x3A:  m_registers.A = MemReadByte(m_registers.HL--);                                                              break;  // LD A, (HL-)
-    case 0x3B:  m_registers.SP--; DelayCycle();                                                                             break;  // DEC SP
+    case 0x3A:  CheckOAMBug(m_registers.HL); m_registers.A = MemReadByte(m_registers.HL--);                                 break;  // LD A, (HL-)
+    case 0x3B:  CheckOAMBug(m_registers.SP); m_registers.SP--; DelayCycle();                                                break;  // DEC SP
     case 0x3C:  m_registers.A = INSTR_inc(m_registers.A);                                                                   break;  // INC A
     case 0x3D:  m_registers.A = INSTR_dec(m_registers.A);                                                                   break;  // DEC A
     case 0x3E:  m_registers.A = ReadOperandByte();                                                                          break;  // LD A, d8

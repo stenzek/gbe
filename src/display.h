@@ -74,6 +74,9 @@ private:
     void SetLYRegister(uint8 value);
     void SetHDMA5Register(uint8 value);
 
+    // helper for oam bug
+    bool CanTriggerOAMBug() const;
+
     // state saving
     bool LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError);
     void SaveState(ByteStream *pStream, BinaryWriter &binaryWriter);

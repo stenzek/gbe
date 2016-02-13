@@ -1,5 +1,4 @@
 #include "display.h"
-#include "memory.h"
 #include "YBaseLib/Memory.h"
 #include "YBaseLib/Assert.h"
 #include "YBaseLib/Log.h"
@@ -484,6 +483,24 @@ void Display::ExecuteHDMATransferBlock(uint32 bytes)
     // calculate how many cycles we need to block the cpu for
     m_HDMATransferClocksRemaining = CalculateHDMATransferCycles(copy_length);
     m_system->DisableCPU(true);
+}
+
+bool Display::CanTriggerOAMBug() const
+{
+    // Can't trigger with display off
+    if (!(m_registers.LCDC >> 7))
+        return false;
+
+    // Only trigger while in OAM read mode, i.e. the first 80 clocks of a scanline
+    if (m_state != DISPLAY_STATE_OAM_READ)
+        return false;
+
+    // This check is executed one cycle too early, so adjust for that.
+    uint32 executed_cycles = 80 - m_modeClocksRemaining + m_system->CalculateCycleCount(m_last_cycle);
+    if (executed_cycles >= 76)
+        return false;
+
+    return true;
 }
 
 void Display::Synchronize()

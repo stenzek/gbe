@@ -39,6 +39,8 @@ public:
     System(CallbackInterface *callbacks);
     ~System();
 
+    SYSTEM_MODE GetMode() const { return m_mode; }
+    bool InDMGMode() const { return (m_mode == SYSTEM_MODE_DMG); }
     bool InSGBMode() const { return (m_mode == SYSTEM_MODE_SGB); }
     bool InCGBMode() const { return (m_mode == SYSTEM_MODE_CGB); }
     
@@ -113,6 +115,7 @@ private:
 
     // oam access from gpu
     const byte *GetOAM() const { return m_memory_oam; }
+    byte *GetOAM() { return m_memory_oam; }
     void SetOAMLock(bool locked) { m_oamLocked = locked; }
 
     // vram access from gpu
@@ -132,6 +135,9 @@ private:
 
     // serial pause
     void SetSerialPause(bool enabled);
+
+    // trigger OAM bug if all conditions are met
+    void TriggerOAMBug();
 
     // synchronization
     // yeah this'll overflow, but it just means we'll synchronize too early, then correct it afterwards

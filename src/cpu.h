@@ -248,6 +248,8 @@ private:
     void INSTR_addsp(int8 displacement);
     void INSTR_ldhlsp(int8 displacement);
     void INSTR_daa();
+
+    void CheckOAMBug(uint16 current_value);
 };
 
 
