@@ -91,6 +91,8 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, uint32 bios_length, Cartri
     m_serial_pause = false;
 
     m_memory_locked_cycles = 0;
+    m_memory_locked_start = 0;
+    m_memory_locked_end = 0;
     m_memory_permissive = false;
 
     m_high_wram_bank = 1;
@@ -666,15 +668,87 @@ void System::DisableCPU(bool disabled)
     m_cpu->Disable(disabled);
 }
 
-void System::DMATransfer(uint16 source_address, uint16 destination_address, uint32 bytes)
+void System::OAMDMATransfer(uint16 source_address)
 {
-    // slow but due to the ranges has to be done this awy
-    uint16 current_source_address = source_address;
-    uint16 current_destination_address = destination_address;
-    for (uint32 i = 0; i < bytes; i++, current_source_address++, current_destination_address++)
-        CPUWrite(current_destination_address, CPURead(current_source_address));
+    m_memory_locked_cycles = 0;
+    
+    // select locked memory range
+    switch (source_address & 0xF000)
+    {
+    case 0x0000:
+    case 0x1000:
+    case 0x2000:
+    case 0x3000:
+        m_memory_locked_start = 0x0000;
+        m_memory_locked_end = 0x3FFF;
+        break;
+
+    case 0x4000:
+    case 0x5000:
+    case 0x6000:
+    case 0x7000:
+        m_memory_locked_start = 0x4000;
+        m_memory_locked_end = 0x7FFF;
+        break;
+
+    case 0xA000:
+    case 0xB000:
+        m_memory_locked_start = 0xA000;
+        m_memory_locked_end = 0xBFFF;
+        break;
+
+    case 0xC000:
+        m_memory_locked_start = 0xC000;
+        m_memory_locked_end = 0xCFFF;
+        break;
+
+    case 0xD000:
+        m_memory_locked_start = 0xD000;
+        m_memory_locked_end = 0xDFFF;
+        break;
+
+    case 0xE000:
+        // TODO: This is shadow of C000-CFFF
+        m_memory_locked_start = 0xE000;
+        m_memory_locked_end = 0xEFFF;
+        break;
+
+    case 0xF000:
+        {
+            if (source_address < 0xFE00)
+            {
+                m_memory_locked_start = 0xF000;
+                m_memory_locked_end = 0xFD99;
+            }
+        }
+        break;
+    }
+
+    // Allow transfers from vram regardless of locking state.
+    // Is this correct?
+    bool vramLocked = m_vramLocked;
+
+    if (source_address == 0xFE00)
+    {
+        // OAM-OAM - ignore?
+        Log_WarningPrintf("DMA transfer from OAM-OAM");
+    }
+    else if (source_address == 0xFF00)
+    {
+        // MMIO/ZRAM->OAM - copy zeros?
+        for (uint32 i = 0; i < 160; i++)
+            m_memory_oam[i] = 0;
+    }
+    else
+    {
+        // slow but due to the ranges has to be done this way
+        // TODO: break this up for reads/writes when in progress
+        for (uint32 i = 0; i < 160; i++)
+            m_memory_oam[i] = CPURead(source_address + (uint16)i);
+    }
 
     // Stall memory access for ~160 microseconds
+    m_vramLocked = vramLocked;
     m_memory_locked_cycles = 640;
     UpdateNextEventCycle();
 }
@@ -870,9 +944,10 @@ uint8 System::CPURead(uint16 address)
 //         __debugbreak();
 
     // when DMA transfer is in progress, all memory except FF80-FFFE is inaccessible
-    if (m_memory_locked_cycles > 0 && !m_memory_permissive && (address < 0xFF80 || address > 0xFFFE))
+    if (m_memory_locked_cycles > 0 && !m_memory_permissive && address >= m_memory_locked_start && address <= m_memory_locked_end)
     {
-        Log_WarningPrintf("CPU read of address 0x%04X denied during DMA transfer", address);
+        // TODO: Should change the currently-buffered byte in the DMA transfer
+        Log_DevPrintf("WARN: CPU read of address 0x%04X denied during DMA transfer", address);
         return 0x00;
     }
 
@@ -921,7 +996,7 @@ uint8 System::CPURead(uint16 address)
             if (m_vramLocked && !m_memory_permissive)
             {
                 // Apparently returns 0xFF?
-                Log_WarningPrintf("CPU read of VRAM address 0x%04X while locked.", address);
+                Log_DevPrintf("WARN: CPU read of VRAM address 0x%04X while locked.", address);
                 return 0xFF;
             }
 
@@ -968,12 +1043,12 @@ uint8 System::CPURead(uint16 address)
                     if (m_oamLocked && !m_memory_permissive)
                     {
                         // Apparently returns 0xFF?
-                        Log_WarningPrintf("CPU read of OAM address 0x%04X while locked.", address);
+                        Log_DevPrintf("WARN: CPU read of OAM address 0x%04X while locked.", address);
                         return 0xFF;
                     }
                     else if (address >= 0xFEA0)
                     {
-                        Log_WarningPrintf("Out-of-range read of OAM address 0x%04X", address);
+                        Log_DevPrintf("WARN: Out-of-range read of OAM address 0x%04X", address);
                         return 0x00;
                     }
 
@@ -1009,9 +1084,9 @@ void System::CPUWrite(uint16 address, uint8 value)
 //         __debugbreak();
 
     // when DMA transfer is in progress, all memory except FF80-FFFE is inaccessible
-    if (m_memory_locked_cycles > 0 && !m_memory_permissive && (address < 0xFF80 || address > 0xFFFE))
+    if (m_memory_locked_cycles > 0 && !m_memory_permissive && address >= m_memory_locked_start && address <= m_memory_locked_end)
     {
-        Log_WarningPrintf("CPU write of address 0x%04X (value 0x%02X) denied during DMA transfer", address, value);
+        Log_DevPrintf("WARN: CPU write of address 0x%04X (value 0x%02X) denied during DMA transfer", address, value);
         return;
     }
 
@@ -1043,7 +1118,7 @@ void System::CPUWrite(uint16 address, uint8 value)
             m_display->Synchronize();
             if (m_vramLocked && !m_memory_permissive)
             {
-                Log_WarningPrintf("CPU write of VRAM address 0x%04X (value 0x%02X) while locked.", address, value);
+                Log_DevPrintf("WARN: CPU write of VRAM address 0x%04X (value 0x%02X) while locked.", address, value);
                 return;
             }
 
@@ -1103,12 +1178,12 @@ void System::CPUWrite(uint16 address, uint8 value)
                     if (m_oamLocked && !m_memory_permissive)
                     {
                         // Apparently returns 0xFF?
-                        Log_WarningPrintf("CPU write of OAM address 0x%04X (value 0x%02X) while locked.", address, value);
+                        Log_DevPrintf("WARN: CPU write of OAM address 0x%04X (value 0x%02X) while locked.", address, value);
                         return;
                     }
                     else if (address >= 0xFEA0)
                     {
-                        Log_WarningPrintf("Out-of-range write of OAM address 0x%04X (value 0x%02X)", address, value);
+                        Log_DevPrintf("WARN: Out-of-range write of OAM address 0x%04X (value 0x%02X)", address, value);
                         return;
                     }
 
@@ -1536,9 +1611,7 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                     // Writing to this register launches a DMA transfer from ROM or RAM to OAM memory (sprite attribute table). The written value specifies the transfer source address divided by 100h
                     // It takes 160 microseconds until the transfer has completed (80 microseconds in CGB Double Speed Mode), during this time the CPU can access only HRAM (memory at FF80-FFFE).
                     uint16 source_address = (uint16)value * 256;
-                    uint16 destination_address = 0xFE00;
-                    //Log_DevPrintf("OAM DMA Transfer 0x%04X -> 0x%04X", source_address, destination_address);
-                    DMATransfer(source_address, destination_address, 160);
+                    OAMDMATransfer(source_address);
                     return;
                 }
             }

@@ -793,7 +793,7 @@ static int Run(State *state)
         if (time_since_last_report.GetTimeSeconds() >= 1.0)
         {
             state->system->CalculateCurrentSpeed();
-            Log_DevPrintf("Current frame: %u, emulation speed: %.3f%% (%.2f FPS), target emulation speed: %.3f%%", state->system->GetFrameCounter() + 1, state->system->GetCurrentSpeed() * 100.0f, state->system->GetCurrentFPS(), state->system->GetTargetSpeed() * 100.0f);
+            Log_InfoPrintf("Current frame: %u, emulation speed: %.3f%% (%.2f FPS), target emulation speed: %.3f%%", state->system->GetFrameCounter() + 1, state->system->GetCurrentSpeed() * 100.0f, state->system->GetCurrentFPS(), state->system->GetTargetSpeed() * 100.0f);
             time_since_last_report.Reset();
 
             // update window title
@@ -821,11 +821,11 @@ static int Run(State *state)
 // SDL requires the entry point declared without c++ decoration
 extern "C" int main(int argc, char *argv[])
 {
-    // set log flags
-    //g_pLog->SetConsoleOutputParams(true, nullptr, LOGLEVEL_TRACE);
+#ifdef Y_BUILD_CONFIG_DEBUG
     g_pLog->SetConsoleOutputParams(true, nullptr, LOGLEVEL_PROFILE);
-    //g_pLog->SetConsoleOutputParams(true, "CPU Cartridge System");
-    //g_pLog->SetDebugOutputParams(true);
+#else
+    g_pLog->SetConsoleOutputParams(true, nullptr, LOGLEVEL_INFO);
+#endif
 
 #if defined(__WIN32__)
     // fix up stdout/stderr on win32

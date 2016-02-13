@@ -125,7 +125,7 @@ private:
     void DisableCPU(bool disabled);
 
     // OAM DMA Transfer
-    void DMATransfer(uint16 source_address, uint16 destination_address, uint32 bytes);
+    void OAMDMATransfer(uint16 source_address);
 
     // CGB Speed Switch
     bool SwitchCGBSpeed();
@@ -209,6 +209,8 @@ private:
 
     // when doing DMA transfer, locked memory # cycles
     uint32 m_memory_locked_cycles;
+    uint16 m_memory_locked_start;
+    uint16 m_memory_locked_end;
     bool m_memory_permissive;
 
     // timer
