@@ -383,6 +383,12 @@ void Display::SetLCDCRegister(uint8 value)
             m_cyclesSinceVBlank = 0;
             SetState(DISPLAY_STATE_OAM_READ);
             SetLYRegister(0);
+
+            // Turning on the LCD also executes a cycle.
+            m_modeClocksRemaining -= 4;
+            m_cyclesSinceVBlank += 4;
+
+            // Update sync point.
             m_last_cycle = m_system->GetCycleNumber();
             m_system->SetNextDisplaySyncCycle(m_modeClocksRemaining);
         }
