@@ -14,6 +14,9 @@
 #include "YBaseLib/Platform.h"
 #include "YBaseLib/BinaryReader.h"
 #include "YBaseLib/BinaryWriter.h"
+#include "YRenderLib/Renderer.h"
+#include "YRenderLib/ImGui/ImGuiBridge.h"
+#include "YRenderLib/ShaderCompiler/ShaderCompiler.h"
 #include <SDL.h>
 #include <hqx.h>
 #include <cstdio>
@@ -38,16 +41,27 @@ struct State : public System::CallbackInterface
 
     System *system;
 
-    SDL_Window *window;
-    SDL_Surface *surface;
-    SDL_Surface *offscreen_surface;
-    uint32 offscreen_surface_scale;
+    RendererOutputWindow *window;
+    GPUDevice* gpu_device;
+    GPUContext* gpu_context;
+    GPUShaderProgram* gpu_program;
+    GPUTexture2D* gpu_texture;
+
+    uint32 gpu_texture_width;
+    uint32 gpu_texture_height;
+    byte* hq_texture_buffer;
+    uint32 hq_texture_buffer_stride;
+    uint32 hq_scale;
 
     SDL_AudioDeviceID audio_device_id;
 
     String savestate_prefix;
 
     bool running;
+
+    bool needs_redraw;
+
+    bool show_info_window;
 
     void SetSaveStatePrefix(const char *cartridge_file_name)
     {
@@ -82,33 +96,169 @@ struct State : public System::CallbackInterface
             Y_memzero(samples + i, (nsamples - i) * 2);
     }
 
-    void SetScale(uint32 scale)
+    void SetHQScale(uint32 scale)
     {
-        scale = Max(scale, (uint32)1);
+        scale = Math::Clamp(scale, 1u, 4u);
+        if (hq_scale == scale)
+            return;
 
-        if (offscreen_surface != nullptr)
+        GPU_TEXTURE2D_DESC desc(Display::SCREEN_WIDTH * scale, Display::SCREEN_HEIGHT * scale, PIXEL_FORMAT_R8G8B8A8_UNORM, GPU_TEXTURE_FLAG_SHADER_BINDABLE | GPU_TEXTURE_FLAG_WRITABLE, 1);
+        GPU_SAMPLER_STATE_DESC sampler_desc(TEXTURE_FILTER_MIN_MAG_LINEAR_MIP_POINT, TEXTURE_ADDRESS_MODE_CLAMP, TEXTURE_ADDRESS_MODE_CLAMP, TEXTURE_ADDRESS_MODE_CLAMP, FloatColor::Black, 0.0f, 0, 0, 1, GPU_COMPARISON_FUNC_ALWAYS);
+        GPUTexture2D* new_texture = gpu_device->CreateTexture2D(&desc, &sampler_desc);
+        if (new_texture == nullptr)
+            return;
+
+        SAFE_RELEASE(gpu_texture);
+        gpu_texture_width = desc.Width;
+        gpu_texture_height = desc.Height;
+        gpu_texture = new_texture;
+        delete[] hq_texture_buffer;
+        hq_texture_buffer = nullptr;
+        hq_texture_buffer_stride = 0;
+        hq_scale = scale;
+
+        if (hq_scale > 1)
         {
-            SDL_FreeSurface(offscreen_surface);
-            offscreen_surface = nullptr;
+            // only alloc buffer for >1x
+            hq_texture_buffer_stride = PixelFormat_CalculateRowPitch(PIXEL_FORMAT_R8G8B8A8_UNORM, gpu_texture_width);
+            hq_texture_buffer = new byte[hq_texture_buffer_stride * desc.Height];
         }
 
-        if (scale > 1)
-        {
-            if (scale <= 4)
-                offscreen_surface = SDL_CreateRGBSurface(0, 160 * scale, 144 * scale, 32, 0xff, 0xff00, 0xff0000, 0);
-            else
-                offscreen_surface = SDL_CreateRGBSurface(0, 160, 144, 32, 0xff, 0xff00, 0xff0000, 0);
+        // resize output window?
+    }
 
-            DebugAssert(offscreen_surface != nullptr);
-            offscreen_surface_scale = scale;
+    void DrawImGui()
+    {
+        bool boolOption;
+
+        if (ImGui::BeginPopupContextVoid())
+        {
+            ImGui::MenuItem("Show Info Overlay", nullptr, &show_info_window);
+
+            ImGui::Separator();
+
+            if (ImGui::BeginMenu("Load State"))
+            {
+                for (uint32 i = 1; i < 10; i++)
+                {
+                    SmallString label;
+                    label.Format("State %u", i);
+                    if (ImGui::MenuItem(label))
+                        LoadState(i);
+                }
+
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::BeginMenu("Save State"))
+            {
+                for (uint32 i = 1; i < 10; i++)
+                {
+                    SmallString label;
+                    label.Format("State %u", i);
+                    if (ImGui::MenuItem(label))
+                        SaveState(i);
+                }
+
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::MenuItem("Reset"))
+                system->Reset();
+
+            ImGui::Separator();
+
+            boolOption = system->GetAudioEnabled();
+            if (ImGui::MenuItem("Enable Audio", nullptr, &boolOption))
+                system->SetAudioEnabled(boolOption);
+
+            boolOption = system->GetAccurateTiming();
+            if (ImGui::MenuItem("Accurate Timing", nullptr, &boolOption))
+                system->SetAccurateTiming(boolOption);
+
+            boolOption = system->GetFrameLimiter();
+            if (ImGui::MenuItem("Frame Limiter", nullptr, &boolOption))
+                system->SetFrameLimiter(boolOption);
+
+            ImGui::Separator();
+
+            if (ImGui::BeginMenu("HQ Scaling"))
+            {
+                if (ImGui::MenuItem("1x", nullptr, (hq_scale == 1)))
+                    SetHQScale(1);
+
+                if (ImGui::MenuItem("2x", nullptr, (hq_scale == 2)))
+                    SetHQScale(2);
+
+                if (ImGui::MenuItem("3x", nullptr, (hq_scale == 3)))
+                    SetHQScale(3);
+
+                if (ImGui::MenuItem("4x", nullptr, (hq_scale == 4)))
+                    SetHQScale(4);
+
+                ImGui::EndMenu();
+            }
+
+            ImGui::Separator();
+
+            if (ImGui::MenuItem("Quit"))
+                running = false;
+
+            ImGui::EndPopup();
+        }
+
+        if (show_info_window)
+        {
+            ImGui::SetNextWindowPos(ImVec2(4.0f, 4.0f), ImGuiSetCond_FirstUseEver);
+
+            if (ImGui::Begin("", &show_info_window, ImVec2(148.0f, 48.0f), 0.5f, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings))
+            {
+                ImGui::Text("Frame %u (%.0f%%)", system->GetFrameCounter() + 1, system->GetCurrentSpeed() * 100.0f);
+                ImGui::Text("%.2f FPS", system->GetCurrentFPS());
+                ImGui::End();
+            }
+        }
+    }
+
+    void Redraw()
+    {
+        gpu_context->SetFullViewport();
+        gpu_context->ClearTargets(true, true, false, FloatColor::Black);
+
+        RENDERER_VIEWPORT draw_viewport(0, 0, 0, 0, 0.0f, 1.0f);
+        uint32 width = window->GetWidth();
+        uint32 height = window->GetHeight();
+        if ((width * Display::SCREEN_HEIGHT / Display::SCREEN_WIDTH) > height)
+        {
+            // same AR as gameboy, add borders on left/right
+            draw_viewport.Width = height * Display::SCREEN_WIDTH / Display::SCREEN_HEIGHT;
+            draw_viewport.Height = height;
         }
         else
         {
-            offscreen_surface_scale = 1;
+            // draw borders on top/bottom
+            draw_viewport.Width = width;
+            draw_viewport.Height = width * Display::SCREEN_HEIGHT / Display::SCREEN_WIDTH;
         }
+        draw_viewport.TopLeftX = (width - draw_viewport.Width) / 2;
+        draw_viewport.TopLeftY = (height - draw_viewport.Height) / 2;
+        gpu_context->SetViewport(&draw_viewport);
 
-        SDL_SetWindowSize(window, 160 * scale, 144 * scale);
-        surface = SDL_GetWindowSurface(window);
+        gpu_context->SetRasterizerState(nullptr);
+        gpu_context->SetDepthStencilState(nullptr, 0);
+        gpu_context->SetBlendState(nullptr);
+        gpu_context->SetInputLayout(nullptr);
+        gpu_context->SetShaderProgram(gpu_program);
+        gpu_context->SetShaderResource(0, gpu_texture);
+        gpu_context->SetDrawTopology(DRAW_TOPOLOGY_TRIANGLE_STRIP);
+        gpu_context->Draw(0, 3);
+        
+        gpu_context->SetFullViewport();
+        ImGui::Render();
+
+        gpu_context->PresentOutputBuffer(GPU_PRESENT_BEHAVIOUR_IMMEDIATE);
+
+        needs_redraw = false;
     }
 
     bool LoadState(uint32 index)
@@ -167,69 +317,34 @@ struct State : public System::CallbackInterface
     // Callback to present a frame
     virtual void PresentDisplayBuffer(const void *pixels, uint32 row_stride) override final
     {
-        if (offscreen_surface != nullptr)
+        const void* upload_src = pixels;
+        uint32 upload_src_stride = row_stride;
+
+        // handle hq upscaling
+        switch (hq_scale)
         {
-            if (SDL_MUSTLOCK(offscreen_surface))
-                SDL_LockSurface(offscreen_surface);
+        case 2:
+            hq2x_32_rb((uint32_t *)pixels, row_stride, (uint32_t *)hq_texture_buffer, hq_texture_buffer_stride, 160, 144);
+            upload_src = hq_texture_buffer;
+            upload_src_stride = hq_texture_buffer_stride;
+            break;
 
-            switch (offscreen_surface_scale)
-            {
-            case 2:
-                hq2x_32_rb((uint32_t *)pixels, row_stride, (uint32_t *)offscreen_surface->pixels, offscreen_surface->pitch, 160, 144);
-                break;
+        case 3:
+            hq3x_32_rb((uint32_t *)pixels, row_stride, (uint32_t *)hq_texture_buffer, hq_texture_buffer_stride, 160, 144);
+            upload_src = hq_texture_buffer;
+            upload_src_stride = hq_texture_buffer_stride;
+            break;
 
-            case 3:
-                hq3x_32_rb((uint32_t *)pixels, row_stride, (uint32_t *)offscreen_surface->pixels, offscreen_surface->pitch, 160, 144);
-                break;
-
-            case 4:
-                hq4x_32_rb((uint32_t *)pixels, row_stride, (uint32_t *)offscreen_surface->pixels, offscreen_surface->pitch, 160, 144);
-                break;
-
-            default:
-                {
-                    if (row_stride == (uint32)offscreen_surface->pitch)
-                        Y_memcpy(offscreen_surface->pixels, pixels, row_stride * Display::SCREEN_HEIGHT);
-                    else
-                        Y_memcpy_stride(offscreen_surface->pixels, offscreen_surface->pitch, pixels, row_stride, sizeof(uint32) * Display::SCREEN_WIDTH, Display::SCREEN_HEIGHT);
-                }
-                break;
-            }
-
-            if (SDL_MUSTLOCK(surface))
-                SDL_LockSurface(surface);
-
-            SDL_BlitScaled(offscreen_surface, nullptr, surface, nullptr);
-
-            if (SDL_MUSTLOCK(surface))
-                SDL_UnlockSurface(surface);
-
-            if (SDL_MUSTLOCK(offscreen_surface))
-                SDL_UnlockSurface(offscreen_surface);
-        }
-        else
-        {
-            if (SDL_MUSTLOCK(surface))
-                SDL_LockSurface(surface);
-
-            const byte *pBytePixels = reinterpret_cast<const byte *>(pixels);
-            for (uint32 y = 0; y < Display::SCREEN_HEIGHT; y++)
-            {
-                const byte *inLine = pBytePixels + (y * row_stride);
-                uint32 *outLine = (uint32 *)((byte *)surface->pixels + (y * (uint32)surface->pitch));
-
-                for (uint32 x = 0; x < Display::SCREEN_WIDTH; x++)
-                {
-                    *(outLine++) = SDL_MapRGB(surface->format, inLine[0], inLine[1], inLine[2]);
-                    inLine += 4;
-                }
-            }
-
-            if (SDL_MUSTLOCK(surface))
-                SDL_UnlockSurface(surface);
+        case 4:
+            hq4x_32_rb((uint32_t *)pixels, row_stride, (uint32_t *)hq_texture_buffer, hq_texture_buffer_stride, 160, 144);
+            upload_src = hq_texture_buffer;
+            upload_src_stride = hq_texture_buffer_stride;
+            break;
         }
 
-        SDL_UpdateWindowSurface(window);
+        // write to gpu texture
+        gpu_context->WriteTexture(gpu_texture, upload_src, upload_src_stride, upload_src_stride * gpu_texture_height, 0, 0, 0, gpu_texture_width, gpu_texture_height);
+        needs_redraw = true;
     }
 
     virtual bool LoadCartridgeRAM(void *pData, size_t expected_data_size) override final
@@ -479,39 +594,99 @@ static bool ParseArguments(int argc, char *argv[], ProgramArgs *out_args)
 #undef CHECK_ARG_PARAM
 }
 
+static bool CompileShaderPrograms(State *state)
+{
+    static const char* vertex_shader = R"(
+        void main(in uint vertex_id : SV_VertexID,
+                  out float2 uv : TEXCOORD,
+                  out float4 pos : SV_Position)
+        {
+            float x = float((vertex_id & 2) << 1) - 1.0f;
+            float y = 1.0f - float((vertex_id & 1) << 2);
+            uv.x = (x + 1.0f) * 0.5f;
+            uv.y = 1.0f - ((y + 1.0f) * 0.5f);
+            pos = float4(x, y, 0.0f, 1.0f);
+        }
+    )";
+
+    static const char* pixel_shader = R"(
+        Texture2D tex : register(t0);
+        SamplerState tex_SamplerState : register(s0);
+        void main(in float2 uv : TEXCOORD,
+                  out float4 ocol : SV_Target)
+        {
+            ocol = tex.Sample(tex_SamplerState, uv);
+        }
+    )";
+
+    AutoReleasePtr<ShaderCompiler> shader_compiler = ShaderCompiler::Create();
+    shader_compiler->SetStageSourceCode(SHADER_PROGRAM_STAGE_VERTEX_SHADER, "", vertex_shader, "main");
+    shader_compiler->SetStageSourceCode(SHADER_PROGRAM_STAGE_PIXEL_SHADER, "", pixel_shader, "main");
+
+    AutoReleasePtr<ByteStream> shader_blob = ByteStream_CreateGrowableMemoryStream();
+    if (!shader_compiler->CompileSingleTypeProgram(state->gpu_device->GetShaderProgramType(), 0, shader_blob, nullptr, nullptr))
+    {
+        Log_ErrorPrintf("Failed to compile program");
+        return false;
+    }
+
+    shader_blob->SeekAbsolute(0);
+    state->gpu_program = state->gpu_device->CreateGraphicsProgram(shader_blob);
+    if (state->gpu_program == nullptr)
+    {
+        Log_ErrorPrintf("Failed to create program");
+        return false;
+    }
+
+    return true;
+}
+
 static bool InitializeState(const ProgramArgs *args, State *state)
 {
     state->bios = nullptr;
     state->bios_length = 0;
     state->cart = nullptr;
     state->system = nullptr;
+    state->gpu_device = nullptr;
+    state->gpu_context = nullptr;
+    state->gpu_texture = nullptr;
+    state->gpu_program = nullptr;
     state->window = nullptr;
-    state->surface = nullptr;
-    state->offscreen_surface = nullptr;
-    state->offscreen_surface_scale = 1;
+    state->gpu_texture_width = 0;
+    state->gpu_texture_height = 0;
+    state->hq_texture_buffer = nullptr;
+    state->hq_texture_buffer_stride = 0;
+    state->hq_scale = 0;
     state->audio_device_id = 0;
     state->running = true;
+    state->needs_redraw = false;
+    state->show_info_window = false;
 
     // load cart
     state->system = new System(state);
     if (args->cart_filename != nullptr && !LoadCart(args->cart_filename, state))
         return false;
 
-    // create render window
-    state->window = SDL_CreateWindow("gbe", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, Display::SCREEN_WIDTH, Display::SCREEN_HEIGHT, 0);
-    if (state->window == nullptr)
-    {
-        Log_ErrorPrintf("Failed to crate SDL window: %s", SDL_GetError());
+    // create display
+    RendererInitializationParameters parameters;
+    parameters.ImplicitSwapChainCaption = "gbe";
+    parameters.ImplicitSwapChainWidth = Display::SCREEN_WIDTH * 4;
+    parameters.ImplicitSwapChainHeight = Display::SCREEN_HEIGHT * 4;
+    if (!RenderLib::CreateRenderDeviceAndWindow(&parameters, &state->gpu_device, &state->gpu_context, &state->window))
         return false;
-    }
 
-    // get surface to draw to
-    state->surface = SDL_GetWindowSurface(state->window);
-    if (state->surface == nullptr)
-    {
-        SDL_DestroyWindow(state->window);
+    // create program
+    if (!CompileShaderPrograms(state))
         return false;
-    }
+
+    // create texture
+    state->SetHQScale(1);
+    if (!state->gpu_texture)
+        return false;
+
+    // init imgui
+    if (!ImGuiBridge::Initialize(state->gpu_device, state->gpu_context))
+        return false;
 
     // create audio device
     SDL_AudioSpec audio_spec = { 44100, AUDIO_S16, 2, 0, 2048, 0, 0, &State::AudioCallback, (void *)state };
@@ -549,14 +724,18 @@ static void CleanupState(State *state)
     delete state->cart;
     delete state->system;
 
-    if (state->offscreen_surface != nullptr)
-        SDL_FreeSurface(state->offscreen_surface);
+    delete[] state->hq_texture_buffer;
+    state->hq_texture_buffer = nullptr;
+
+    ImGuiBridge::Shutdown();
+    SAFE_RELEASE(state->gpu_texture);
+    SAFE_RELEASE(state->gpu_program);
+    SAFE_RELEASE(state->gpu_context);
+    SAFE_RELEASE(state->window);
+    SAFE_RELEASE(state->gpu_device);
 
     if (state->audio_device_id != 0)
         SDL_CloseAudioDevice(state->audio_device_id);
-
-    if (state->window != nullptr)
-        SDL_DestroyWindow(state->window);
 }
 
 
@@ -568,9 +747,20 @@ static int Run(State *state)
     if (state->audio_device_id != 0)
         SDL_PauseAudioDevice(state->audio_device_id, 0);
 
+    // initial frame
+    ImGuiBridge::NewFrame();
+
+    // main loop
     while (state->running)
     {
         SDL_PumpEvents();
+
+        if (state->window->HandleMessages(state->gpu_context))
+        {
+            ImGuiBridge::SetDisplaySize(state->window->GetWidth(), state->window->GetHeight());
+            state->needs_redraw = true;
+        }
+
         for (;;)
         {
             SDL_Event events[16];
@@ -581,6 +771,10 @@ static int Run(State *state)
             for (int i = 0; i < nevents; i++)
             {
                 const SDL_Event *event = events + i;
+
+                if (ImGuiBridge::HandleSDLEvent(event, false))
+                    continue;
+
                 switch (event->type)
                 {
                 case SDL_QUIT:
@@ -640,7 +834,7 @@ static int Run(State *state)
                         case SDLK_9:
                             {
                                 if (!down)
-                                    state->SetScale((event->key.keysym.sym - SDLK_1) + 1);
+                                    state->SetHQScale((event->key.keysym.sym - SDLK_1) + 1);
 
                                 break;
                             }
@@ -799,11 +993,19 @@ static int Run(State *state)
             // update window title
             SmallString window_title;
             window_title.Format("gbe - %s - Frame %u - %.0f%% (%.2f FPS)", (state->cart != nullptr) ? state->cart->GetName().GetCharArray() : "NO CARTRIDGE", state->system->GetFrameCounter() + 1, state->system->GetCurrentSpeed() * 100.0f, state->system->GetCurrentFPS());
-            SDL_SetWindowTitle(state->window, window_title);
+            state->window->SetWindowTitle(window_title);
         }
 
         // run a frame
         double sleep_time_seconds = state->system->ExecuteFrame();
+
+        // needs redraw?
+        if (state->needs_redraw)
+        {
+            state->DrawImGui();
+            state->Redraw();
+            ImGuiBridge::NewFrame();
+        }
 
         // sleep until the next frame
         uint32 sleep_time_ms = (uint32)std::floor(sleep_time_seconds * 1000.0);
