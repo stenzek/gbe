@@ -827,12 +827,6 @@ extern "C" int main(int argc, char *argv[])
     g_pLog->SetConsoleOutputParams(true, nullptr, LOGLEVEL_INFO);
 #endif
 
-#if defined(__WIN32__)
-    // fix up stdout/stderr on win32
-    freopen("CONOUT$", "w", stdout);
-    freopen("CONOUT$", "w", stderr);
-#endif
-
     // init sdl
     if (SDL_Init(0) < 0)
     {
