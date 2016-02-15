@@ -4,6 +4,7 @@
 # binaries folder
 Binaries
 bin
+Build/*
 
 # dependancies binaries
 Dependancies
