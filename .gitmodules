@@ -1,3 +1,6 @@
 [submodule "dep/YBaseLib"]
 	path = dep/YBaseLib
 	url = https://bitbucket.org/connormcl/ybaselib.git
+[submodule "dep/YRenderLib"]
+	path = dep/YRenderLib
+	url = https://bitbucket.org/connormcl/yrenderlib.git
