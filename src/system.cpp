@@ -197,13 +197,18 @@ void System::UpdateNextEventCycle()
     if (m_event)
         return;
 
-    uint32 first_event = Min(m_next_timer_sync_cycle, Min(m_next_serial_sync_cycle, Min(m_next_display_sync_cycle, m_next_audio_sync_cycle)));
-    DebugAssert(first_event >= m_cycle_number);
-    if (m_memory_locked_cycles > 0)
-        first_event = Min(first_event, m_cycle_number + m_memory_locked_cycles);
+    // these results can underflow, but the results will be correct
+    uint32 cycles_to_timer_sync = m_next_timer_sync_cycle - m_cycle_number;
+    uint32 cycles_to_serial_sync = m_next_serial_sync_cycle - m_cycle_number;
+    uint32 cycles_to_audio_sync = m_next_audio_sync_cycle - m_cycle_number;
+    uint32 cycles_to_display_sync = m_next_display_sync_cycle - m_cycle_number;
 
-    uint32 clocks_to_event = (first_event - m_cycle_number);
-    m_next_event_cycle = (int32)clocks_to_event;
+    // find the lowest sync cycle
+    uint32 cycles_to_first_sync = Min(cycles_to_timer_sync, Min(cycles_to_serial_sync, Min(cycles_to_audio_sync, cycles_to_display_sync)));
+    if (m_memory_locked_cycles > 0)
+        cycles_to_first_sync = Min(cycles_to_first_sync, m_memory_locked_cycles);
+
+    m_next_event_cycle = (int32)cycles_to_first_sync;
 }
 
 void System::AddCPUCycles(uint32 cpu_clocks)
@@ -218,6 +223,9 @@ void System::AddCPUCycles(uint32 cpu_clocks)
         return;
 
     // what we will synchronize
+    // when (m_cycle_number + next_sync) overflows, these expressions will keep returning true,
+    // until m_cycle_number overflows as well. certainly not ideal due to the slowdown.
+    // however, due to the downcount above, we should not be triggering often
     bool sync_timers = (m_cycle_number >= m_next_timer_sync_cycle);
     bool sync_serial = (m_cycle_number >= m_next_serial_sync_cycle);
     bool sync_display = (m_cycle_number >= m_next_display_sync_cycle);
