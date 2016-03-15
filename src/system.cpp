@@ -359,20 +359,18 @@ double System::ExecuteFrame()
         }
         else
         {
-            // execute one frame worth of cycles
-            DebugAssert(m_clocks_since_reset <= 70224);
-            uint64 target_clocks = uint64(70224 * m_speed_multiplier) - m_clocks_since_reset;
-            m_clocks_since_reset = 0;
-                                  
-            // exec cycles
-            while (m_clocks_since_reset < target_clocks && !m_serial_pause)
+            uint64 cycles_executed = 0;
+            uint64 last_vblank_clocks = m_last_vblank_clocks;
+
+            // If the display is turned off, this loop will never exit.
+            // Run a maximum of two vblank intervals worth of cycles in this case.
+            while (cycles_executed < (70224 * 2) &&
+                   last_vblank_clocks == m_last_vblank_clocks &&
+                   !m_serial_pause)
+            {
                 Step();
+            }
 
-            //Log_InfoPrintf("oc %u tc %u td %f", (uint32)m_clocks_since_reset, (uint32)target_clocks, m_reset_timer.GetTimeMilliseconds());
-            m_clocks_since_reset -= (m_serial_pause) ? m_clocks_since_reset : target_clocks;
-            clocks_executed = target_clocks;
-
-            // calculate the sleep time
             sleep_time = Max((VBLANK_INTERVAL / m_speed_multiplier) - exec_timer.GetTimeSeconds(), 0.0);
         }
     }
