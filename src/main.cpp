@@ -23,6 +23,7 @@ struct ProgramArgs
 {
     const char *bios_filename;
     const char *cart_filename;
+    SYSTEM_MODE system_mode;
     bool disable_bios;
     bool permissive_memory;
     bool accurate_timing;
@@ -420,6 +421,7 @@ static bool ParseArguments(int argc, char *argv[], ProgramArgs *out_args)
 
     out_args->bios_filename = nullptr;
     out_args->cart_filename = nullptr;
+    out_args->system_mode = NUM_SYSTEM_MODES;
     out_args->disable_bios = false;
     out_args->permissive_memory = false;
     out_args->accurate_timing = true;
@@ -437,6 +439,23 @@ static bool ParseArguments(int argc, char *argv[], ProgramArgs *out_args)
         else if (CHECK_ARG_PARAM("-bios"))
         {
             out_args->bios_filename = argv[++i];
+        }
+        else if (CHECK_ARG_PARAM("-mode"))
+        {
+            i++;
+            if (!Y_stricmp(argv[i], "auto"))
+                out_args->system_mode = SYSTEM_MODE_SGB;
+            else if (!Y_stricmp(argv[i], "dmg"))
+                out_args->system_mode = SYSTEM_MODE_DMG;
+            else if (!Y_stricmp(argv[i], "sgb"))
+                out_args->system_mode = SYSTEM_MODE_SGB;
+            else if (!Y_stricmp(argv[i], "cgb"))
+                out_args->system_mode = SYSTEM_MODE_CGB;
+            else
+            {
+                fprintf(stderr, "Unknown system mode: '%s'", argv[i]);
+                return false;
+            }
         }
         else if (CHECK_ARG("-nobios"))
         {
@@ -538,7 +557,15 @@ static bool InitializeState(const ProgramArgs *args, State *state)
 
     // get system mode
     SYSTEM_MODE system_mode = (state->cart != nullptr) ? state->cart->GetSystemMode() : SYSTEM_MODE_DMG;
-    Log_InfoPrintf("Using system mode %s.", NameTable_GetNameString(NameTables::SystemMode, system_mode));
+    if (args->system_mode != NUM_SYSTEM_MODES)
+    {
+        system_mode = args->system_mode;
+        Log_WarningPrintf("Forcing system mode %s.", NameTable_GetNameString(NameTables::SystemMode, system_mode));
+    }
+    else
+    {
+        Log_InfoPrintf("Using system mode %s.", NameTable_GetNameString(NameTables::SystemMode, system_mode));
+    }
 
     // load bios
     if (!args->disable_bios)
