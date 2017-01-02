@@ -28,6 +28,7 @@ struct ProgramArgs
     bool accurate_timing;
     bool frame_limiter;
     bool enable_audio;
+    bool enable_hqx;
 };
 
 struct State : public System::CallbackInterface
@@ -46,6 +47,8 @@ struct State : public System::CallbackInterface
     SDL_AudioDeviceID audio_device_id;
 
     String savestate_prefix;
+
+    bool enable_hqx;
 
     bool running;
 
@@ -94,13 +97,16 @@ struct State : public System::CallbackInterface
 
         if (scale > 1)
         {
-            if (scale <= 4)
+            if (scale <= 4 && enable_hqx)
+            {
                 offscreen_surface = SDL_CreateRGBSurface(0, 160 * scale, 144 * scale, 32, 0xff, 0xff00, 0xff0000, 0);
+                offscreen_surface_scale = scale;
+            }
             else
+            {
                 offscreen_surface = SDL_CreateRGBSurface(0, 160, 144, 32, 0xff, 0xff00, 0xff0000, 0);
-
-            DebugAssert(offscreen_surface != nullptr);
-            offscreen_surface_scale = scale;
+                offscreen_surface_scale = 1;
+            }
         }
         else
         {
@@ -419,6 +425,7 @@ static bool ParseArguments(int argc, char *argv[], ProgramArgs *out_args)
     out_args->accurate_timing = true;
     out_args->frame_limiter = true;
     out_args->enable_audio = true;
+    out_args->enable_hqx = false;
 
     for (int i = 1; i < argc; i++)
     {
@@ -467,6 +474,14 @@ static bool ParseArguments(int argc, char *argv[], ProgramArgs *out_args)
         {
             out_args->enable_audio = false;
         }
+        else if (CHECK_ARG("-hqx"))
+        {
+            out_args->enable_hqx = true;
+        }
+        else if (CHECK_ARG("-nohqx"))
+        {
+            out_args->enable_hqx = false;
+        }
         else
         {
             out_args->cart_filename = argv[i];
@@ -490,6 +505,7 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     state->offscreen_surface = nullptr;
     state->offscreen_surface_scale = 1;
     state->audio_device_id = 0;
+    state->enable_hqx = args->enable_hqx;
     state->running = true;
 
     // load cart
