@@ -20,6 +20,7 @@ ipch/*
 *.sdf
 *.suo
 *.vcxproj.user
+*.VC.db
 *.VC.opendb
 
 # cmake stuff
