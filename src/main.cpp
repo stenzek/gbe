@@ -813,7 +813,7 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     // create display
     state->window = SDL_CreateWindow("gbe",
                                      SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                                     Display::SCREEN_WIDTH * 4, Display::SCREEN_HEIGHT * 4,
+                                     Display::SCREEN_WIDTH * 2, Display::SCREEN_HEIGHT * 2,
                                      SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
     if (!state->window)
         return false;
@@ -991,6 +991,14 @@ static int Run(State *state)
 
                         case SDLK_RETURN:
                             state->system->SetPadButton(PAD_BUTTON_START, down);
+                            break;
+
+                        case SDLK_TAB:
+                            {
+                                bool new_state = !down;
+                                if (state->system->GetFrameLimiter() != new_state)
+                                    state->system->SetFrameLimiter(new_state);
+                            }
                             break;
 
                         case SDLK_F1:
