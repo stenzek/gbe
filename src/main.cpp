@@ -985,84 +985,13 @@ static int Run(State *state)
                             state->system->SetPadButton(PAD_BUTTON_A, down);
                             break;
 
-                        case SDLK_c:
+                        case SDLK_RSHIFT:
                             state->system->SetPadButton(PAD_BUTTON_SELECT, down);
                             break;
 
-                        case SDLK_v:
+                        case SDLK_RETURN:
                             state->system->SetPadButton(PAD_BUTTON_START, down);
                             break;
-
-                        case SDLK_1:
-                        case SDLK_2:
-                        case SDLK_3:
-                        case SDLK_4:
-                        case SDLK_5:
-                        case SDLK_6:
-                        case SDLK_7:
-                        case SDLK_8:
-                        case SDLK_9:
-                            {
-                                if (!down)
-                                    state->ReallocateGPUTexture((event->key.keysym.sym - SDLK_1) + 1);
-
-                                break;
-                            }
-
-                        case SDLK_KP_MULTIPLY:
-                            {
-                                if (!down)
-                                {
-                                    state->system->SetAudioEnabled(!state->system->GetAudioEnabled());
-                                    Log_DevPrintf("Audio is now %s", state->system->GetAudioEnabled() ? "enabled" : "disabled");
-                                }
-
-                                break;
-                            }
-
-                        case SDLK_KP_PLUS:
-                            {
-                                if (down)
-                                {
-                                    state->system->SetTargetSpeed(state->system->GetTargetSpeed() + 0.25f);
-                                    Log_DevPrintf("Target speed set to %.2f%%", state->system->GetTargetSpeed() * 100.0f);
-                                }
-
-                                break;
-                            }
-
-                        case SDLK_KP_MINUS:
-                            {
-                                if (down)
-                                {
-                                    state->system->SetTargetSpeed(state->system->GetTargetSpeed() - 0.25f);
-                                    Log_DevPrintf("Target speed set to %.2f%%", state->system->GetTargetSpeed() * 100.0f);
-                                }
-
-                                break;
-                            }
-
-                        case SDLK_KP_PERIOD:
-                            {
-                                if (!down)
-                                {
-                                    state->system->SetAccurateTiming(!state->system->GetAccurateTiming());
-                                    Log_DevPrintf("Set accurate timing %s", state->system->GetAccurateTiming() ? "on" : "off");
-                                }
-
-                                break;
-                            }
-
-                        case SDLK_KP_ENTER:
-                            {
-                                if (!down)
-                                {
-                                    state->system->SetFrameLimiter(!state->system->GetFrameLimiter());
-                                    Log_DevPrintf("Set framelimiter %s", state->system->GetFrameLimiter() ? "on" : "off");
-                                }
-
-                                break;
-                            }
 
                         case SDLK_F1:
                         case SDLK_F2:
@@ -1086,32 +1015,6 @@ static int Run(State *state)
                                         state->LoadState(index);
                                 }
 
-                                break;
-                            }
-
-                        case SDLK_PAUSE:
-                            {
-                                if (!down)
-                                {
-                                    if (event->key.keysym.mod & (KMOD_LSHIFT | KMOD_RSHIFT))
-                                    {
-                                        Log_DevPrintf("Resetting system.");
-                                        state->system->Reset();
-                                    }
-                                    else
-                                    {
-                                        if (state->system->GetPaused())
-                                        {
-                                            Log_DevPrintf("Resuming emulation.");
-                                            state->system->SetPaused(false);
-                                        }
-                                        else
-                                        {
-                                            Log_DevPrintf("Pausing emulation.");
-                                            state->system->SetPaused(true);
-                                        }
-                                    }
-                                }
                                 break;
                             }
 
