@@ -857,6 +857,7 @@ static bool InitializeState(const ProgramArgs *args, State *state)
         return false;
 
     // init imgui
+    ImGui::GetIO().IniFilename = nullptr;
     if (!ImGui_Impl_Init(state->window))
         return false;
 
