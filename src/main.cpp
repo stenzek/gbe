@@ -832,6 +832,9 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     if (!state->gl_context)
         return false;
 
+    if (SDL_GL_SetSwapInterval(0) != 0)
+        Log_WarningPrintf("Failed to clear vsync setting.");
+
     if (!gladLoadGL())
         return false;
 
