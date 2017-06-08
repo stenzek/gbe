@@ -142,7 +142,7 @@ void Audio::Synchronize()
                     {
                         // don't spam about overruns with frame limiter off (it's guaranteed to happen)
                         if (m_system->GetFrameLimiter() && m_system->GetTargetSpeed() == 1.0f)
-                            Log_WarningPrintf("Audio buffer overrun by write (too much data)");
+                            Log_DevPrintf("WARN: Audio buffer overrun by write (too much data)");
 
                         m_output_buffer_write_overrun = true;
                     }
@@ -209,7 +209,7 @@ size_t Audio::ReadSamples(int16 *buffer, size_t count)
         size_t copy_samples = Min(remaining, OUTPUT_BUFFER_SIZE - m_output_buffer_rpos);
         if (!m_output_buffer_read_overrun && m_output_buffer_wpos > m_output_buffer_rpos && (m_output_buffer_rpos + copy_samples) > m_output_buffer_wpos)
         {
-            Log_WarningPrintf("Audio buffer overrun by read (not enough data)");
+            Log_DevPrintf("WARN: Audio buffer overrun by read (not enough data)");
             m_output_buffer_read_overrun = true;
         }
 

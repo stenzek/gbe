@@ -9,6 +9,7 @@
     <ClInclude Include="src\audio.h" />
     <ClInclude Include="src\serial.h" />
     <ClInclude Include="src\link.h" />
+    <ClInclude Include="src\imgui_impl.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
@@ -21,5 +22,6 @@
     <ClCompile Include="src\audio.cpp" />
     <ClCompile Include="src\serial.cpp" />
     <ClCompile Include="src\link.cpp" />
+    <ClCompile Include="src\imgui_impl.cpp" />
   </ItemGroup>
 </Project>

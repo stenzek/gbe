@@ -270,6 +270,7 @@ void Display::SetState(DISPLAY_STATE state)
     m_registers.STAT = (m_registers.STAT & ~0x3) | (m_state & 0x3);
 
     // trigger interrupts
+    bool display_enabled = IsDisplayEnabled();
     switch (state)
     {
         // HBlank
@@ -282,15 +283,14 @@ void Display::SetState(DISPLAY_STATE state)
             m_frameReady = false;
 
             // Fire interrupt
-            if (m_registers.STAT & (1 << 3))
+            if (display_enabled && (m_registers.STAT & (1 << 3)))
                 m_system->CPUInterruptRequest(CPU_INT_LCDSTAT);
 
             // HDMA transfer pending?
             if (m_registers.HDMA5 & (1 << 7))
                 ExecuteHDMATransferBlock(0x10);
-
-            break;
         }
+        break;
 
         // VBlank
     case DISPLAY_STATE_VBLANK:
@@ -304,38 +304,40 @@ void Display::SetState(DISPLAY_STATE state)
             PushFrame();
 
             // Fire interrupts
-            if (m_registers.STAT & (1 << 4))
-                m_system->CPUInterruptRequest(CPU_INT_LCDSTAT);
+            if (display_enabled)
+            {
+                if ((m_registers.STAT & (1 << 4)))
+                    m_system->CPUInterruptRequest(CPU_INT_LCDSTAT);
 
-            // VBlank interrupt always fires.
-            m_system->CPUInterruptRequest(CPU_INT_VBLANK);
-            break;
+                // VBlank interrupt always fires.
+                m_system->CPUInterruptRequest(CPU_INT_VBLANK);
+            }
         }
+        break;
 
         // OAM
     case DISPLAY_STATE_OAM_READ:
         {
             // Lock the CPU from reading OAM.
             // Mode 2 read takes 77-83 clocks.
-            m_system->SetOAMLock(true);
+            m_system->SetOAMLock(IsDisplayEnabled());
             m_system->SetVRAMLock(false);
             m_modeClocksRemaining = 80;
             m_frameReady = false;
 
             // Fire interrupts
-            if (m_registers.STAT & (1 << 5))
+            if (display_enabled && m_registers.STAT & (1 << 5))
                 m_system->CPUInterruptRequest(CPU_INT_LCDSTAT);
-
-            break;
         }
+        break;
 
         // VRAM read
     case DISPLAY_STATE_OAM_VRAM_READ:
         {
             // Lock the CPU from reading both OAM and VRAM.
             // Mode 3 takes 169-175 clocks.
-            m_system->SetOAMLock(true);
-            m_system->SetVRAMLock(true);
+            m_system->SetOAMLock(display_enabled);
+            m_system->SetVRAMLock(display_enabled);
             m_modeClocksRemaining = 172;
             m_frameReady = false;
             break;
@@ -353,21 +355,6 @@ void Display::SetLCDCRegister(uint8 value)
         // Turning off LCD?
         if (!lcd_new_state)
         {
-            // We should be in vblank.
-            if (m_state != DISPLAY_STATE_VBLANK)
-            {
-                // Set to vblank mode (since the rom is misbehaving)
-                m_cyclesSinceVBlank = 65664;
-                m_currentScanLine = 144;
-                SetState(DISPLAY_STATE_VBLANK);
-                SetLYRegister(m_currentScanLine);
-            }
-
-            // Unlock memory.
-            m_system->SetVRAMLock(false);
-            m_system->SetOAMLock(false);
-            m_system->SetNextDisplaySyncCycle(4194304);
-
             // Clear the framebuffer, and update display.
             TRACE("Display disabled.");
             m_frameReady = true;
@@ -376,20 +363,7 @@ void Display::SetLCDCRegister(uint8 value)
         }
         else
         {
-            // Reset back to original state (is this correct behavior?)
             TRACE("Display enabled.");
-            m_currentScanLine = 0;
-            m_cyclesSinceVBlank = 0;
-            SetState(DISPLAY_STATE_OAM_READ);
-            SetLYRegister(0);
-
-            // Turning on the LCD also executes a cycle.
-            m_modeClocksRemaining -= 4;
-            m_cyclesSinceVBlank += 4;
-
-            // Update sync point.
-            m_last_cycle = m_system->GetCycleNumber();
-            m_system->SetNextDisplaySyncCycle(m_modeClocksRemaining);
         }
     }
 
@@ -503,6 +477,11 @@ bool Display::CanTriggerOAMBug() const
     return true;
 }
 
+bool Display::IsDisplayEnabled() const
+{
+    return ((m_registers.LCDC >> 7) != 0);
+}
+
 void Display::Synchronize()
 {
     uint32 cycles_to_execute = m_system->CalculateCycleCount(m_last_cycle);
@@ -524,15 +503,6 @@ void Display::Synchronize()
             // Still going.
             m_HDMATransferClocksRemaining -= hdma_clocks;
         }
-    }
-
-    // Don't do anything if we're disabled.
-    if (!(m_registers.LCDC & (1 << 7)))
-    {
-        // Set next sync time to a vsync away for now.
-        // When we're re-enabled, the cycle number gets reset.
-        m_system->SetNextDisplaySyncCycle(70224);
-        return;
     }
 
     // Execute as much time as we can.
@@ -558,8 +528,8 @@ void Display::Synchronize()
             {
                 // Enter OAM+VRAM read mode for this scanline.
                 SetState(DISPLAY_STATE_OAM_VRAM_READ);
-                break;
             }
+            break;
 
         case DISPLAY_STATE_OAM_VRAM_READ:
             {
@@ -571,8 +541,8 @@ void Display::Synchronize()
 
                 // Enter HBLANK for this scanline
                 SetState(DISPLAY_STATE_HBLANK);
-                break;
             }
+            break;
 
         case DISPLAY_STATE_HBLANK:
             {
@@ -591,9 +561,8 @@ void Display::Synchronize()
                     // Move to VBLANK.
                     SetState(DISPLAY_STATE_VBLANK);
                 }
-
-                break;
             }
+            break;
 
         case DISPLAY_STATE_VBLANK:
             {
@@ -617,9 +586,8 @@ void Display::Synchronize()
                     m_currentScanLine++;
                     SetLYRegister(m_registers.LY + 1);
                 }
-
-                break;
             }
+            break;
         }
     }
 
@@ -675,6 +643,8 @@ void Display::RenderScanline(uint8 LINE)
     // blank the line
     byte *pFrameBufferLine = m_frameBuffer + (LINE * SCREEN_WIDTH * 4);
     Y_memset(pFrameBufferLine, 0xFF, SCREEN_WIDTH * 4);
+    if (!IsDisplayEnabled())
+        return;
 
     // read control register
     uint8 LCDC = m_registers.LCDC;
@@ -877,6 +847,8 @@ void Display::RenderScanline_CGB(uint8 LINE)
     // blank the line
     byte *pFrameBufferLine = m_frameBuffer + (LINE * SCREEN_WIDTH * 4);
     Y_memset(pFrameBufferLine, 0xFF, SCREEN_WIDTH * 4);
+    if (!IsDisplayEnabled())
+        return;
 
     // read control register
     uint8 LCDC = m_registers.LCDC;

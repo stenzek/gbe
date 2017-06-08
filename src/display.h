@@ -76,6 +76,7 @@ private:
 
     // helper for oam bug
     bool CanTriggerOAMBug() const;
+    bool IsDisplayEnabled() const;
 
     // state saving
     bool LoadState(ByteStream *pStream, BinaryReader &binaryReader, Error *pError);
