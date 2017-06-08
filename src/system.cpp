@@ -161,6 +161,8 @@ void System::Reset()
     // if bios not provided, emulate post-bootstrap state
     if (m_bios == nullptr)
         SetPostBootstrapState();
+
+    Log_InfoPrintf("System reset.");
 }
 
 void System::SetPaused(bool paused)
