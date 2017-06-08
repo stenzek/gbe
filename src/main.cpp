@@ -148,6 +148,8 @@ struct State : public System::CallbackInterface
     {
         bool boolOption;
 
+        ImGui_Impl_RenderOSD();
+
         if (ImGui::BeginPopupContextVoid())
         {
             ImGui::MenuItem("Show Info Overlay", nullptr, &show_info_window);
@@ -228,7 +230,7 @@ struct State : public System::CallbackInterface
         {
             ImGui::SetNextWindowPos(ImVec2(4.0f, 4.0f), ImGuiSetCond_FirstUseEver);
 
-            if (ImGui::Begin("", &show_info_window, ImVec2(148.0f, 48.0f), 0.5f, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings))
+            if (ImGui::Begin("Info Window", &show_info_window, ImVec2(148.0f, 48.0f), 0.5f, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings))
             {
                 ImGui::Text("Frame %u (%.0f%%)", system->GetFrameCounter() + 1, system->GetCurrentSpeed() * 100.0f);
                 ImGui::Text("%.2f FPS", system->GetCurrentFPS());
@@ -1072,7 +1074,7 @@ static int Run(State *state)
         if (time_since_last_report.GetTimeSeconds() >= 1.0)
         {
             state->system->CalculateCurrentSpeed();
-            Log_InfoPrintf("Current frame: %u, emulation speed: %.3f%% (%.2f FPS), target emulation speed: %.3f%%", state->system->GetFrameCounter() + 1, state->system->GetCurrentSpeed() * 100.0f, state->system->GetCurrentFPS(), state->system->GetTargetSpeed() * 100.0f);
+            //Log_InfoPrintf("Current frame: %u, emulation speed: %.3f%% (%.2f FPS), target emulation speed: %.3f%%", state->system->GetFrameCounter() + 1, state->system->GetCurrentSpeed() * 100.0f, state->system->GetCurrentFPS(), state->system->GetTargetSpeed() * 100.0f);
             time_since_last_report.Reset();
 
             // update window title

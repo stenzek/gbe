@@ -10,6 +10,7 @@ bool ImGui_Impl_Init(SDL_Window *window);
 void ImGui_Impl_Shutdown();
 void ImGui_Impl_NewFrame();
 bool ImGui_Impl_ProcessEvent(const SDL_Event* event);
+void ImGui_Impl_RenderOSD();
 
 // Use if you want to reset your rendering device without losing ImGui state.
 void ImGui_Impl_InvalidateDeviceObjects();

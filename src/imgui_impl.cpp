@@ -6,6 +6,8 @@
 
 #include "imgui_impl.h"
 #include "YBaseLib/Common.h"
+#include "YBaseLib/String.h"
+#include "YBaseLib/Log.h"
 #ifdef Y_PLATFORM_WINDOWS
     #include "YBaseLib/Windows/WindowsHeaders.h"
 #endif
@@ -14,6 +16,7 @@
 #include <SDL_syswm.h>
 #include <glad/glad.h>
 #include <imgui.h>
+#include <vector>
 
 // Data
 static SDL_Window*  g_Window = NULL;
@@ -266,6 +269,92 @@ void    ImGui_Impl_InvalidateDeviceObjects()
     }
 }
 
+struct LogMessage
+{
+    std::string message;
+    ImVec4 color;
+    float total_time;
+    float time_remaining;
+};
+static std::vector<LogMessage> s_log_messages;
+
+static void LogCallback(void*, const char* channel, const char* function, LOGLEVEL level, const char* message)
+{
+    ImVec4 color;
+    float time;
+    switch (level)
+    {
+    case LOGLEVEL_ERROR:
+        color = ImVec4(1.0f, 0.0f, 0.0f, 1.0f);
+        time = 8.0f;
+        break;
+    case LOGLEVEL_WARNING:
+        color = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
+        time = 6.0f;
+        break;
+    case LOGLEVEL_INFO:
+        color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+        time = 3.0f;
+        break;
+    default:
+        return;
+    }
+
+    LogMessage m = { message, color, time, time };
+    s_log_messages.push_back(std::move(m));
+}
+
+static void InitLogHooks()
+{
+    Log::GetInstance().RegisterCallback(LogCallback, nullptr);
+}
+
+static void RemoveLogHooks()
+{
+    Log::GetInstance().UnregisterCallback(LogCallback, nullptr);
+    s_log_messages.clear();
+}
+
+void ImGui_Impl_RenderOSD()
+{
+    if (s_log_messages.empty())
+        return;
+
+    ImGuiIO& io = ImGui::GetIO();
+    float height = float(s_log_messages.size()) * 16.0f + 16.0f;
+    ImGui::SetNextWindowPos(ImVec2(4.0f, 4.0f), ImGuiSetCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x - 8.0f, height), ImGuiSetCond_Always);
+
+    bool show_window = true;
+    if (ImGui::Begin("Log Window", &show_window, ImVec2(0.0f, 0.0f), 0.4f,
+                     ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | 
+                     ImGuiWindowFlags_NoInputs))
+    {
+        for (size_t i = 0; i < s_log_messages.size(); )
+        {
+            LogMessage& m = s_log_messages[i];
+            m.time_remaining -= io.DeltaTime;
+            if (m.time_remaining <= 0)
+            {
+                s_log_messages.erase(s_log_messages.begin() + i);
+                continue;
+            }
+
+            float opacity = (m.time_remaining <= 1.0f) ? (m.time_remaining) : 1.0f;
+            if (opacity < 0.0f)
+                opacity = 0.0f;
+            else if (opacity >= 1.0f)
+                opacity = 1.0f;
+
+            ImGui::TextColored(ImVec4(m.color.x, m.color.y, m.color.z, opacity), "%s", m.message.c_str());
+            i++;
+        }
+
+        ImGui::End();
+    }
+}
+
 bool    ImGui_Impl_Init(SDL_Window *window)
 {
     g_Window = window;
@@ -305,11 +394,13 @@ bool    ImGui_Impl_Init(SDL_Window *window)
     if (!ImGui_Impl_CreateDeviceObjects())
         return false;
 
+    InitLogHooks();
     return true;
 }
 
 void ImGui_Impl_Shutdown()
 {
+    RemoveLogHooks();
     ImGui_Impl_InvalidateDeviceObjects();
     ImGui::Shutdown();
 }
