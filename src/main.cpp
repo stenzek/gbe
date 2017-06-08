@@ -146,6 +146,8 @@ struct State : public System::CallbackInterface
 
     void DrawImGui()
     {
+        static bool link_client_window = false;
+
         bool boolOption;
 
         ImGui_Impl_RenderOSD();
@@ -220,6 +222,20 @@ struct State : public System::CallbackInterface
 
             ImGui::Separator();
 
+            if (ImGui::MenuItem("Host Link Server"))
+            {
+                Log_InfoPrintf("Hosting link server.");
+
+                Error error;
+                if (!LinkConnectionManager::GetInstance().Host("0.0.0.0", 1337, &error))
+                    Log_ErrorPrintf("  Failed: %s", error.GetErrorCodeAndDescription().GetCharArray());
+            }
+
+            if (ImGui::MenuItem("Connect Link Client"))
+                link_client_window = true;
+
+            ImGui::Separator();
+
             if (ImGui::MenuItem("Quit"))
                 running = false;
 
@@ -236,6 +252,29 @@ struct State : public System::CallbackInterface
                 ImGui::Text("%.2f FPS", system->GetCurrentFPS());
                 ImGui::End();
             }
+        }
+
+        if (link_client_window && ImGui::Begin("Connect Link Client", &link_client_window))
+        {
+            char host[100] = "127.0.0.1";
+            ImGui::InputText("Host", host, sizeof(host));
+            if (ImGui::Button("Connect"))
+            {
+                Log_InfoPrintf("Connecting to link server...");
+                system->SetPaused(true);
+
+                Error error;
+                if (!LinkConnectionManager::GetInstance().Connect(host, 1337, &error))
+                    Log_ErrorPrintf("  Failed: %s", error.GetErrorCodeAndDescription().GetCharArray());
+
+                system->SetPaused(false);
+                link_client_window = false;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel"))
+                link_client_window = false;
+
+            ImGui::End();
         }
     }
 
@@ -1027,37 +1066,6 @@ static int Run(State *state)
                                         state->SaveState(index);
                                     else
                                         state->LoadState(index);
-                                }
-
-                                break;
-                            }
-
-                        case SDLK_HOME:
-                            {
-                                if (down && event->key.keysym.mod & (KMOD_LSHIFT | KMOD_RSHIFT))
-                                {
-                                    Log_DevPrintf("Hosting link server.");
-                                    
-                                    Error error;
-                                    if (!LinkConnectionManager::GetInstance().Host("0.0.0.0", 1337, &error))
-                                        Log_ErrorPrintf("  Failed: %s", error.GetErrorCodeAndDescription().GetCharArray());
-                                }
-
-                                break;
-                            }
-
-                        case SDLK_END:
-                            {
-                                if (down && event->key.keysym.mod & (KMOD_LSHIFT | KMOD_RSHIFT))
-                                {
-                                    Log_DevPrintf("Connecting to link server.");
-                                    state->system->SetPaused(true);
-
-                                    Error error;
-                                    if (!LinkConnectionManager::GetInstance().Connect("127.0.0.1", 1337, &error))
-                                        Log_ErrorPrintf("  Failed: %s", error.GetErrorCodeAndDescription().GetCharArray());
-
-                                    state->system->SetPaused(false);
                                 }
 
                                 break;
