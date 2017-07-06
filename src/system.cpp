@@ -45,14 +45,15 @@ System::~System()
 
 bool System::Init(SYSTEM_MODE mode, const byte *bios, uint32 bios_length, Cartridge *cartridge)
 {
-    m_mode = (mode == NUM_SYSTEM_MODES) ? cartridge->GetSystemMode() : mode;
+    m_boot_mode = (mode == NUM_SYSTEM_MODES) ? cartridge->GetSystemMode() : mode;
+    m_current_mode = m_boot_mode;
     m_bios = bios;
     m_bios_length = (bios != nullptr) ? bios_length : 0;
     m_cartridge = cartridge;
     if (m_bios_length != 0)
     {
-        if ((m_mode == SYSTEM_MODE_DMG && m_bios_length != DMG_BIOS_LENGTH) ||
-            (m_mode == SYSTEM_MODE_CGB && m_bios_length != CGB_BIOS_LENGTH))
+        if ((m_current_mode == SYSTEM_MODE_DMG && m_bios_length != DMG_BIOS_LENGTH) ||
+            (m_current_mode == SYSTEM_MODE_CGB && m_bios_length != CGB_BIOS_LENGTH))
         {
             Log_ErrorPrintf("Incorrect bootstrap rom length");
             return false;
@@ -116,12 +117,14 @@ bool System::Init(SYSTEM_MODE mode, const byte *bios, uint32 bios_length, Cartri
     if (m_bios == nullptr)
         SetPostBootstrapState();
 
-    Log_InfoPrintf("Initialized system in mode %s.", NameTable_GetNameString(NameTables::SystemMode, m_mode));
+    Log_InfoPrintf("Initialized system in mode %s.", NameTable_GetNameString(NameTables::SystemMode, m_current_mode));
     return true;
 }
 
 void System::Reset()
 {
+    m_current_mode = m_boot_mode;
+
     m_cycle_number = 0;
     m_last_sync_cycle = 0;
     m_next_display_sync_cycle = 0;
@@ -277,7 +280,7 @@ void System::SetSerialPause(bool enabled)
 
 void System::TriggerOAMBug()
 {
-    if (m_mode == SYSTEM_MODE_DMG && m_display->CanTriggerOAMBug())
+    if (m_current_mode == SYSTEM_MODE_DMG && m_display->CanTriggerOAMBug())
     {
         // TODO: Should actually be moving OAM memory around, not random data.
         static const byte junk[152] = {
@@ -524,9 +527,10 @@ bool System::LoadState(ByteStream *pStream, Error *pError)
     }
 
     // Read state
-    m_mode = (SYSTEM_MODE)binaryReader.ReadUInt8();
+    m_boot_mode = (SYSTEM_MODE)binaryReader.ReadUInt8();
+    m_current_mode = (SYSTEM_MODE)binaryReader.ReadUInt8();
     m_frame_counter = binaryReader.ReadUInt32();
-    if (m_mode >= NUM_SYSTEM_MODES)
+    if (m_boot_mode >= NUM_SYSTEM_MODES || m_current_mode >= NUM_SYSTEM_MODES)
     {
         pError->SetErrorUserFormatted(1, "Corrupted save state.");
         return false;
@@ -541,6 +545,8 @@ bool System::LoadState(ByteStream *pStream, Error *pError)
     // Read registers
     m_vram_bank = binaryReader.ReadUInt8();
     m_high_wram_bank = binaryReader.ReadUInt8();
+    m_reg_FF4C = binaryReader.ReadUInt8();
+    m_reg_FF6C = binaryReader.ReadUInt8();
     m_memory_locked_cycles = binaryReader.ReadUInt32();
     m_timer_clocks  = binaryReader.ReadUInt32();
     m_timer_divider_clocks = binaryReader.ReadUInt32();
@@ -629,7 +635,8 @@ bool System::SaveState(ByteStream *pStream)
     binaryWriter.WriteUInt32(SAVESTATE_SAVE_VERSION);
 
     // Write state
-    binaryWriter.WriteUInt8((uint8)m_mode);
+    binaryWriter.WriteUInt8((uint8)m_boot_mode);
+    binaryWriter.WriteUInt8((uint8)m_current_mode);
     binaryWriter.WriteUInt32(m_frame_counter);
 
     // Write memory
@@ -641,6 +648,8 @@ bool System::SaveState(ByteStream *pStream)
     // Write registers
     binaryWriter.WriteUInt8(m_vram_bank);
     binaryWriter.WriteUInt8(m_high_wram_bank);
+    binaryWriter.WriteUInt8(m_reg_FF4C);
+    binaryWriter.WriteUInt8(m_reg_FF6C);
     binaryWriter.WriteUInt32(m_memory_locked_cycles);
     binaryWriter.WriteUInt32(m_timer_clocks);
     binaryWriter.WriteUInt32(m_timer_divider_clocks);
@@ -1001,12 +1010,12 @@ uint8 System::CPURead(uint16 address)
             {
                 // DMG rom is 256 bytes from 0000->00FF
                 // CGB rom is 256 bytes from 0000->00FF, 0200->08FF
-                if (m_mode == SYSTEM_MODE_DMG)
+                if (m_current_mode == SYSTEM_MODE_DMG)
                 {
                     if (address <= 0x00FF)
                         return m_bios[address];
                 }
-                else if (m_mode == SYSTEM_MODE_CGB)
+                else if (m_current_mode == SYSTEM_MODE_CGB)
                 {
                     if (address <= 0x00FF)
                         return m_bios[address];
@@ -1426,6 +1435,9 @@ uint8 System::CPUReadIORegister(uint8 index)
 
                 case 0x0D:      // FF4D - KEY1 - CGB Mode Only - Prepare Speed Switch
                     return m_cgb_speed_switch;
+
+                case 0x0C:      // FF4C - Set by GBC boot rom
+                    return m_biosLatch ? m_reg_FF4C : 0xFF;
                 }
 
                 break;
@@ -1458,6 +1470,9 @@ uint8 System::CPUReadIORegister(uint8 index)
                 case 0x0B:      // FF6B - OCPD/OBPD - CGB Mode Only - Sprite Palette Data
                     m_display->Synchronize();
                     return m_display->CPUReadRegister(index);
+                
+                case 0x0C:      // FF4C - Set by GBC boot rom
+                    return m_reg_FF6C;
                 }
 
                 break;
@@ -1635,6 +1650,14 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                 m_display->CPUWriteRegister(index, value);
                 return;
 
+            case 0x0C:      // FF4C - Set by GBC boot rom
+                {
+                    if (m_biosLatch)
+                        m_reg_FF4C = value;
+
+                    return;
+                }
+
             case 0x06:      // FF46 - DMA - DMA Transfer and Start Address (W)
                 {
                     m_display->Synchronize();
@@ -1656,6 +1679,10 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
             {
             case 0x00:      // FF00 - BIOS enable/disable latch
                 m_biosLatch = (value == 0);
+
+                // 0x4C is set to 0x04 for CGB-in-DMG mode, 0xC0 otherwise.
+                if (m_boot_mode == SYSTEM_MODE_CGB)
+                    m_current_mode = (m_reg_FF4C == 0x04) ? SYSTEM_MODE_DMG : SYSTEM_MODE_CGB;
                 return;
             }
 
@@ -1724,6 +1751,10 @@ void System::CPUWriteIORegister(uint8 index, uint8 value)
                 case 0x0B:      // FF6B - OCPD/OBPD - CGB Mode Only - Sprite Palette Data
                     m_display->Synchronize();
                     m_display->CPUWriteRegister(index, value);
+                    return;
+
+                case 0x0C:      // FF6C - Set by GBC boot rom
+                    m_reg_FF6C = value & 0x01;
                     return;
                 }
 

@@ -39,10 +39,11 @@ public:
     System(CallbackInterface *callbacks);
     ~System();
 
-    SYSTEM_MODE GetMode() const { return m_mode; }
-    bool InDMGMode() const { return (m_mode == SYSTEM_MODE_DMG); }
-    bool InSGBMode() const { return (m_mode == SYSTEM_MODE_SGB); }
-    bool InCGBMode() const { return (m_mode == SYSTEM_MODE_CGB); }
+    SYSTEM_MODE GetBootMode() const { return m_boot_mode; }
+    SYSTEM_MODE GetCurrentMode() const { return m_current_mode; }
+    bool InDMGMode() const { return (m_current_mode == SYSTEM_MODE_DMG); }
+    bool InSGBMode() const { return (m_current_mode == SYSTEM_MODE_SGB); }
+    bool InCGBMode() const { return (m_current_mode == SYSTEM_MODE_CGB); }
     
     CPU *GetCPU() const { return m_cpu; }
     Display *GetDisplay() const { return m_display; }
@@ -167,7 +168,8 @@ private:
     uint64 TimeToClocks(double time);
     double ClocksToTime(uint64 clocks);
 
-    SYSTEM_MODE m_mode;
+    SYSTEM_MODE m_boot_mode;
+    SYSTEM_MODE m_current_mode;
     CPU *m_cpu;
     Display *m_display;
     Audio *m_audio;
@@ -212,6 +214,8 @@ private:
     byte m_memory_ioreg[256];
     uint8 m_vram_bank;
     uint8 m_high_wram_bank;
+    uint8 m_reg_FF4C;
+    uint8 m_reg_FF6C;
 
     // when doing DMA transfer, locked memory # cycles
     uint32 m_memory_locked_cycles;

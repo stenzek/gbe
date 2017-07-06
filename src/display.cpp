@@ -672,6 +672,24 @@ void Display::RenderScanline(uint8 LINE)
     uint32 obj_palette0[4] = { 0xFF555555, grayscale_colors[(m_registers.OBP0 >> 2) & 0x3], grayscale_colors[(m_registers.OBP0 >> 4) & 0x3], grayscale_colors[(m_registers.OBP0 >> 6) & 0x3] };
     uint32 obj_palette1[4] = { 0xFF555555, grayscale_colors[(m_registers.OBP1 >> 2) & 0x3], grayscale_colors[(m_registers.OBP1 >> 4) & 0x3], grayscale_colors[(m_registers.OBP1 >> 6) & 0x3] };
 
+    // CGB compatibility mode?
+    // We should really use the CGB render function instead..
+    if (m_system->GetBootMode() == SYSTEM_MODE_CGB)
+    {
+        background_palette[0] = ReadCGBPalette(m_cgb_bg_palette, 0, (m_registers.BGP & 0x3));
+        background_palette[1] = ReadCGBPalette(m_cgb_bg_palette, 0, ((m_registers.BGP >> 2) & 0x3));
+        background_palette[2] = ReadCGBPalette(m_cgb_bg_palette, 0, ((m_registers.BGP >> 4) & 0x3));
+        background_palette[3] = ReadCGBPalette(m_cgb_bg_palette, 0, ((m_registers.BGP >> 6) & 0x3));
+        obj_palette0[0] = ReadCGBPalette(m_cgb_sprite_palette, 0, (m_registers.OBP0 & 0x3));
+        obj_palette0[1] = ReadCGBPalette(m_cgb_sprite_palette, 0, ((m_registers.OBP0 >> 2) & 0x3));
+        obj_palette0[2] = ReadCGBPalette(m_cgb_sprite_palette, 0, ((m_registers.OBP0 >> 4) & 0x3));
+        obj_palette0[3] = ReadCGBPalette(m_cgb_sprite_palette, 0, ((m_registers.OBP0 >> 6) & 0x3));
+        obj_palette1[0] = ReadCGBPalette(m_cgb_sprite_palette, 0, (m_registers.OBP1 & 0x3));
+        obj_palette1[1] = ReadCGBPalette(m_cgb_sprite_palette, 0, ((m_registers.OBP1 >> 2) & 0x3));
+        obj_palette1[2] = ReadCGBPalette(m_cgb_sprite_palette, 0, ((m_registers.OBP1 >> 4) & 0x3));
+        obj_palette1[3] = ReadCGBPalette(m_cgb_sprite_palette, 0, ((m_registers.OBP1  >> 6) & 0x3));
+    }
+
     // read sprites
     OAM_ENTRY active_sprites[40];
     uint32 num_active_sprites = 0;
