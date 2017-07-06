@@ -76,6 +76,8 @@ struct State : public System::CallbackInterface
 
     bool show_info_window;
 
+    bool vsync_enabled;
+
     void SetSaveStatePrefix(const char *cartridge_file_name)
     {
         const char *last_part = Y_strrchr(cartridge_file_name, '/');
@@ -325,6 +327,13 @@ struct State : public System::CallbackInterface
 
         ImGui::Render();
 
+        bool new_vsync_state = system->GetFrameLimiter();
+        if (new_vsync_state != vsync_enabled)
+        {
+            SDL_GL_SetSwapInterval(new_vsync_state ? 1 : 0);
+            vsync_enabled = new_vsync_state;
+        }
+
         SDL_GL_SwapWindow(window);
 
         needs_redraw = false;
@@ -427,7 +436,7 @@ struct State : public System::CallbackInterface
         if (pStream == nullptr)
             return false;
 
-        if (pStream->GetSize() != (uint64)expected_data_size)
+        if (pStream->GetSize() < (uint64)expected_data_size)
         {
             Log_WarningPrintf("External ram size mismatch (expecting %u, got %u)", (uint32)expected_data_size, (uint32)pStream->GetSize());
             return false;
@@ -530,9 +539,10 @@ static bool LoadBIOS(State *state, SYSTEM_MODE mode)
         { "cgb.bin",    2048    }
     };
 
+    SmallString program_file_name;
     SmallString bios_path;
-    bios_path.Format("bootroms/%s", bios_desc[mode].filename);
-    FileSystem::BuildOSPath(bios_path);
+    Platform::GetProgramFileName(program_file_name);
+    FileSystem::BuildPathRelativeToFile(bios_path, program_file_name, SmallString::FromFormat("bootroms/%s", bios_desc[mode].filename));
 
     AutoReleasePtr<ByteStream> pStream = FileSystem::OpenFile(bios_path, BYTESTREAM_OPEN_READ | BYTESTREAM_OPEN_STREAMED);
     if (pStream == nullptr)
@@ -845,6 +855,7 @@ static bool InitializeState(const ProgramArgs *args, State *state)
     state->running = true;
     state->needs_redraw = false;
     state->show_info_window = false;
+    state->vsync_enabled = false;
 
     // load cart
     state->system = new System(state);
