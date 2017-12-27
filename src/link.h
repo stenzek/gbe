@@ -1,27 +1,27 @@
+#include "YBaseLib/BinaryReadBuffer.h"
+#include "YBaseLib/BinaryReader.h"
+#include "YBaseLib/BinaryWriteBuffer.h"
+#include "YBaseLib/BinaryWriter.h"
 #include "YBaseLib/Common.h"
+#include "YBaseLib/Singleton.h"
 #include "YBaseLib/Sockets/BufferedStreamSocket.h"
 #include "YBaseLib/Sockets/SocketMultiplexer.h"
-#include "YBaseLib/BinaryReader.h"
-#include "YBaseLib/BinaryReadBuffer.h"
-#include "YBaseLib/BinaryWriter.h"
-#include "YBaseLib/BinaryWriteBuffer.h"
-#include "YBaseLib/Singleton.h"
 #include "YBaseLib/Timer.h"
 
 class System;
 
 enum LINK_COMMAND
 {
-    LINK_COMMAND_HELLO,
-    LINK_COMMAND_CLOCK,
-    LINK_COMMAND_DATA,
-    LINK_COMMAND_NOT_READY,
+  LINK_COMMAND_HELLO,
+  LINK_COMMAND_CLOCK,
+  LINK_COMMAND_DATA,
+  LINK_COMMAND_NOT_READY,
 };
 
 struct LINK_PACKET_HEADER
 {
-    uint8 command;
-    uint16 length;
+  uint8 command;
+  uint16 length;
 };
 
 // TODO: "Duplex buffer"
@@ -29,89 +29,89 @@ struct LINK_PACKET_HEADER
 class ReadPacket : public BinaryReadBuffer
 {
 public:
-    ReadPacket(LINK_COMMAND command, uint16 size);
-    virtual ~ReadPacket();
+  ReadPacket(LINK_COMMAND command, uint16 size);
+  virtual ~ReadPacket();
 
-    const LINK_COMMAND GetPacketCommand() const { return m_command; }
-    const size_t GetPacketSize() const { return (size_t)m_packetSize; }
+  const LINK_COMMAND GetPacketCommand() const { return m_command; }
+  const size_t GetPacketSize() const { return (size_t)m_packetSize; }
 
 private:
-    LINK_COMMAND m_command;
-    uint16 m_packetSize;
+  LINK_COMMAND m_command;
+  uint16 m_packetSize;
 };
 
 class WritePacket : public BinaryWriteBuffer
 {
 public:
-    WritePacket(LINK_COMMAND command);
+  WritePacket(LINK_COMMAND command);
 
-    virtual ~WritePacket();
+  virtual ~WritePacket();
 
-    const LINK_COMMAND GetPacketCommand() const { return m_command; }
-    const size_t GetPacketSize() const { return (size_t)m_pStream->GetSize(); }
+  const LINK_COMMAND GetPacketCommand() const { return m_command; }
+  const size_t GetPacketSize() const { return (size_t)m_pStream->GetSize(); }
 
 private:
-    LINK_COMMAND m_command;
+  LINK_COMMAND m_command;
 };
 
-class LinkSocket : public BufferedStreamSocket 
+class LinkSocket : public BufferedStreamSocket
 {
 public:
-    LinkSocket();
-    virtual ~LinkSocket();
+  LinkSocket();
+  virtual ~LinkSocket();
 
-    ReadPacket *GetPacket();
+  ReadPacket* GetPacket();
 
-    bool SendPacket(LINK_COMMAND command, const void *pData, size_t dataLength);
-    bool SendPacket(WritePacket *pPacket);
+  bool SendPacket(LINK_COMMAND command, const void* pData, size_t dataLength);
+  bool SendPacket(WritePacket* pPacket);
 
 protected:
-    virtual void OnConnected();
-    virtual void OnDisconnected(Error *pError);
-    virtual void OnRead();
+  virtual void OnConnected();
+  virtual void OnDisconnected(Error* pError);
+  virtual void OnRead();
 
-    bool m_active;
+  bool m_active;
 };
 
 class LinkConnectionManager : public Singleton<LinkConnectionManager>
 {
-    friend LinkSocket;
-public:
-    enum LinkState
-    {
-        LinkState_NotConnected,
-        LinkState_Connected,
-        LinkState_Disconnected
-    };
+  friend LinkSocket;
 
 public:
-    LinkConnectionManager();
-    ~LinkConnectionManager();
+  enum LinkState
+  {
+    LinkState_NotConnected,
+    LinkState_Connected,
+    LinkState_Disconnected
+  };
 
-    bool Host(const char *address, uint32 port, Error *pError);
-    bool Connect(const char *address, uint32 port, Error *pError);
+public:
+  LinkConnectionManager();
+  ~LinkConnectionManager();
 
-    bool SetClientSocket(LinkSocket *socket);
-    void Shutdown();
+  bool Host(const char* address, uint32 port, Error* pError);
+  bool Connect(const char* address, uint32 port, Error* pError);
 
-    // Queues a packet for later pickup by main thread.
-    void QueuePacket(ReadPacket *packet);
+  bool SetClientSocket(LinkSocket* socket);
+  void Shutdown();
 
-    // Send a packet from the main thread.
-    void SendPacket(WritePacket *packet);
+  // Queues a packet for later pickup by main thread.
+  void QueuePacket(ReadPacket* packet);
 
-    // Pull data from network thread to main thread.
-    LinkState MainThreadPull(ReadPacket **out_packet);
+  // Send a packet from the main thread.
+  void SendPacket(WritePacket* packet);
+
+  // Pull data from network thread to main thread.
+  LinkState MainThreadPull(ReadPacket** out_packet);
 
 private:
-    bool CreateMultiplexer(Error *pError);
+  bool CreateMultiplexer(Error* pError);
 
-    SocketMultiplexer *m_multiplexer;
-    ListenSocket *m_listen_socket;
-    LinkSocket *m_client_socket;
+  SocketMultiplexer* m_multiplexer;
+  ListenSocket* m_listen_socket;
+  LinkSocket* m_client_socket;
 
-    PODArray<ReadPacket *> m_packet_queue;
-    LinkState m_state;
-    Mutex m_lock;
+  PODArray<ReadPacket*> m_packet_queue;
+  LinkState m_state;
+  Mutex m_lock;
 };
-
