@@ -1,0 +1,21 @@
+﻿  In file included from Gb_Apu.cpp:3:
+  In file included from .\Gb_Apu.h:7:
+.\Gb_Oscs.h(53,13): warning : field 'env_enabled' will be initialized after field 'env_delay' [-Wreorder-ctor]
+  In file included from Gb_Oscs.cpp:3:
+  In file included from .\Gb_Apu.h:7:
+.\Gb_Oscs.h(53,13): warning : field 'env_enabled' will be initialized after field 'env_delay' [-Wreorder-ctor]
+  In file included from Gb_Apu.cpp:3:
+.\Gb_Apu.h(38,35): warning : arithmetic between different enumeration types ('Gb_Apu::(unnamed enum at ./Gb_Apu.h:37:2)' and 'Gb_Apu::(unnamed enum at ./Gb_Apu.h:36:2)') is deprecated [-Wdeprecated-anon-enum-enum-conversion]
+  In file included from Gb_Oscs.cpp:3:
+.\Gb_Apu.h(38,35): warning : arithmetic between different enumeration types ('Gb_Apu::(unnamed enum at ./Gb_Apu.h:37:2)' and 'Gb_Apu::(unnamed enum at ./Gb_Apu.h:36:2)') is deprecated [-Wdeprecated-anon-enum-enum-conversion]
+Gb_Apu.cpp(63,28): warning : arithmetic between floating-point type 'double' and enumeration type 'Gb_Apu::(unnamed enum at ./Gb_Apu.h:21:2)' is deprecated [-Wdeprecated-enum-float-conversion]
+Gb_Oscs.cpp(261,44): warning : bitwise operation between different enumeration types ('Gb_Sweep_Square::(unnamed enum at ./Gb_Oscs.h:109:2)' and 'Gb_Sweep_Square::(unnamed enum at ./Gb_Oscs.h:110:2)') is deprecated [-Wdeprecated-anon-enum-enum-conversion]
+  In file included from Multi_Buffer.cpp:3:
+.\Multi_Buffer.h(161,7): warning : private field 'samples_avail_' is not used [-Wunused-private-field]
+  In file included from Gb_Apu_State.cpp:3:
+  In file included from .\Gb_Apu.h:7:
+.\Gb_Oscs.h(53,13): warning : field 'env_enabled' will be initialized after field 'env_delay' [-Wreorder-ctor]
+  In file included from Gb_Apu_State.cpp:3:
+.\Gb_Apu.h(38,35): warning : arithmetic between different enumeration types ('Gb_Apu::(unnamed enum at ./Gb_Apu.h:37:2)' and 'Gb_Apu::(unnamed enum at ./Gb_Apu.h:36:2)') is deprecated [-Wdeprecated-anon-enum-enum-conversion]
+Blip_Buffer.cpp(448,18): warning : unused variable 'subsample_mask' [-Wunused-const-variable]
+  Gb_Snd_Emu.vcxproj -> D:\Projects\gbe\build\ReleaseLTCG-Clang-x64\Gb_Snd_Emu\Gb_Snd_Emu.lib

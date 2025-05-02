@@ -1,0 +1,20 @@
+name: r2gbe
+displayName: "Stenzek's Crappy GB Emulator"
+type: Retro2
+icon: "icon.png"
+libnames:
+  dll: "gbe.dll"
+  so: "gbe.so"
+  dylib: "gbe.dylib"
+systems:
+  - gb
+  - gbc
+providers:
+  - Session
+capabilities:
+  - SaveStates
+  - FastSaveStates
+  - MemoryMap
+extensions:
+  - "gb"
+  - "gbc"

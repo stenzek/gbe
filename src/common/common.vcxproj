@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="..\..\dep\msvc\vsprops\Configurations.props" />
+  <ItemGroup>
+    <ClInclude Include="assert.h" />
+    <ClInclude Include="crc32.h" />
+    <ClInclude Include="error.h" />
+    <ClInclude Include="heap_array.h" />
+    <ClInclude Include="log.h" />
+    <ClInclude Include="log_channels.h" />
+    <ClInclude Include="string_util.h" />
+    <ClInclude Include="timer.h" />
+    <ClInclude Include="types.h" />
+    <ClInclude Include="windows_headers.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="assert.cpp" />
+    <ClCompile Include="crc32.cpp" />
+    <ClCompile Include="error.cpp" />
+    <ClCompile Include="log.cpp" />
+    <ClCompile Include="string_util.cpp" />
+    <ClCompile Include="timer.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\dep\fmt\fmt.vcxproj">
+      <Project>{8be398e6-b882-4248-9065-fecc8728e038}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{EE054E08-3799-4A59-A422-18259C105FFD}</ProjectGuid>
+  </PropertyGroup>
+  <Import Project="..\..\dep\msvc\vsprops\StaticLibrary.props" />
+  <Import Project="common.props" />
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ObjectFileName>$(IntDir)/%(RelativeDir)/</ObjectFileName>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <Import Project="..\..\dep\msvc\vsprops\Targets.props" />
+</Project>

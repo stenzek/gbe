@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2019-2025 Connor McLaughlin <stenzek@gmail.com>
+# SPDX-License-Identifier: CC-BY-NC-ND-4.0
+
+name: sdl3
+buildsystem: cmake-ninja
+builddir: true
+config-opts:
+  - "-DCMAKE_BUILD_TYPE=Release"
+  - "-DBUILD_SHARED_LIBS=ON"
+  - "-DSDL_SHARED=ON"
+  - "-DSDL_STATIC=OFF"
+  - "-DSDL_TESTS=OFF"
+build-options:
+  strip: false
+  no-debuginfo: true
+sources:
+  - type: archive
+    url: "https://github.com/libsdl-org/SDL/releases/download/release-3.2.10/SDL3-3.2.10.tar.gz"
+    sha256: "f87be7b4dec66db4098e9c167b2aa34e2ca10aeb5443bdde95ae03185ed513e0"
+cleanup:
+  - /bin
+  - /include
+  - /lib/*.a
+  - /lib/*.la
+  - /lib/cmake
+  - /lib/pkgconfig
+  - /share/aclocal

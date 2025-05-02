@@ -1,0 +1,27 @@
+settings:
+  "PermissiveMemoryAccess":
+    title: "Permissive Memory Access"
+    description: "Allows CPU to access memory during DMA and PPU reads."
+    category: "Console"
+    group: "Console"
+    type: boolean
+    default: true
+inputDevices:
+  "GBPad":
+    displayName: "Game Boy Pad"
+    description: "Standard Game Boy controller."
+    inputMapping:
+      "Gamepad":
+        "DPadUp": "D-Pad Up"
+        "DPadDown": "D-Pad Down"
+        "DPadLeft": "D-Pad Left"
+        "DPadRight": "D-Pad Right"
+        "East": "A"
+        "South": "B"
+        "Back": "Select"
+        "Start": "Start"
+inputPorts:
+  - displayName: "Game Boy Controller"
+    description: "Built-in controller."
+    defaultDevice: "GBPad"
+    defaultPlayerIndex: 0

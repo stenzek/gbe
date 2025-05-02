@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CommonDataFiles Include="$(SolutionDir)data\**\*.*">
+      <InProject>false</InProject>
+    </CommonDataFiles>
+  </ItemGroup>
+  <Target Name="CopyCommonDataFiles" AfterTargets="Build" Inputs="@(CommonDataFiles)" Outputs="@(CommonDataFiles -> '$(OutDir)%(RecursiveDir)%(Filename)%(Extension)')">
+    <Message Text="Copying data files..." Importance="High" />
+    <Copy SourceFiles="@(CommonDataFiles)" DestinationFolder="$(OutDir)\%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

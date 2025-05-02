@@ -1,0 +1,47 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="..\..\dep\msvc\vsprops\Configurations.props" />
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{A633F111-A127-4541-B319-C0AA447D9826}</ProjectGuid>
+  </PropertyGroup>
+  <ItemGroup>
+    <ClCompile Include="audio.cpp" />
+    <ClCompile Include="cartridge.cpp" />
+    <ClCompile Include="cpu.cpp" />
+    <ClCompile Include="cpu_disasm.cpp" />
+    <ClCompile Include="display.cpp" />
+    <ClCompile Include="link.cpp" />
+    <ClCompile Include="serial.cpp" />
+    <ClCompile Include="state_wrapper.cpp" />
+    <ClCompile Include="system.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="audio.h" />
+    <ClInclude Include="cartridge.h" />
+    <ClInclude Include="cpu.h" />
+    <ClInclude Include="display.h" />
+    <ClInclude Include="link.h" />
+    <ClInclude Include="serial.h" />
+    <ClInclude Include="state_wrapper.h" />
+    <ClInclude Include="structures.h" />
+    <ClInclude Include="system.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\common\common.vcxproj">
+      <Project>{ee054e08-3799-4a59-a422-18259c105ffd}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\Gb_Snd_Emu\Gb_Snd_Emu.vcxproj">
+      <Project>{994e40df-f575-4a8b-a965-bfa7661ab7f7}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\scmversion\scmversion.vcxproj">
+      <Project>{075ced82-6a20-46df-94c7-9624ac9ddbeb}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="..\..\dep\msvc\vsprops\DynamicLibrary.props" />
+  <Import Project="..\..\dep\msvc\vsprops\CopyDataFiles.props" />
+  <PropertyGroup>
+    <TargetName>gbe</TargetName>
+  </PropertyGroup>
+  <Import Project="..\common\common.props" />
+  <Import Project="..\..\dep\msvc\vsprops\Targets.props" />
+</Project>
